@@ -477,6 +477,7 @@ function buildCourtyard() {
   wg.setAttribute('aFlow', new THREE.BufferAttribute(fl, 1));
   wacc.add(wg, xf(0, 0, 0), 0xffffff, 0, 1);
   const wm = new THREE.Mesh(wacc.geometry(), waterMat);
+  WATERMESHES.push(wm);
   wm.renderOrder = 4; cityRoot.add(wm); DISPOSE.push(wm.geometry);
   // pool coping and a dark tiled tank
   for (const e of [[px0, pz0, px1, pz0], [px1, pz0, px1, pz1], [px1, pz1, px0, pz1], [px0, pz1, px0, pz0]]) {
@@ -607,6 +608,7 @@ function buildTensile() {
   wg.setAttribute('aFlow', new THREE.BufferAttribute(fl, 1));
   wacc.add(wg, xf(0, 0, 0), 0xffffff, 0, 1);
   const wm = new THREE.Mesh(wacc.geometry(), waterMat);
+  WATERMESHES.push(wm);
   wm.renderOrder = 4; cityRoot.add(wm); DISPOSE.push(wm.geometry);
   a.add(G_BOXT, xf((bx0 + bx1) / 2, gy - 0.95, (bz0 + bz1) / 2, 0, bx1 - bx0, 0.55, bz1 - bz0), 0x33444a, S.CONCRETE, 0.6);
   for (const e of [[bx0, bz0, bx1, bz0], [bx1, bz0, bx1, bz1], [bx1, bz1, bx0, bz1], [bx0, bz1, bx0, bz0]]) {

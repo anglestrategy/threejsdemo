@@ -418,6 +418,9 @@ function stripe(a, x0, z0, x1, z1, w, y, colour, surf, shade) {
    cross it, plus the courtyard pool and the sail-court basin. One animated
    shader for all of them.                                                 */
 const WATERBODIES = [];
+/* every water surface, so the mirror pass can hide them: water sampling the
+   target it is being drawn into is a feedback loop */
+const WATERMESHES = [];
 function water(x0, z0, x1, z1, y, depth, flow) {
   WATERBODIES.push({ x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: Math.min(z0, z1), z1: Math.max(z0, z1), y, depth: depth || 0.5, flow: flow || 0 });
 }
@@ -429,20 +432,25 @@ const waterMat = new THREE.ShaderMaterial({
     uDeep: { value: C(K.waterDk) }, uShal: { value: C(0x2f8f92) },
     uSky: { value: C(0x7c8fc4) }, uWarm: { value: C(0xffc98a) },
     uFogColor: { value: C(0xc2a495) }, uFogD: { value: CITY_FOG },
+    uRefl: { value: null }, uReflMtx: { value: new THREE.Matrix4() },
+    uReflOn: { value: 0 }, uReflY: { value: 0 },
   },
   vertexShader: `
-    varying vec3 vW; varying vec2 vF; varying float vD;
+    varying vec3 vW; varying vec2 vF; varying float vD; varying vec4 vRP;
     attribute float aFlow;
+    uniform mat4 uReflMtx;
     void main(){
       vec4 wp = modelMatrix*vec4(position,1.0);
       vW = wp.xyz; vF = uv; vD = aFlow;
+      vRP = uReflMtx * wp;
       vec4 mv = viewMatrix*wp;
       gl_Position = projectionMatrix*mv;
     }`,
   fragmentShader: `
     precision highp float;
-    varying vec3 vW; varying vec2 vF; varying float vD;
-    uniform float uTime,uFogD; uniform vec3 uSun,uDeep,uShal,uSky,uWarm,uFogColor;
+    varying vec3 vW; varying vec2 vF; varying float vD; varying vec4 vRP;
+    uniform float uTime,uFogD,uReflOn,uReflY; uniform vec3 uSun,uDeep,uShal,uSky,uWarm,uFogColor;
+    uniform sampler2D uRefl;
     float h21(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
     float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
       return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y); }
@@ -457,8 +465,35 @@ const waterMat = new THREE.ShaderMaterial({
       vec3 N = normalize(vec3((a-b)*0.9, 1.0, (b-c)*0.9));
       vec3 Vd = normalize(cameraPosition - vW);
       float fres = pow(1.0 - clamp(dot(N,Vd),0.0,1.0), 3.2);
-      vec3 col = mix(uDeep, uShal, 0.30 + 0.55*hgt);
-      col = mix(col, uSky, fres*0.66);
+      /* a still tank is dark: its colour is the reflection, not the water.
+         Only the moving channel carries the shallow turquoise. */
+      vec3 col = mix(uDeep, uShal, (0.30 + 0.55*hgt) * (0.24 + 0.76*vD));
+      col *= mix(0.42, 1.0, vD);
+
+      /* the mirror. The ripple normal displaces the projected lookup, scaled
+         down with distance so the far end of a 630 m channel does not smear —
+         a metre of displacement is a whole reflected tower at fifty metres and
+         invisible at two. The sky term stays underneath as the fallback, so a
+         fragment whose reflection ray leaves the target still reads as water. */
+      vec3 skyish = mix(uSky, uFogColor, 0.25);
+      if (uReflOn > 0.5 && vRP.w > 0.0) {
+        float dist = length(cameraPosition - vW);
+        float wob = 0.034 / (1.0 + dist * 0.16);
+        vec2 ruv = (vRP.xy / vRP.w) + vec2(N.x, N.z) * wob;
+        vec3 mirror = texture2D(uRefl, clamp(ruv, 0.002, 0.998)).rgb;
+        // off-target fragments fall back rather than clamp-smearing an edge
+        vec2 edge = smoothstep(vec2(0.0), vec2(0.03), ruv)
+                  * (1.0 - smoothstep(vec2(0.97), vec2(1.0), ruv));
+        float ok = edge.x * edge.y;
+        // grazing angles reflect nearly everything, steep ones almost nothing
+        // a real water surface at a walking eye height is mostly mirror: the
+        // transmitted half is a dark tank, so what you see is the reflection
+        float mix1 = clamp(fres * 1.9 + 0.20 + 0.30 * (1.0 - vD), 0.0, 0.965) * ok;
+        col = mix(col, mirror, mix1);
+        col = mix(col, skyish, fres * 0.66 * (1.0 - ok));
+      } else {
+        col = mix(col, uSky, fres*0.66);
+      }
       vec3 H = normalize(normalize(uSun) + Vd);
       col += uWarm * pow(max(dot(N,H),0.0), 90.0) * 1.5;
       col += uWarm * pow(max(dot(N,H),0.0), 12.0) * 0.16;
@@ -529,6 +564,7 @@ function buildWater() {
   }
   const g = acc.geometry();
   const wm = new THREE.Mesh(g, waterMat);
+  WATERMESHES.push(wm);
   wm.renderOrder = 2;
   wm.receiveShadow = false; wm.castShadow = false;
   cityRoot.add(wm);

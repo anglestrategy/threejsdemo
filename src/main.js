@@ -64,6 +64,7 @@ const QA = {
   walk: QP.get('walk') === '1',
   flat: QP.get('flat') === '1',   // drop the plinth tilt for the map-truth check
   grade: QP.get('grade') !== '0',
+  norefl: QP.get('norefl') === '1',
 };
 const SEED = QA.seed;
 const T0 = performance.now(); const TM = {}; const mark = (k) => { TM[k] = Math.round(performance.now() - T0); };
@@ -2470,6 +2471,7 @@ function animate() {
     for (const c of CITIES) c.labelObj.visible = false;
   }
 
+  if (sceneState === 'city' && SCENES.city && SCENES.city.reflect) SCENES.city.reflect();
   composer.render();
   if (sceneState !== 'city') labelRenderer.render(scene, camera);
   hud.tick(dt, SCENES.city && SCENES.city.hudInfo ? SCENES.city.hudInfo() : null);

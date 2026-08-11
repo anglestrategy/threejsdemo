@@ -1445,6 +1445,137 @@ function goShot(s, instant) {
   }
 }
 
+/* ====================================================== PLANAR REFLECTION ==
+   Still water that does not reflect is a painted floor. The channel, the
+   reflecting pool and the sail basin are three of the best things in the plan
+   and all three read as flat cyan slabs without this.
+
+   So: one mirrored render per frame into a half-resolution target, taken about
+   the plane of whichever water body is nearest, with the projection matrix
+   skewed so its near plane *is* the water surface — nothing below the surface
+   can leak into its own reflection. The water shader then projects that target
+   and lets the ripple normal distort the lookup.
+
+   It is paid for by distance: the mirror camera's far plane is 340 m, not the
+   1,900 m the eye camera uses, so the tiled fabric mostly culls out. At this
+   fog density anything past 340 m contributes a flat wash anyway, which is
+   exactly what the Fresnel sky term already gives it. And the pass is skipped
+   outright whenever no water body is inside the view frustum.            */
+const REFL = {
+  on: !QA.norefl, rt: null, cam: new THREE.PerspectiveCamera(),
+  tex: new THREE.Matrix4(), y: 0, live: 0, w: 0, h: 0,
+};
+const _rNrm = new THREE.Vector3(0, 1, 0);
+const _rPln = new THREE.Vector3();
+const _rView = new THREE.Vector3();
+const _rTgt = new THREE.Vector3();
+const _rLook = new THREE.Vector3();
+const _rRot = new THREE.Matrix4();
+const _rClip = new THREE.Plane();
+const _rCV = new THREE.Vector4();
+const _rQ = new THREE.Vector4();
+const _rFrus = new THREE.Frustum();
+const _rMat = new THREE.Matrix4();
+const _rBox = new THREE.Box3();
+
+function reflectionTarget() {
+  const w = Math.max(160, Math.min(1120, Math.floor(renderer.domElement.width * 0.5)));
+  const h = Math.max(120, Math.min(700, Math.floor(renderer.domElement.height * 0.5)));
+  if (!REFL.rt || REFL.w !== w || REFL.h !== h) {
+    if (REFL.rt) REFL.rt.dispose();
+    REFL.rt = new THREE.WebGLRenderTarget(w, h, {
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      type: THREE.HalfFloatType, depthBuffer: true, generateMipmaps: false,
+    });
+    REFL.rt.texture.colorSpace = THREE.NoColorSpace;
+    REFL.w = w; REFL.h = h;
+  }
+  return REFL.rt;
+}
+
+/* which water body is worth mirroring: the nearest one whose box is in view */
+function reflectionPlane() {
+  if (!WATERBODIES.length) return null;
+  _rMat.multiplyMatrices(cityCam.projectionMatrix, cityCam.matrixWorldInverse);
+  _rFrus.setFromProjectionMatrix(_rMat);
+  const p = cityCam.position;
+  let best = null, bestD = Infinity;
+  for (const b of WATERBODIES) {
+    if (p.y < b.y + 0.05) continue;                   // standing in it, not on it
+    const dx = Math.max(b.x0 - p.x, 0, p.x - b.x1);
+    const dz = Math.max(b.z0 - p.z, 0, p.z - b.z1);
+    const d = dx * dx + dz * dz;
+    if (d >= bestD || d > 300 * 300) continue;
+    _rBox.min.set(b.x0, b.y - 0.4, b.z0);
+    _rBox.max.set(b.x1, b.y + 0.4, b.z1);
+    if (!_rFrus.intersectsBox(_rBox)) continue;
+    best = b; bestD = d;
+  }
+  return best;
+}
+
+function renderReflection() {
+  const body = REFL.on ? reflectionPlane() : null;
+  if (!body) { REFL.live = 0; waterMat.uniforms.uReflOn.value = 0; return; }
+  REFL.y = body.y;
+  const rt = reflectionTarget();
+  const cam = REFL.cam;
+
+  /* the mirrored camera. Reflecting the up vector as well as the position and
+     the target is what keeps the handedness right — a rotation alone would
+     give a laterally flipped image that looks almost, but not quite, correct. */
+  _rPln.set(0, REFL.y, 0);
+  _rView.subVectors(_rPln, cityCam.position).reflect(_rNrm).negate().add(_rPln);
+  _rRot.extractRotation(cityCam.matrixWorld);
+  _rLook.set(0, 0, -1).applyMatrix4(_rRot).add(cityCam.position);
+  _rTgt.subVectors(_rPln, _rLook).reflect(_rNrm).negate().add(_rPln);
+  cam.position.copy(_rView);
+  cam.up.set(0, 1, 0).applyMatrix4(_rRot).reflect(_rNrm);
+  cam.lookAt(_rTgt);
+  cam.far = 340;
+  cam.near = cityCam.near;
+  cam.fov = cityCam.fov;
+  cam.aspect = cityCam.aspect;
+  cam.updateMatrixWorld(true);
+  cam.updateProjectionMatrix();
+
+  /* Lengyel's oblique near plane: fold the clip plane into the projection so
+     the near plane lies exactly on the water */
+  _rClip.setFromNormalAndCoplanarPoint(_rNrm, _rPln).applyMatrix4(cam.matrixWorldInverse);
+  _rCV.set(_rClip.normal.x, _rClip.normal.y, _rClip.normal.z, _rClip.constant);
+  const P = cam.projectionMatrix;
+  _rQ.set((Math.sign(_rCV.x) + P.elements[8]) / P.elements[0],
+    (Math.sign(_rCV.y) + P.elements[9]) / P.elements[5],
+    -1.0, (1.0 + P.elements[10]) / P.elements[14]);
+  _rCV.multiplyScalar(2.0 / _rCV.dot(_rQ));
+  P.elements[2] = _rCV.x;
+  P.elements[6] = _rCV.y;
+  P.elements[10] = _rCV.z + 1.0 - 0.004;
+  P.elements[14] = _rCV.w;
+
+  REFL.tex.set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1);
+  REFL.tex.multiply(P).multiply(cam.matrixWorldInverse);
+
+  const oldTarget = renderer.getRenderTarget();
+  const autoShadow = renderer.shadowMap.autoUpdate;
+  renderer.shadowMap.autoUpdate = false;      // the eye pass already built it
+  citySky.position.copy(cam.position);
+  for (const w of WATERMESHES) w.visible = false;
+  renderer.setRenderTarget(rt);
+  renderer.clear();
+  renderer.render(cityScene, cam);
+  renderer.setRenderTarget(oldTarget);
+  for (const w of WATERMESHES) w.visible = true;
+  renderer.shadowMap.autoUpdate = autoShadow;
+  citySky.position.copy(cityCam.position);
+
+  waterMat.uniforms.uRefl.value = rt.texture;
+  waterMat.uniforms.uReflMtx.value.copy(REFL.tex);
+  waterMat.uniforms.uReflOn.value = 1;
+  waterMat.uniforms.uReflY.value = REFL.y;
+  REFL.live = 1;
+}
+
 function update(dt, t) {
   diveUpdate(dt);
   if (sceneState === 'city') {
@@ -1512,6 +1643,7 @@ return {
   get diving() { return DIVE.phase !== 'off'; },
   pose: navPose,
   get built() { return BUILT; },
+  reflect: renderReflection,
   scene: cityScene, cam: cityCam, nav: NAV,
   setMode,
   plan: PLAN,
