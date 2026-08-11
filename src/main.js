@@ -65,6 +65,7 @@ const QA = {
   flat: QP.get('flat') === '1',   // drop the plinth tilt for the map-truth check
   grade: QP.get('grade') !== '0',
   norefl: QP.get('norefl') === '1',
+  noshadow: QP.get('noshadow') === '1',
 };
 const SEED = QA.seed;
 const T0 = performance.now(); const TM = {}; const mark = (k) => { TM[k] = Math.round(performance.now() - T0); };
@@ -581,6 +582,35 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.00;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x04101c, 1);
+/* The district's sun has always had castShadow set and a shadow box fitted to
+   the camera every frame, and none of it did anything, because the renderer's
+   shadow map was never switched on. Every dark edge in the district up to now
+   came from baked vertex occlusion, the depth-only AO pass and the probe
+   field — the sun itself cast nothing at all. */
+renderer.shadowMap.enabled = !QA.noshadow;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.autoUpdate = true;
+/* r185's PCF kernel is a five-tap Vogel disk with a per-pixel rotation. Five
+   taps is enough for a sharp shadow and visibly blotchy for a soft one, and
+   the district wants soft: a low sun through a canopy at dusk. Twelve taps,
+   same rotation, same cost model. */
+(function widenShadowKernel() {
+  const src = THREE.ShaderChunk.shadowmap_pars_fragment;
+  const m = src.match(/shadow = \([\s\S]*?\) \* 0\.2;/);
+  if (!m || m[0].indexOf('vogelDiskSample( 4, 5, phi )') < 0) return;
+  const N = 12, taps = [];
+  for (let i = 0; i < N; i++) {
+    taps.push('\t\t\t\t\ttexture( shadowMap, vec3( shadowCoord.xy + vogelDiskSample( '
+      + i + ', ' + N + ', phi ) * radius, shadowCoord.z ) )');
+  }
+  THREE.ShaderChunk.shadowmap_pars_fragment = src.replace(m[0],
+    'shadow = (\n' + taps.join(' +\n') + '\n\t\t\t\t) * ' + (1 / N).toFixed(6) + ';\n'
+    /* and fade out at the edge of the shadow box. Outside it every fragment is
+       reported lit, so without this the box draws a hard line across the
+       district wherever it happens to end. */
+    + '\t\t\t\tvec2 shEdge = min( shadowCoord.xy, 1.0 - shadowCoord.xy );\n'
+    + '\t\t\t\tshadow = mix( 1.0, shadow, smoothstep( 0.0, 0.055, min( shEdge.x, shEdge.y ) ) );');
+})();
 renderer.info.autoReset = false;              // the HUD wants whole-frame totals
 app.appendChild(renderer.domElement);
 

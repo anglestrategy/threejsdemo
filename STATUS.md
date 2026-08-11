@@ -32,6 +32,7 @@ Gates: `node tests/dive_test.mjs` · `node tests/walk_test.mjs` · `node tests/s
 
 `?seed=N` · `?scene=map|city` · `?shot=1..6` · `?cam=x,y,z,yaw,pitch[,dist]`
 `?hud=1` · `?flat=1` (drop the plinth tilt, for map-truth) · `?noveil=1` · `?nolife=1` · `?walk=1`
+`?norefl=1` (no planar reflection) · `?noshadow=1` (no shadow map) · `?grade=0`
 Key **P** prints/copies the pose · **F3** toggles the counter HUD · **F** toggles fly/walk · **Esc** back to the map.
 Yaw 0 = looking toward +Z in both scenes, so a pose is portable.
 
@@ -71,6 +72,10 @@ Yaw 0 = looking toward +Z in both scenes, so a pose is portable.
 | p7 | hero trees / fabric trees | 68 near-field at 9,200 · 538 at 3,200 |
 | p7 | instanced triangles, aerial | 5.37 M in 73 instanced meshes (was 4.68 M in 58, with procedural plants) |
 | p7 | `roofbush` | 4,029 x 80 tris = 322 k (was 4,133 x 448 = 1.85 M) |
+| p8 | reflection target | half canvas, capped 1120x700, HalfFloat; mirror camera far 340 m |
+| p9 | shadow map | 4096, one cascade, half-box 34 m walking to 420 m from altitude |
+| p9 | sun | 20 deg WSW (was 12); key 2.35, sky fill 0.54, ground bounce 0.74, shadow intensity 0.92 |
+| p9 | map boot after all three | 3.06 s (was 2.9 s) |
 | p6 | canopy panels | 1,084 folded triangles + fascia + frame + 3-armed columns |
 
 Frame rate is not measurable in this container — see DEVIATIONS 1. The numbers
@@ -149,6 +154,9 @@ Local metres, origin at the canopy plaza, +Z north, +X east, sun 11° WSW.
 - **P6 closed.** Life (108 walkers, seated groups, birds, jets, wind), the golden-into-
   blue grade, IBL from the sky, and the full battery. Contact sheet:
   `shots/contact_sheet.png`. Four-frame test: `shots/four_frame_test.png`.
+- **P8.** Real plants: four reduced CC0 photogrammetry scans replace the procedural
+  planting, with build-time LOD. Planar reflection on every water surface. And the
+  sun's shadow map, which had never been switched on. See DELTA rounds 7-9.
 
 ## Known open items (ranked, for the next session)
 
@@ -156,6 +164,8 @@ Local metres, origin at the canopy plaza, +Z north, +X east, sun 11° WSW.
    walkable core); the buildings do not.
 2. Near-field dressing in the first 8 m of every bookmark (litter, drain lines,
    A-boards, spilled seating); this is the largest remaining visual delta.
+2b. Depth of field: the AO pass already keeps a depth texture, so the circle of
+   confusion is one more read off a buffer that is already there.
 3. Figures: swinging arms, and groups standing in twos and threes rather than singles.
 4. Cars on the boulevards.
 5. Shopfront interiors want figures and richer merchandise.

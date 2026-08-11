@@ -880,25 +880,31 @@ cityScene.fog = new THREE.FogExp2(0xc2a495, CITY_FOG);
 
 const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.08, 1900);
 
-const CSUN = new THREE.Vector3(-0.895, 0.196, -0.170).normalize();   // 11 degrees, WSW
+/* 20 degrees WSW, not 12. With shadows finally switched on, a twelve-degree
+   sun puts three hundred metres of building between the light and every point
+   at ground level — the whole district reads as one flat blue shadow, which is
+   physically right and looks dead. At twenty the streets take long raking
+   shadows and the west faces still carry the gold. */
+const CSUN = new THREE.Vector3(-0.9232, 0.3420, -0.1754).normalize();
 const cityHemi = new THREE.HemisphereLight(0x6f8ec6, 0x7d5730, 0.06);
 cityScene.add(cityHemi);
-const citySun = new THREE.DirectionalLight(0xffc596, 1.95);
+const citySun = new THREE.DirectionalLight(0xffc596, 2.35);
 citySun.position.copy(CSUN).multiplyScalar(300);
 citySun.castShadow = true;
-citySun.shadow.mapSize.set(2048, 2048);
-citySun.shadow.camera.near = 1; citySun.shadow.camera.far = 460;
-citySun.shadow.bias = -0.0009;
-citySun.shadow.normalBias = 0.10;
+/* not quite to zero. A real shadow at this hour is filled by a whole sky, and
+   the pillar is that nothing in this district ever goes to a grey void. */
+citySun.shadow.intensity = 0.92;
+const SHADOW_MAP = 4096;
+citySun.shadow.mapSize.set(SHADOW_MAP, SHADOW_MAP);
 cityScene.add(citySun);
 cityScene.add(citySun.target);
 /* a cool counter-fill from the east sky so shadowed stone never goes grey —
    the shadow side reads blue-violet from the dusk dome, not black */
-const cityFill = new THREE.DirectionalLight(0x8aa4e8, 0.40);
+const cityFill = new THREE.DirectionalLight(0x8aa4e8, 0.54);
 cityFill.position.set(240, 130, 200);
 cityScene.add(cityFill);
 /* and a warm bounce from the paving, aimed up */
-const cityBounce = new THREE.DirectionalLight(0xff9a52, 0.62);
+const cityBounce = new THREE.DirectionalLight(0xff9a52, 0.74);
 cityBounce.position.set(40, -100, -30);
 cityScene.add(cityBounce);
 
@@ -939,15 +945,46 @@ function updatePracticals(cam) {
 /* the shadow camera follows the viewer: a 108 m box at 2048 gives 5 cm per
    texel, which is what makes a parapet cast a readable edge on paving, and it
    keeps the shadow pass to the handful of tiles actually around the viewer */
-const SHADOW_HALF = 54;
+/* One cascade, sized to what the camera can actually see. Walking, that is a
+   34 m box at 4096 — 1.7 cm a texel, which resolves the shadow of a chair leg;
+   from 168 m up it opens to 300 m at 14.6 cm a texel, which at that altitude is
+   a third of a pixel. A second cascade would buy nothing here and would cost a
+   third full pass over the district on top of the mirror pass.
+
+   The box is aimed where the camera is looking, not where it stands, because
+   from the air the district you can see is ahead of you. Bias and penumbra
+   both follow the texel size: a bias tuned at 1.7 cm acnes at 14.6, and a
+   penumbra fixed in texels would grow ninefold as the box opens. */
+const _shDir = new THREE.Vector3();
 function fitShadow(target) {
   const c = citySun.shadow.camera;
-  c.left = -SHADOW_HALF; c.right = SHADOW_HALF;
-  c.top = SHADOW_HALF; c.bottom = -SHADOW_HALF;
+  const h = Math.max(1.6, target.y);
+  const half = Math.min(420, Math.max(34, 26 + h * 1.9));
+  cityCam.getWorldDirection(_shDir);
+  let ahead = half * 0.5;
+  if (_shDir.y < -0.06) {
+    // looking down: put the box where the view meets the ground
+    ahead = Math.min(ahead, (h / -_shDir.y) * Math.hypot(_shDir.x, _shDir.z));
+  }
+  const fl = Math.hypot(_shDir.x, _shDir.z) || 1;
+  const cx = target.x + (_shDir.x / fl) * ahead;
+  const cz = target.z + (_shDir.z / fl) * ahead;
+  c.left = -half; c.right = half; c.top = half; c.bottom = -half;
+  const D = 260 + half * 1.6;
+  c.near = 1; c.far = D + half * 2.4 + 90;
   c.updateProjectionMatrix();
-  citySun.target.position.set(target.x, 0, target.z);
-  citySun.position.set(target.x + CSUN.x * 220, CSUN.y * 220, target.z + CSUN.z * 220);
+  citySun.target.position.set(cx, 0, cz);
+  citySun.position.set(cx + CSUN.x * D, CSUN.y * D, cz + CSUN.z * D);
   citySun.target.updateMatrixWorld();
+  /* Bias has to follow the texel *and* the sun's grazing angle. A twenty-degree
+     sun on a flat roof has a depth slope of 1/tan(20) — nearly three depth
+     units per texel — so a bias tuned for the 1.7 cm walking texel acnes badly
+     at the 17 cm aerial one, and the acne reads as a whole quarter losing the
+     sun rather than as speckle. */
+  const texel = 2 * half / SHADOW_MAP;
+  citySun.shadow.bias = -(0.30 + texel * 3.6) / (c.far - c.near);
+  citySun.shadow.normalBias = Math.max(0.05, texel * 3.6);
+  citySun.shadow.radius = Math.min(9, Math.max(1, 0.14 / texel));
 }
 
 /* ------------------------------------------------------------- city sky */
@@ -1558,7 +1595,11 @@ function renderReflection() {
 
   const oldTarget = renderer.getRenderTarget();
   const autoShadow = renderer.shadowMap.autoUpdate;
-  renderer.shadowMap.autoUpdate = false;      // the eye pass already built it
+  // on the very first frame the eye pass has not run yet, so there is no
+  // shadow map to reuse; suppressing the update then binds a default texture
+  // to a shadow sampler, which is a driver error, loudly, once per draw
+  const haveShadow = !!(citySun.shadow && citySun.shadow.map);
+  if (haveShadow) renderer.shadowMap.autoUpdate = false;
   citySky.position.copy(cam.position);
   for (const w of WATERMESHES) w.visible = false;
   renderer.setRenderTarget(rt);
