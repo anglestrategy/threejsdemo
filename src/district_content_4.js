@@ -37,7 +37,7 @@ function makeEmissive(intensity, flicker) {
 const emisMat = makeEmissive(1.70, false);
 const emisFlickMat = makeEmissive(2.10, true);
 const emisSoftMat = makeEmissive(0.85, false);
-const emisShopMat = makeEmissive(1.95, false);
+const emisShopMat = makeEmissive(1.55, false);
 
 /* ------------------------------------------------------------ light pools
    A lantern that does not put a pool of light on the ground is a prop, not a

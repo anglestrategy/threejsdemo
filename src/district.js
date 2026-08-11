@@ -149,6 +149,34 @@ function taper(topScale, h) {
   return g;
 }
 
+/* ------------------------------------------------------- detail textures *
+   CC0 photographic detail from Poly Haven (polyhaven.com) — `clay_plaster`
+   and `dark_wooden_planks`, both CC0 / public domain, no attribution
+   required and none of it is anyone's trademark. Packed to 512: a weathered plaster
+   for every mineral surface and a plank set for timber, each as a diffuse and
+   a second map carrying the normal in RG and roughness in B. Four samplers.
+
+   These do not replace the procedural surface law — that still owns the meso
+   band, because coursing has to line up with the architecture that generated
+   it. They carry the band below it: pores, hairline cracks, staining, grain.
+   That band is the one thing noise cannot fake, and its absence is most of
+   what reads as "computer graphics" at two metres.                        */
+const TEXPACK = /*@TEXTURES@*/;
+const TEX = {};
+(function loadDetail() {
+  const ld = new THREE.TextureLoader();
+  for (const k in TEXPACK) {
+    const d = ld.load(TEXPACK[k].diff);
+    d.wrapS = d.wrapT = THREE.RepeatWrapping;
+    d.colorSpace = THREE.SRGBColorSpace;
+    d.anisotropy = 8;
+    const n = ld.load(TEXPACK[k].nrm);
+    n.wrapS = n.wrapT = THREE.RepeatWrapping;
+    n.anisotropy = 8;
+    TEX[k] = { diff: d, nrm: n, mean: TEXPACK[k].mean };
+  }
+})();
+
 /* ========================================================== MASTERPLAN ==
    The plan is authored, not scattered: five SDC asset zones flowing into one
    another around a public core, on a walkable grid with a water course
@@ -399,10 +427,20 @@ function makeCityMaterial() {
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.86, metalness: 0.0, envMapIntensity: 1.0,
   });
-  mat.userData.u = { uTime: { value: 0 }, uWind: { value: new THREE.Vector2(0.85, 0.32) } };
+  mat.userData.u = {
+    uTime: { value: 0 }, uWind: { value: new THREE.Vector2(0.85, 0.32) },
+    uDetD: { value: TEX.stone.diff }, uDetN: { value: TEX.stone.nrm },
+    uWoodD: { value: TEX.timber.diff }, uWoodN: { value: TEX.timber.nrm },
+    uDetK: { value: new THREE.Vector2(1 / Math.max(0.08, TEX.stone.mean), 1 / Math.max(0.08, TEX.timber.mean)) },
+  };
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = mat.userData.u.uTime;
     sh.uniforms.uWind = mat.userData.u.uWind;
+    sh.uniforms.uDetD = mat.userData.u.uDetD;
+    sh.uniforms.uDetN = mat.userData.u.uDetN;
+    sh.uniforms.uWoodD = mat.userData.u.uWoodD;
+    sh.uniforms.uWoodN = mat.userData.u.uWoodN;
+    sh.uniforms.uDetK = mat.userData.u.uDetK;
     sh.vertexShader = `attribute float aSurf; varying float vSurf; varying vec3 vWP; varying vec3 vONrm; varying vec3 vWNrm;
       uniform float uTime; uniform vec2 uWind;
       float wh(vec3 p){ return fract(sin(dot(p,vec3(12.99,78.23,37.71)))*43758.5453); }\n` +
@@ -433,7 +471,8 @@ function makeCityMaterial() {
             vWNrm = normalize(mat3(modelMatrix) * normal);
           #endif`);
     sh.fragmentShader = `varying float vSurf; varying vec3 vWP; varying vec3 vONrm; varying vec3 vWNrm;
-      float gRough; float gMetal; vec3 gNrmW;\n` + SURF_GLSL +
+      float gRough; float gMetal; vec3 gNrmW;
+      uniform sampler2D uDetD, uDetN, uWoodD, uWoodN; uniform vec2 uDetK;\n` + SURF_GLSL +
       sh.fragmentShader
         .replace('void main() {', 'void main() {\n gRough = roughness; gMetal = metalness;')
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = gRough;')
@@ -469,7 +508,37 @@ function makeCityMaterial() {
         float rel = (1.0 - smoothstep(26.0, 95.0, dist)) * (s > 10.5 ? 0.0 : 1.0);
         float amp = 0.055 * rel;
         vec3 pn = normalize(vec3(-(hx - h0) / e * amp, -(hy - h0) / e * amp, 1.0));
-        gNrmW = normalize(Tw * pn.x + Bw * pn.y + Nw * pn.z);
+
+        /* ---- the photographic band. Two scales of the same map: 0.85 m for
+           grain and hairline cracks, 7 m for the staining and patch repair
+           that stops any surface looking new. Timber gets its own set. */
+        bool wood = (s > 2.5 && s < 3.5);
+        vec2 fine = uvw * (wood ? 0.62 : 1.18);
+        vec2 broad = uvw * (wood ? 0.11 : 0.145);
+        vec3 dA = wood ? texture2D(uWoodD, fine).rgb : texture2D(uDetD, fine).rgb;
+        vec3 dB = wood ? texture2D(uWoodD, broad).rgb : texture2D(uDetD, broad).rgb;
+        float kk = wood ? uDetK.y : uDetK.x;
+        float detFade = 1.0 - smoothstep(34.0, 120.0, dist);
+        float foliaged = step(10.5, s);
+        float dw = detFade * (1.0 - foliaged);
+        /* Take the detail's VALUE, not its colour: a photograph of clay
+           plaster would otherwise repaint the whole district its own orange.
+           A quarter of the hue comes through, which is enough for the stains
+           to feel like stains rather than dirt-coloured noise. */
+        const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
+        vec3 gA = mix(vec3(dot(dA, LUM)), dA, 0.26) * kk;
+        vec3 gB = mix(vec3(dot(dB, LUM)), dB, 0.18) * kk;
+        alb *= mix(vec3(1.0), gA, 0.58 * dw) * mix(vec3(1.0), gB, 0.34 * dw);
+
+        vec4 nT = wood ? texture2D(uWoodN, fine) : texture2D(uDetN, fine);
+        vec4 nB = wood ? texture2D(uWoodN, broad) : texture2D(uDetN, broad);
+        // whiteout blend: the photographic normal rides on the procedural one
+        vec2 dxy = ((nT.xy - 0.5) * 2.0 * 1.25 + (nB.xy - 0.5) * 2.0 * 0.55) * dw;
+        vec3 nc = normalize(vec3(pn.xy + dxy, pn.z));
+        gNrmW = normalize(Tw * nc.x + Bw * nc.y + Nw * nc.z);
+        // roughness comes off the same map, so the wet-looking patches are
+        // where the surface is actually smooth
+        rough = clamp(mix(rough, rough * (0.55 + 0.95 * nT.z), 0.60 * dw), 0.04, 1.0);
 
         // ---- macro band: 2-50 m drift so no material ever tiles
         float macro = fb2(vWP.xz * 0.045) * 0.62 + fb3(vWP.xz * 0.011) * 0.38;
@@ -767,9 +836,8 @@ function updateHint() {
 }
 
 /* A mouse movement in pixels becomes an absolute change in the target angle.
-   Captured and dragged looking are opposite conventions and both are right:
-   with the pointer locked the mouse IS the head, so right turns right; on a
-   drag the hand is on the world, so dragging right swings the view left. */
+   One convention, captured or dragged: moving the mouse right looks right and
+   moving it down looks down. Two conventions in one control is one too many. */
 function look(dx, dy) {
   NAV.tYaw += dx * NAV.sens;
   NAV.tPitch -= (NAV.invertY ? -dy : dy) * NAV.sens;
@@ -801,8 +869,10 @@ function navUpdate(dt) {
   const cy = Math.cos(NAV.yaw), sy = Math.sin(NAV.yaw);
   const cp = Math.cos(NAV.pitch), sp = Math.sin(NAV.pitch);
   let dx, dyv, dz;
-  if (walk) { dx = sy * fwd + cy * str; dyv = 0; dz = cy * fwd - sy * str; }
-  else { dx = sy * cp * fwd + cy * str; dyv = sp * fwd + vert; dz = cy * cp * fwd - sy * str; }
+  /* forward is (sin yaw, cos yaw); right is its cross with up, which is
+     (-cos yaw, sin yaw). Getting that sign wrong is what made D walk left. */
+  if (walk) { dx = sy * fwd - cy * str; dyv = 0; dz = cy * fwd + sy * str; }
+  else { dx = sy * cp * fwd - cy * str; dyv = sp * fwd + vert; dz = cy * cp * fwd + sy * str; }
   const l = Math.hypot(dx, dyv, dz);
   if (l > 0.0001) { dx /= l; dyv /= l; dz /= l; }
   // stopping is quicker than starting: that is what makes a walk feel planted
@@ -894,7 +964,7 @@ function onPointerMove(e) {
   const dx = e.clientX - lastX, dy = e.clientY - lastY;
   lastX = e.clientX; lastY = e.clientY;
   moved += Math.abs(dx) + Math.abs(dy);
-  look(-dx, -dy);
+  look(dx, dy);
 }
 function onWheel(e) {
   if (!NAV.active) return;
@@ -999,7 +1069,7 @@ function finishExit() {
 
 function setCityGrade(k) {
   // k=0 map grade, k=1 district grade. Crossfaded during the dive.
-  renderer.toneMappingExposure = mix(1.00, 0.94, k);
+  renderer.toneMappingExposure = mix(1.00, 0.88, k);
   bloom.strength = mix(BLOOM_MAP.s, 0.40, k);
   bloom.threshold = mix(BLOOM_MAP.t, 0.92, k);
   bloom.radius = mix(BLOOM_MAP.r, 0.55, k);
@@ -1118,7 +1188,31 @@ function insideSolid(x, z, feetY) {
 
 return {
   enter, exit, goShot, update, hudInfo,
-  debug: { insideSolid, groundAt, resolve, platforms: () => PLATFORMS.length, colliders: () => COLLIDERS.length, waterAt: (x, z) => WATERBODIES.some(b => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) },
+  debug: {
+    insideSolid, groundAt, resolve,
+    platforms: () => PLATFORMS.length, colliders: () => COLLIDERS.length,
+    /* deterministic control probe: set a pose, hold a key set, and step the
+       navigator by a fixed dt. Wall-clock tests of a controller are only ever
+       testing the frame rate of the machine running them. */
+    sim(keys, dt, steps, pose) {
+      if (pose) {
+        NAV.pos.set(pose[0], pose[1], pose[2]);
+        NAV.yaw = NAV.tYaw = pose[3] || 0;
+        NAV.pitch = NAV.tPitch = pose[4] || 0;
+        NAV.vel.set(0, 0, 0);
+      }
+      const was = NAV.keys, wasActive = NAV.active;
+      NAV.keys = {}; for (const k of keys) NAV.keys[k] = 1;
+      NAV.active = true;
+      for (let i = 0; i < steps; i++) navUpdate(dt);
+      NAV.keys = was; NAV.active = wasActive;
+      return { x: NAV.pos.x, y: NAV.pos.y, z: NAV.pos.z, yaw: NAV.yaw, pitch: NAV.pitch };
+    },
+    look(dx, dy, steps) {
+      look(dx, dy);
+      for (let i = 0; i < (steps || 30); i++) navUpdate(1 / 60);
+      return { yaw: NAV.yaw, pitch: NAV.pitch, tYaw: NAV.tYaw, tPitch: NAV.tPitch };
+    }, waterAt: (x, z) => WATERBODIES.some(b => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) },
   get diving() { return DIVE.phase !== 'off'; },
   pose: navPose,
   get built() { return BUILT; },

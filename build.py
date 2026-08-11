@@ -36,6 +36,9 @@ if '/*@DISTRICT@*/' in main:
                       '\n'.join(open(p('src', f), encoding='utf-8').read() for f in parts))
     main = main.replace('/*@DISTRICT@*/', d)
 
+if '/*@TEXTURES@*/' in main:
+    main = main.replace('/*@TEXTURES@*/', open(p('work/textures.json'), encoding='utf-8').read().strip())
+
 if '/*@RELIEF@*/' in main:
     main = main.replace('/*@RELIEF@*/', open(p('work/relief.json'), encoding='utf-8').read().strip())
 

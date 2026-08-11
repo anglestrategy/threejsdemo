@@ -72,6 +72,18 @@ above are the measurable proxies. The remaining lever, and the honest next
 optimisation, is geometric LOD for the background fabric: at eye level the whole
 940 m spine is inside the frustum with no occlusion culling.
 
+## Third-party assets
+
+| asset | source | licence | used for |
+|---|---|---|---|
+| `clay_plaster` (diff, nor_gl, arm) | [Poly Haven](https://polyhaven.com/a/clay_plaster) | CC0 | the photographic micro band on every mineral surface |
+| `dark_wooden_planks` (diff, nor_gl, arm) | [Poly Haven](https://polyhaven.com/a/dark_wooden_planks) | CC0 | the same band on timber |
+
+Both are downscaled to 512, repacked (normal in RG, roughness in B) and embedded
+as data URIs by `gen_textures.py` — 265 KB of base64 for the pair. CC0 needs no
+attribution; it is recorded here because a deliverable should always say where
+its pixels came from. Everything else in the file is generated.
+
 ## City coordinates (verified, used in MAP.pts)
 
 Al Khobar 26.2794N 50.2083E · Madinah 24.4686/39.6142 · Al Ahsa (Hofuf) 25.3647/49.5686 ·
