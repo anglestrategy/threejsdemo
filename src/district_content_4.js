@@ -108,17 +108,29 @@ function defineKit() {
       const ang = f / NF * 6.283 + 0.2;
       const droop = 0.45 + (f % 3) * 0.16;
       const len = 3.5 + (f % 4) * 0.42;
-      const SEG = 5;
+      const SEG = 7;
+      const fcol = f % 3 === 0 ? K.palm : (f % 3 === 1 ? 0x4c6a33 : 0x35502a);
       for (let s = 0; s < SEG; s++) {
         const u = (s + 0.5) / SEG;
         const rad = len * u;
         const yy = H + 0.25 + Math.sin(u * 1.5) * 1.15 - droop * u * u * 3.0;
-        const wdt = 0.62 * Math.sin(Math.min(1, u * 1.6) * 3.14) + 0.10;
+        const wdt = 0.60 * Math.sin(Math.min(1, u * 1.6) * 3.14) + 0.09;
+        // the rachis
         L.push({
           geo: G_BOXT,
-          mtx: xf3(Math.sin(ang) * rad, yy, Math.cos(ang) * rad, 0, ang, 0.35 - u * 0.9, wdt, 0.055, len / SEG * 1.15),
-          col: f % 3 === 0 ? K.palm : (f % 3 === 1 ? 0x4c6a33 : 0x35502a), surf: S.FOLIAGE, shade: 0.72 + 0.36 * u,
+          mtx: xf3(Math.sin(ang) * rad, yy, Math.cos(ang) * rad, 0, ang, 0.35 - u * 0.9, 0.075, 0.045, len / SEG * 1.15),
+          col: fcol, surf: S.FOLIAGE, shade: 0.70 + 0.34 * u,
         });
+        // and the leaflets either side of it, angled down
+        for (const sd of [-1, 1]) {
+          L.push({
+            geo: G_BOXT,
+            mtx: xf3(Math.sin(ang) * rad + Math.cos(ang) * sd * wdt * 0.5, yy - wdt * 0.22,
+              Math.cos(ang) * rad - Math.sin(ang) * sd * wdt * 0.5,
+              sd * 0.55, ang, 0.35 - u * 0.9, wdt, 0.028, len / SEG * 1.05),
+            col: fcol, surf: S.FOLIAGE, shade: (0.62 + 0.40 * u) * (sd > 0 ? 1.08 : 0.86),
+          });
+        }
       }
     }
     // the dead frond skirt under the crown, and a fruit cluster
@@ -143,15 +155,28 @@ function defineKit() {
       const ang = b / 4 * 6.283 + 0.4;
       L.push({ geo: taper(0.5, 1), mtx: xf3(Math.sin(ang) * 0.45, H * 0.80, Math.cos(ang) * 0.45, 0, ang, 0.72, 0.19, 2.3, 0.19), col: 0x5f4e3a, surf: S.TIMBER, shade: 0.66 });
     }
-    const blobs = 18;
-    for (let i = 0; i < blobs; i++) {
-      const ang = i / blobs * 6.283 * 2.618;
-      const rad = 0.9 + (i % 5) * 0.46;
-      const yy = H + 0.9 + Math.sin(i * 1.7) * 0.72 + (i % 3) * 0.26;
-      const sc = 1.15 + (i % 4) * 0.30;
+    /* the crown is 46 flattened leaf clumps scattered on a lumpy ellipsoid
+       shell, each tilted its own way. A sphere reads as a ball at any
+       distance; a mass of tilted planes reads as foliage, and its edge is
+       ragged, which is the only thing the eye actually checks. */
+    const CL = 74;
+    for (let i = 0; i < CL; i++) {
+      const t = (i + 0.5) / CL;
+      const ph = Math.acos(1 - 1.72 * t);              // denser at the top
+      const th = i * 2.39996323;
+      // the clumps overlap heavily: a canopy is a solid mass with a ragged
+      // edge, not a constellation of leaves floating apart
+      const rr2 = 2.05 * (0.72 + 0.30 * Math.sin(i * 1.31)) * Math.pow(Math.sin(ph), 0.75);
+      const px = Math.cos(th) * rr2, pz = Math.sin(th) * rr2;
+      const py = H + 0.30 + 1.95 * (1 - Math.cos(ph)) * 0.95 + Math.sin(i * 2.7) * 0.22;
+      const sc = 1.30 + 0.45 * ((i * 7) % 5) / 5;
+      const shade = 0.52 + 0.62 * Math.pow(t, 0.5) * (0.76 + 0.24 * Math.sin(i * 3.1));
       L.push({
-        geo: G_SPH, mtx: xf3(Math.sin(ang) * rad, yy, Math.cos(ang) * rad, 0, ang, 0, sc, sc * 0.78, sc),
-        col: i % 3 === 0 ? K.leafLt : (i % 3 === 1 ? K.leaf : K.leafDk), surf: S.FOLIAGE, shade: 0.58 + 0.56 * (i / blobs),
+        geo: G_BOX,
+        mtx: xf3(px, py, pz, Math.sin(i * 1.7) * 0.62, th, Math.cos(i * 2.3) * 0.62,
+          sc * 1.45, sc * 0.50, sc * 1.20),
+        col: i % 4 === 0 ? K.leafLt : (i % 4 === 3 ? K.leafDk : K.leaf),
+        surf: S.FOLIAGE, shade,
       });
     }
     defInst('tree', combine(L));
@@ -420,6 +445,51 @@ function defineKit() {
     defInst('rug', combine(L), { shadow: false });
   }
 
+  /* ---- what a shop puts out on the pavement --------------------------- */
+  {   // stacked crates
+    const L = [];
+    for (let i = 0; i < 3; i++) {
+      const w = 0.52 - i * 0.05;
+      kitBox(L, (i % 2) * 0.06, i * 0.34, (i % 2) * 0.04, w, 0.32, w * 0.8, 0xffffff, S.TIMBER, 0.86 + 0.06 * i, i * 0.5);
+      kitBox(L, (i % 2) * 0.06, i * 0.34 + 0.30, (i % 2) * 0.04, w + 0.04, 0.05, w * 0.8 + 0.04, 0xffffff, S.TIMBER, 1.02, i * 0.5);
+    }
+    for (let i = 0; i < 5; i++) {
+      L.push({ geo: G_SPH, mtx: xf3(-0.14 + i * 0.07, 1.05, 0, 0, 0, 0, 0.14, 0.13, 0.14), col: 0xc8863c, surf: S.FOLIAGE, shade: 0.95 });
+    }
+    defInst('crate', combine(L));
+  }
+  {   // a rail of hanging cloth outside a textile shop
+    const L = [];
+    kitBox(L, 0, 1.75, 0, 1.5, 0.05, 0.05, 0x3f3a33, S.METAL, 0.9);
+    for (const sd of [-1, 1]) kitBox(L, sd * 0.72, 0, 0, 0.05, 1.78, 0.05, 0x3f3a33, S.METAL, 0.85);
+    for (let i = 0; i < 7; i++) {
+      const w = 0.16 + (i % 3) * 0.03;
+      kitBox(L, -0.62 + i * 0.20, 0.55, (i % 2) * 0.03, w, 1.18, 0.035, 0xffffff, S.FABRIC, 0.72 + 0.22 * (i % 4) / 3, (i % 2) * 0.12);
+    }
+    defInst('goods', combine(L));
+  }
+  {   // an A-board
+    const L = [];
+    for (const sd of [-1, 1]) {
+      kitBox(L, 0, 0, sd * 0.16, 0.62, 0.92, 0.04, 0xffffff, S.TIMBER, 0.9, 0, sd * 0.34, 0);
+    }
+    kitBox(L, 0, 0.90, 0, 0.66, 0.05, 0.36, 0xffffff, S.TIMBER, 1.0);
+    defInst('aboard', combine(L));
+  }
+  {   // rolled mats leaning on a wall
+    const L = [];
+    for (let i = 0; i < 4; i++) {
+      L.push({ geo: G_CYLT, mtx: xf3(-0.18 + i * 0.13, 0, (i % 2) * 0.05, 0.16 + (i % 2) * 0.06, 0, 0, 0.2, 1.35 + (i % 3) * 0.15, 0.2), col: i % 2 ? K.sadu : 0xd8c9a8, surf: S.FABRIC, shade: 0.86 + 0.08 * (i % 3) });
+    }
+    defInst('matroll', combine(L));
+  }
+  {   // the stone drain channel down the middle of a pedestrian street
+    const L = [];
+    kitBox(L, 0, 0, 0, 0.46, 0.05, 1.0, 0xffffff, S.TRAVERTINE, 0.78);
+    for (const sd of [-1, 1]) kitBox(L, sd * 0.30, 0, 0, 0.16, 0.06, 1.0, 0xffffff, S.TRAVERTINE, 1.04);
+    defInst('drain', combine(L), { shadow: false });
+  }
+
   /* ---- light fittings ------------------------------------------------ */
   { const L = []; L.push({ geo: G_SPH, mtx: xf3(0, 0, 0, 0, 0, 0, 0.11, 0.14, 0.11), col: 0xffffff, surf: 0, shade: 1 }); defInst('bulb', combine(L), { mat: emisFlickMat, shadow: false }); }
   {
@@ -455,22 +525,38 @@ function defineKit() {
         L.push({ geo: taper(1.6, 1), mtx: xf3(0, 0.62, 0, 0, 0, 0, 0.20, 0.20, 0.20), col: cloth, surf: S.FABRIC, shade: 0.86 });
       }
     } else {
-      // the thobe: a narrow shoulder, a body that widens to the hem, and a
-      // slight forward lean — enough for a silhouette to read as a person
-      L.push({ geo: taper(0.58, 1), mtx: xf3(0, 0, 0, 0, 0, 0, 0.46, 1.22, 0.34), col: robe, surf: S.FABRIC, shade: 0.84 });
-      L.push({ geo: SPH, mtx: xf3(0, 1.18, 0, 0, 0, 0, 0.42, 0.30, 0.32), col: robe, surf: S.FABRIC, shade: 0.94 });
-      L.push({ geo: taper(0.86, 1), mtx: xf3(0, 1.32, 0, 0, 0, 0, 0.17, 0.14, 0.17), col: head, surf: S.FABRIC, shade: 0.88 });
-      L.push({ geo: SPH, mtx: xf3(0, 1.46, 0, 0, 0, 0, 0.185, 0.225, 0.185), col: head, surf: S.FABRIC, shade: 0.96 });
+      /* The robe is a stack of eight-sided tapered drums, not a box: a flat
+         slab is the loudest tell at eye level, and eight sides is enough to
+         read as a body from two metres. Shoulders narrow, hem wide, a slight
+         forward lean. */
+      const DRUM = (function () { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 8, 1); g.translate(0, 0.5, 0); return g; })();
+      const drum = (y, h, rTop, rBot, col, sh, lean) => {
+        const g = DRUM.clone();
+        const p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          const yy = p.getY(i);
+          const r = mix(rBot, rTop, yy);
+          p.setX(i, p.getX(i) * r * 2); p.setZ(i, p.getZ(i) * r * 2 * 0.78);
+        }
+        g.computeVertexNormals();
+        L.push({ geo: g, mtx: xf3(0, y, 0, lean || 0, 0, 0, 1, h, 1), col, surf: S.FABRIC, shade: sh });
+      };
+      drum(0, 0.62, 0.30, 0.40, robe, 0.80);          // the hem
+      drum(0.62, 0.46, 0.25, 0.30, robe, 0.88);       // the waist
+      drum(1.08, 0.26, 0.27, 0.25, robe, 0.96);       // the shoulders
+      L.push({ geo: SPH, mtx: xf3(0, 1.26, 0, 0, 0, 0, 0.30, 0.18, 0.26), col: robe, surf: S.FABRIC, shade: 0.98 });
+      L.push({ geo: taper(0.86, 1), mtx: xf3(0, 1.30, 0, 0, 0, 0, 0.15, 0.13, 0.15), col: head, surf: S.FABRIC, shade: 0.86 });
+      L.push({ geo: SPH, mtx: xf3(0, 1.43, 0, 0, 0, 0, 0.185, 0.225, 0.185), col: head, surf: S.FABRIC, shade: 0.96 });
       if (cloth) {
         // the shemagh: a cap and two falls either side of the face
-        L.push({ geo: SPH, mtx: xf3(0, 1.50, 0, 0, 0, 0, 0.215, 0.20, 0.215), col: cloth, surf: S.FABRIC, shade: 1.0 });
+        L.push({ geo: SPH, mtx: xf3(0, 1.47, 0, 0, 0, 0, 0.215, 0.20, 0.215), col: cloth, surf: S.FABRIC, shade: 1.0 });
         for (const s of [-1, 1]) {
-          L.push({ geo: taper(1.5, 1), mtx: xf3(s * 0.10, 1.16, 0.02, 0, 0, s * 0.10, 0.10, 0.34, 0.16), col: cloth, surf: S.FABRIC, shade: 0.86 });
+          L.push({ geo: taper(1.4, 1), mtx: xf3(s * 0.115, 1.10, 0.02, 0, 0, s * 0.09, 0.095, 0.36, 0.15), col: cloth, surf: S.FABRIC, shade: 0.86 });
         }
-        L.push({ geo: G_BOXT, mtx: xf3(0, 1.14, -0.10, 0, 0, 0, 0.30, 0.26, 0.09), col: cloth, surf: S.FABRIC, shade: 0.80 });
+        L.push({ geo: SPH, mtx: xf3(0, 1.16, -0.09, 0, 0, 0, 0.28, 0.30, 0.16), col: cloth, surf: S.FABRIC, shade: 0.80 });
       }
       for (const s of [-1, 1]) {
-        L.push({ geo: taper(0.72, 1), mtx: xf3(s * 0.215, 1.14, 0.01, 0.12, 0, s * 0.13, 0.115, 0.60, 0.115), col: robe, surf: S.FABRIC, shade: 0.76 });
+        L.push({ geo: taper(0.72, 1), mtx: xf3(s * 0.205, 1.10, 0.01, 0.12, 0, s * 0.13, 0.105, 0.58, 0.105), col: robe, surf: S.FABRIC, shade: 0.76 });
       }
     }
     return combine(L);

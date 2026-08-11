@@ -39,6 +39,18 @@ if '/*@DISTRICT@*/' in main:
 if '/*@RELIEF@*/' in main:
     main = main.replace('/*@RELIEF@*/', open(p('work/relief.json'), encoding='utf-8').read().strip())
 
+# syntax-check the assembled module before it ships: a stray paren in a
+# 6000-line file is otherwise only discovered by loading the page
+import subprocess, tempfile
+with tempfile.NamedTemporaryFile('w', suffix='.mjs', delete=False, encoding='utf-8') as tf:
+    tf.write(re.sub(r'^import .*$', '', main, flags=re.M))
+    tmp = tf.name
+chk = subprocess.run(['node', '--check', tmp], capture_output=True, text=True)
+if chk.returncode != 0:
+    sys.stderr.write(chk.stderr)
+    sys.exit('SYNTAX ERROR in the assembled module — not written')
+os.unlink(tmp)
+
 mods['__main__'] = base64.b64encode(main.encode('utf-8')).decode('ascii')
 out = head + 'var MODS = ' + json.dumps(mods) + ';' + tail
 dest = p(sys.argv[1] if len(sys.argv) > 1 else 'living-map-v2.html')

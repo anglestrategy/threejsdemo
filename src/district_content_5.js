@@ -108,6 +108,16 @@ function buildPlanting() {
         inst('olive', xf3(px, gy + 0.6, pz, 0, rnd() * 6.28, 0, 0.9, 0.9, 0.9), pick([K.leaf, 0x6d7f52]));
       }
       if (chance(0.35)) inst('bollard', xf(sp + s * 6.4, terrainY(sp + s * 6.4, pz), pz + rr(-3, 3), 0), 0xffffff);
+      // the shopkeeper's own frontage: crates, a rail of cloth, an A-board,
+      // rolled mats — the layer that turns an elevation into a trade
+      const wx = sp + s * 6.15, wz = pz + rr(-3.5, 3.5);
+      const wy = terrainY(wx, wz);
+      const face = s > 0 ? -Math.PI / 2 : Math.PI / 2;
+      const q = rnd();
+      if (q < 0.16) inst('crate', xf3(wx - s * 0.9, wy, wz, 0, face + rr(-0.3, 0.3), 0, 1, 1, 1), pick([0x9a7444, 0x86643a, 0xa88254]));
+      else if (q < 0.29) inst('goods', xf3(wx - s * 1.0, wy, wz, 0, face, 0, 1, 1, 1), pick([0xd8c0a0, 0xc8b090, 0xe0cdb0]));
+      else if (q < 0.40) inst('aboard', xf3(wx - s * 1.3, wy, wz, 0, face + rr(-0.5, 0.5), 0, 1, 1, 1), pick([0x6b4526, 0x54361d]));
+      else if (q < 0.50) inst('matroll', xf3(wx - s * 0.7, wy, wz, 0, face, 0, 1, 1, 1), 0xffffff);
     }
   }
   for (let z = S1.z0 - 10; z < S1.z1 + 18; z += rr(17, 24)) {
@@ -116,6 +126,13 @@ function buildPlanting() {
     inst('streetlight', xf(px, terrainY(px, z), z, s > 0 ? Math.PI / 2 : -Math.PI / 2), 0xffffff);
     PRACTICALS.push({ x: px, y: terrainY(px, z) + 4.2, z: z, c: 0xffdcaa, i: 5.0, r: 15 });
     inst('pool', xf3(px - s * 1.2, terrainY(px, z) + 0.16, z, 0, 0, 0, 12, 1, 12), 0xffdcaa);
+  }
+
+  for (let z = S1.z0 - 20; z < S1.z1 + 30; z += 1.0) {
+    for (const sd of [-1, 1]) {
+      const dx2 = sp + sd * 5.35;
+      inst('drain', xf(dx2, terrainY(dx2, z) + 0.152, z, 0), 0xbfae92);
+    }
   }
 
   // the canvas ribbons stretched across the spine

@@ -1739,6 +1739,83 @@ const clouds = [];
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
+
+/* ------------------------------------------------------ ambient occlusion *
+   The single thing that separates a model from a place: contact. Without it
+   a chair floats on paving, a pier meets a wall with no seam, and a colonnade
+   is a row of pale rectangles. This is a depth-only AO — the composer's own
+   render target carries a depth texture, the pass reconstructs view position
+   and a normal from its derivatives, and samples a rotated spiral. There is
+   no separate geometry pass and no blur: sixteen samples with a per-pixel
+   rotation trade banding for a noise the grain in the grade already hides.
+   The darkening is tinted, never grey: shadowed stone goes violet-warm.   */
+const aoDepth = new THREE.DepthTexture(1, 1);
+aoDepth.type = THREE.UnsignedIntType;
+aoDepth.minFilter = THREE.NearestFilter;
+aoDepth.magFilter = THREE.NearestFilter;
+composer.renderTarget1.depthTexture = aoDepth;
+composer.renderTarget2.depthTexture = aoDepth;
+
+const AOShader = {
+  uniforms: {
+    tDiffuse: { value: null }, tDepth: { value: aoDepth },
+    uProjInv: { value: new THREE.Matrix4() },
+    uRes: { value: new THREE.Vector2(1, 1) },
+    uNear: { value: 0.1 }, uFar: { value: 1000 },
+    uRadius: { value: 1.35 }, uIntensity: { value: 1.75 },
+    uTint: { value: new THREE.Color(0x574c5e) },
+    uOn: { value: 0 },
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform highp sampler2D tDepth;
+    uniform mat4 uProjInv; uniform vec2 uRes;
+    uniform float uNear,uFar,uRadius,uIntensity,uOn; uniform vec3 uTint;
+    varying vec2 vUv;
+    vec3 viewPos(vec2 uv){
+      float d = texture2D(tDepth, uv).x;
+      vec4 c = vec4(uv*2.0-1.0, d*2.0-1.0, 1.0);
+      vec4 v = uProjInv * c;
+      return v.xyz / v.w;
+    }
+    float hash12(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+    void main(){
+      vec4 src = texture2D(tDiffuse, vUv);
+      if (uOn < 0.5) { gl_FragColor = src; return; }
+      float d0 = texture2D(tDepth, vUv).x;
+      if (d0 >= 0.9999) { gl_FragColor = src; return; }   // the sky occludes nothing
+      vec3 P = viewPos(vUv);
+      vec3 N = normalize(cross(dFdx(P), dFdy(P)));
+      float rot = hash12(floor(vUv*uRes)) * 6.2831853;
+      float ca = cos(rot), sa = sin(rot);
+      // the sample radius is metres at the surface, converted to pixels
+      float px = uRadius / max(0.35, -P.z) * (uRes.y * 0.5);
+      float occ = 0.0;
+      const int N_S = 16;
+      for (int i = 0; i < N_S; i++) {
+        float fi = float(i) + 0.5;
+        float ang = fi * 2.39996323;                 // golden-angle spiral
+        float rad = sqrt(fi / float(N_S));
+        vec2 o = vec2(cos(ang), sin(ang)) * rad;
+        o = vec2(o.x*ca - o.y*sa, o.x*sa + o.y*ca) * px / uRes;
+        vec2 suv = vUv + o;
+        if (suv.x < 0.0 || suv.x > 1.0 || suv.y < 0.0 || suv.y > 1.0) continue;
+        vec3 S = viewPos(suv);
+        vec3 v = S - P;
+        float len = length(v);
+        if (len < 0.0004) continue;
+        float ndv = dot(N, v / len);
+        occ += max(0.0, ndv - 0.045) / (1.0 + len*len / (uRadius*uRadius));
+      }
+      float ao = clamp(1.0 - occ / float(N_S) * 2.6 * uIntensity, 0.0, 1.0);
+      ao = pow(ao, 1.25);
+      // never grey: the occluded end of the ramp is a tint, not a subtraction
+      vec3 shade = mix(uTint, vec3(1.0), ao);
+      gl_FragColor = vec4(src.rgb * shade, src.a);
+    }`,
+};
+const aoPass = new ShaderPass(AOShader);
+composer.addPass(aoPass);
 /* Bloom law taken from the gold-standard worlds: LOW strength, HIGH threshold —
    only genuinely over-bright pixels bloom, and they bloom gently. The previous
    0.58 / 0.70 pair (a low threshold with high strength) is what smeared the
@@ -1812,6 +1889,9 @@ function setSizes() {
   camera.aspect = w / h; camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   composer.setSize(w, h);
+  aoDepth.image.width = Math.floor(w * pr); aoDepth.image.height = Math.floor(h * pr);
+  aoDepth.needsUpdate = true;
+  aoPass.uniforms.uRes.value.set(w * pr, h * pr);
   labelRenderer.setSize(w, h);
   bloom.resolution.set(w, h);
   fxaa.material.uniforms.resolution.value.set(1 / (w * pr), 1 / (h * pr));
@@ -2124,6 +2204,7 @@ const raycaster = new THREE.Raycaster();
 const ptr = new THREE.Vector2(-10, -10);
 let hovered = null;
 renderer.domElement.addEventListener('pointermove', (e) => {
+  if (sceneState !== 'map') return;
   ptr.x = (e.clientX / innerWidth) * 2 - 1;
   ptr.y = -(e.clientY / innerHeight) * 2 + 1;
   markIdle();
@@ -2146,9 +2227,9 @@ window.__hover = (n) => {
 let hoverLock = null;
 
 let downXY = null;
-renderer.domElement.addEventListener('pointerdown', (e) => { downXY = [e.clientX, e.clientY]; markIdle(); });
+renderer.domElement.addEventListener('pointerdown', (e) => { if (sceneState !== 'map') return; downXY = [e.clientX, e.clientY]; markIdle(); });
 renderer.domElement.addEventListener('pointerup', (e) => {
-  if (!downXY) return;
+  if (sceneState !== 'map' || !downXY) return;
   const moved = Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]);
   downXY = null;
   if (moved > 6) return;
@@ -2221,6 +2302,16 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1);
   const t = clock.elapsedTime;
   renderer.info.reset();
+  {
+    const cam = renderPass.camera;
+    aoPass.uniforms.uProjInv.value.copy(cam.projectionMatrixInverse);
+    aoPass.uniforms.uNear.value = cam.near;
+    aoPass.uniforms.uFar.value = cam.far;
+    /* the map is a relief model seen from far away — AO there would only
+       muddy the baked terrain light. The district is where contact matters. */
+    aoPass.uniforms.uOn.value = sceneState === 'city' ? 1 : 0;
+    aoPass.uniforms.uRadius.value = sceneState === 'city' ? 2.3 : 4.0;
+  }
 
   // tween
   if (tween.active) {

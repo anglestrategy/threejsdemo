@@ -17,7 +17,7 @@ Durable working memory. Deliverable: `living-map-v2.html` (single file, runs fro
 | `work/relief.json` | baked real DEM (PNG data-URI) |
 | `build.py` · `gen_map.py` · `gen_relief.py` | assemble · regenerate MAP · bake relief |
 | `shot.mjs` | headless screenshot harness (Playwright + chromium) |
-| `tests/dive_test.mjs` · `tests/walk_test.mjs` · `tests/sweep_test.mjs` | transition, walk and collision-sweep gates — `node tests/<name>.mjs` |
+| `tests/dive_test.mjs` · `tests/walk_test.mjs` · `tests/sweep_test.mjs` · `tests/controls_test.mjs` | transition, walk, collision-sweep and look-model gates — `node tests/<name>.mjs` |
 | `refs/` | the four renders as PNG + the relief truth image |
 | `shots/` | every verification frame, the contact sheet and the four-frame test |
 
@@ -62,6 +62,7 @@ Yaw 0 = looking toward +Z in both scenes, so a pose is portable.
 | p6 | boot to `__ready` (map only, headless swiftshader) | ~3.3 s |
 | p6 | district build (blocking, headless) | ~2.2 s, hidden inside the 3.35 s dive veil |
 | p6 | draw calls / triangles, souq eye-level | 208 / 5.12 M |
+| p7 | look model | 200 px drag → 26.28° / 26.36° (expected 26.36°); drift after 2.5 s = 0.07° |
 | p6 | draw calls / triangles, aerial masterplan | 370 / 5.80 M |
 | p6 | colliders / platforms / walkers / string bulbs | 464 / 15 / 108 / ~250 |
 | p6 | canopy panels | 1,084 folded triangles + fascia + frame + 3-armed columns |
@@ -120,6 +121,9 @@ Local metres, origin at the canopy plaza, +Z north, +X east, sun 11° WSW.
   through its own delta loop (DELTA.md rounds 1–4).
 - **P5 closed.** Dressing and the material law: triplanar macro/meso/micro bands per
   surface class, light pools, roofscapes, planting, street kit.
+- **P7.** Structural pass: procedural relief on every surface class, a depth-only
+  AO pass, and the navigation rewrite (mouse look had never been attached).
+  Gate: `tests/controls_test.mjs`. See DELTA.md round 5.
 - **P6 closed.** Life (108 walkers, seated groups, birds, jets, wind), the golden-into-
   blue grade, IBL from the sky, and the full battery. Contact sheet:
   `shots/contact_sheet.png`. Four-frame test: `shots/four_frame_test.png`.

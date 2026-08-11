@@ -296,6 +296,103 @@ const SURF_GLSL = `
     return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y); }
   float fb2(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<4;i++){ s+=a*vn2(p); p*=2.03; a*=0.52; } return s; }
   float fb3(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<3;i++){ s+=a*vn2(p); p*=2.11; a*=0.5; } return s; }
+
+  /* --------------------------------------------------------------------- *
+     THE HEIGHT FIELD.  One function, branched by surface class, returning a
+     0..1 relief height for a triplanar coordinate. Everything else is
+     derived from it: the albedo darkens in the recesses, the roughness
+     rises there, and — the thing that actually makes stone look like stone —
+     the shading normal is bent by its gradient. Without this every wall in
+     the district is a painted plane, which is exactly what it looked like.
+   * --------------------------------------------------------------------- */
+  float srfH(vec2 q, float s, out float cav, out float grain) {
+    cav = 1.0; grain = 0.5;
+    if (s < 0.5) {                                   // ASHLAR
+      float course = 0.225;
+      float row = floor(q.y / course);
+      float off = h11(row * 7.13) * 0.9;
+      float bl = 0.42 + h11(row * 3.7 + 11.0) * 0.42;
+      float jx = fract((q.x + off) / bl), jy = fract(q.y / course);
+      float e = min(min(jx, 1.0 - jx) * bl, min(jy, 1.0 - jy) * course);
+      float joint = smoothstep(0.0, 0.016, e);        // 16 mm recessed joint
+      float stone = h21(vec2(floor((q.x + off) / bl), row) * 1.37);
+      grain = stone;
+      cav = joint;
+      // each block sits a little proud or shy of its neighbours, and its face
+      // is not flat: that is what separates coursed stone from a grid
+      float face = 0.55 + 0.45 * fb2(q * 22.0 + stone * 30.0);
+      return joint * (0.55 + 0.45 * stone) * 0.55 + face * 0.30 * joint;
+    } else if (s < 1.5) {                            // RENDER, mud plaster
+      float t = fb2(q * 3.2) * 0.55 + fb2(q * 14.0) * 0.30 + fb2(q * 46.0) * 0.15;
+      grain = t; cav = 0.55 + 0.45 * t;
+      return t;
+    } else if (s < 2.5) {                            // BRICK
+      float ch = 0.082, cw = 0.235;
+      float row = floor(q.y / ch);
+      float sft = mod(row, 2.0) * 0.5 * cw;
+      float jx = fract((q.x + sft) / cw), jy = fract(q.y / ch);
+      float e = min(min(jx, 1.0 - jx) * cw, min(jy, 1.0 - jy) * ch);
+      float mortar = smoothstep(0.0, 0.011, e);
+      float bk = h21(vec2(floor((q.x + sft) / cw), row) * 1.91);
+      grain = bk; cav = mortar;
+      return mortar * (0.62 + 0.38 * bk) * 0.72 + 0.16 * fb2(q * 40.0) * mortar;
+    } else if (s < 3.5) {                            // TIMBER
+      float board = floor(q.y * 5.2);
+      float bj = fract(q.y * 5.2);
+      float groove = smoothstep(0.0, 0.06, min(bj, 1.0 - bj));
+      float gr = fb2(vec2(q.x * 2.2, q.y * 60.0));
+      grain = gr; cav = groove;
+      return groove * (0.6 + 0.4 * gr) * 0.5 + h11(board * 5.1) * 0.12 * groove;
+    } else if (s < 4.5) {                            // TRAVERTINE
+      float sw = 2.3, sh = 1.15;
+      float jx = fract(q.x / sw), jy = fract(q.y / sh);
+      float e = min(min(jx, 1.0 - jx) * sw, min(jy, 1.0 - jy) * sh);
+      float joint = smoothstep(0.0, 0.010, e);
+      float band = fb2(vec2(q.x * 0.9, q.y * 9.0));
+      float pit = smoothstep(0.62, 0.92, fb2(q * 26.0));   // the travertine pores
+      grain = band; cav = joint * (1.0 - pit * 0.7);
+      return joint * (0.72 + 0.28 * band) * 0.42 - pit * 0.22;
+    } else if (s < 5.5) {                            // CONCRETE / white render
+      float t = fb2(q * 4.2) * 0.6 + fb2(q * 19.0) * 0.4;
+      grain = t; cav = 0.7 + 0.3 * t;
+      return t * 0.6;
+    } else if (s < 6.5) {                            // METAL, brushed
+      float t = fb2(vec2(q.x * 90.0, q.y * 4.0));
+      grain = t; cav = 1.0;
+      return t * 0.25;
+    } else if (s < 7.5) {                            // PAVING, irregular flags
+      vec2 warp = vec2(fb3(q * 0.28), fb3(q * 0.28 + 19.0)) - 0.5;
+      vec2 p2 = q * 2.05 + warp * 1.30;
+      vec2 ci = floor(p2), cf = fract(p2);
+      float best = 9.0, second = 9.0; vec2 bid = vec2(0.0);
+      for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+        vec2 g = vec2(float(i), float(j));
+        vec2 o = vec2(h21(ci + g), h21(ci + g + 41.7));
+        float d = length(g + o - cf);
+        if (d < best) { second = best; best = d; bid = ci + g; }
+        else if (d < second) second = d;
+      }
+      float edge = smoothstep(0.0, 0.055, second - best);
+      float slab = h21(bid * 1.13);
+      grain = slab; cav = edge;
+      // every flag is laid a little high or low, and its face is worn
+      return edge * (0.5 + 0.5 * slab) * 0.5 + edge * 0.22 * fb2(q * 9.0);
+    } else if (s < 8.5) {                            // SAND
+      float d = fb2(q * 0.9) * 0.6 + fb2(q * 6.0) * 0.4;
+      grain = d; cav = 1.0;
+      return d;
+    } else if (s < 9.5) {                            // ASPHALT
+      float g2 = fb2(q * 26.0) * 0.6 + fb2(q * 90.0) * 0.4;
+      grain = g2; cav = 0.8 + 0.2 * g2;
+      return g2 * 0.5;
+    } else if (s < 10.5) {                           // FABRIC, woven
+      float w = 0.5 + 0.5 * sin(q.x * 210.0) * sin(q.y * 210.0);
+      grain = w; cav = 1.0;
+      return w * 0.35 + fb2(q * 8.0) * 0.4;
+    }
+    grain = fb2(q * 4.0); cav = 1.0;                 // FOLIAGE
+    return grain;
+  }
 `;
 
 function makeCityMaterial() {
@@ -306,7 +403,7 @@ function makeCityMaterial() {
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = mat.userData.u.uTime;
     sh.uniforms.uWind = mat.userData.u.uWind;
-    sh.vertexShader = `attribute float aSurf; varying float vSurf; varying vec3 vWP; varying vec3 vONrm;
+    sh.vertexShader = `attribute float aSurf; varying float vSurf; varying vec3 vWP; varying vec3 vONrm; varying vec3 vWNrm;
       uniform float uTime; uniform vec2 uWind;
       float wh(vec3 p){ return fract(sin(dot(p,vec3(12.99,78.23,37.71)))*43758.5453); }\n` +
       sh.vertexShader
@@ -329,134 +426,81 @@ function makeCityMaterial() {
             transformed.z += uWind.y * amp * g * gust;
             transformed.y -= abs(g) * amp * 0.22;
           }
-          vWP = (modelMatrix * vec4(transformed,1.0)).xyz;`);
-    sh.fragmentShader = `varying float vSurf; varying vec3 vWP; varying vec3 vONrm;
-      float gRough; float gMetal;\n` + SURF_GLSL +
+          vWP = (modelMatrix * vec4(transformed,1.0)).xyz;
+          #ifdef USE_INSTANCING
+            vWNrm = normalize(mat3(modelMatrix) * (mat3(instanceMatrix) * normal));
+          #else
+            vWNrm = normalize(mat3(modelMatrix) * normal);
+          #endif`);
+    sh.fragmentShader = `varying float vSurf; varying vec3 vWP; varying vec3 vONrm; varying vec3 vWNrm;
+      float gRough; float gMetal; vec3 gNrmW;\n` + SURF_GLSL +
       sh.fragmentShader
         .replace('void main() {', 'void main() {\n gRough = roughness; gMetal = metalness;')
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = gRough;')
         .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n metalnessFactor = gMetal;')
+        .replace('#include <normal_fragment_maps>',
+          '#include <normal_fragment_maps>\n normal = normalize((viewMatrix * vec4(gNrmW, 0.0)).xyz);')
         .replace('#include <color_fragment>', `#include <color_fragment>
       {
-        vec3 N = normalize(vONrm);
-        vec3 aN = abs(N);
-        // triplanar coordinates: the dominant axis wins, so coursing runs
-        // horizontally on every wall no matter which way it faces
-        vec2 uvw = aN.y > max(aN.x, aN.z) ? vWP.xz
-                 : (aN.x > aN.z ? vec2(vWP.z, vWP.y) : vec2(vWP.x, vWP.y));
+        vec3 Nw = normalize(vWNrm);
+        vec3 aN = abs(Nw);
+        /* triplanar frame in world space: the dominant axis picks the plane,
+           and its two companions are the tangent and bitangent the relief is
+           bent along. Working in world space means the perturbed normal comes
+           out ready to use, with no model matrix in the fragment shader. */
+        vec2 uvw; vec3 Tw, Bw;
+        if (aN.y > max(aN.x, aN.z)) { uvw = vWP.xz; Tw = vec3(1,0,0); Bw = vec3(0,0,1); }
+        else if (aN.x > aN.z)       { uvw = vec2(vWP.z, vWP.y); Tw = vec3(0,0,1); Bw = vec3(0,1,0); }
+        else                        { uvw = vec2(vWP.x, vWP.y); Tw = vec3(1,0,0); Bw = vec3(0,1,0); }
+        Tw = normalize(Tw - Nw * dot(Nw, Tw));
+        Bw = normalize(cross(Nw, Tw));
         float s = vSurf;
         float rough = gRough;
         vec3 alb = diffuseColor.rgb;
 
+        // ---- relief: sample the height field three times and bend the normal
+        float cav, grain, cavx, gx, cavy, gy;
+        float dist = length(cameraPosition - vWP);
+        float e = 0.006 + dist * 0.00035;
+        float h0 = srfH(uvw, s, cav, grain);
+        float hx = srfH(uvw + vec2(e, 0.0), s, cavx, gx);
+        float hy = srfH(uvw + vec2(0.0, e), s, cavy, gy);
+        // relief fades with distance so it never aliases into noise
+        float rel = (1.0 - smoothstep(26.0, 95.0, dist)) * (s > 10.5 ? 0.0 : 1.0);
+        float amp = 0.055 * rel;
+        vec3 pn = normalize(vec3(-(hx - h0) / e * amp, -(hy - h0) / e * amp, 1.0));
+        gNrmW = normalize(Tw * pn.x + Bw * pn.y + Nw * pn.z);
+
         // ---- macro band: 2-50 m drift so no material ever tiles
         float macro = fb2(vWP.xz * 0.045) * 0.62 + fb3(vWP.xz * 0.011) * 0.38;
-        alb *= 0.86 + 0.30 * macro;
+        alb *= 0.84 + 0.34 * macro;
 
-        // ---- meso band per surface class
-        if (s < 0.5) {                                   // ASHLAR: random coursing
-          float course = 0.225;
-          float row = floor(uvw.y / course);
-          float off = h11(row * 7.13) * 0.9;
-          float bl = 0.42 + h11(row * 3.7 + 11.0) * 0.42;
-          float col = floor((uvw.x + off) / bl);
-          float jx = fract((uvw.x + off) / bl), jy = fract(uvw.y / course);
-          float joint = smoothstep(0.0, 0.075, jx) * smoothstep(1.0, 0.925, jx)
-                      * smoothstep(0.0, 0.14, jy) * smoothstep(1.0, 0.86, jy);
-          float stone = h21(vec2(col, row) * 1.37);
-          alb *= (0.82 + 0.32 * stone) * (0.42 + 0.58 * joint);
-          alb *= 0.94 + 0.14 * fb2(uvw * 6.5);
-          rough = 0.80 + 0.16 * stone;
-        } else if (s < 1.5) {                            // RENDER: mud plaster
-          float t = fb2(uvw * 2.6) * 0.6 + fb2(uvw * 11.0) * 0.4;
-          alb *= 0.90 + 0.20 * t;
-          // rain streaking below the parapet and around openings
-          float streak = fb2(vec2(uvw.x * 9.0, uvw.y * 0.35));
-          alb *= 1.0 - 0.13 * smoothstep(0.45, 0.95, streak) * smoothstep(4.5, 0.6, uvw.y);
-          rough = 0.90 + 0.08 * t;
-        } else if (s < 2.5) {                            // BRICK
-          float ch = 0.082, cw = 0.24;
-          float row = floor(uvw.y / ch);
-          float sft = mod(row, 2.0) * 0.5 * cw;
-          float jx = fract((uvw.x + sft) / cw), jy = fract(uvw.y / ch);
-          float mortar = smoothstep(0.0, 0.10, jx) * smoothstep(1.0, 0.90, jx)
-                       * smoothstep(0.0, 0.17, jy) * smoothstep(1.0, 0.83, jy);
-          float bk = h21(vec2(floor((uvw.x + sft) / cw), row) * 1.91);
-          alb *= (0.76 + 0.42 * bk) * (0.60 + 0.40 * mortar);
-          alb = mix(alb, alb * vec3(1.05, 0.98, 0.92), bk);
-          rough = 0.86 + 0.10 * bk;
-        } else if (s < 3.5) {                            // TIMBER
-          float grain = fb2(vec2(uvw.x * 2.0, uvw.y * 46.0));
-          float board = floor(uvw.y * 5.2);
-          alb *= 0.82 + 0.30 * grain + 0.10 * h11(board * 5.1);
-          rough = 0.62 + 0.22 * grain;
-        } else if (s < 4.5) {                            // TRAVERTINE
-          float band = fb2(vec2(uvw.x * 0.8, uvw.y * 7.5));
-          float slab = floor(uvw.y / 1.15);
-          float sjx = fract(uvw.x / 2.3), sjy = fract(uvw.y / 1.15);
-          float j = smoothstep(0.0, 0.02, sjx) * smoothstep(1.0, 0.98, sjx)
-                  * smoothstep(0.0, 0.04, sjy) * smoothstep(1.0, 0.96, sjy);
-          alb *= (0.90 + 0.18 * band + 0.06 * h11(slab * 2.7)) * (0.80 + 0.20 * j);
-          rough = 0.52 + 0.20 * band;
-        } else if (s < 5.5) {                            // CONCRETE / white
-          float t = fb2(uvw * 3.4);
-          alb *= 0.93 + 0.12 * t;
-          alb *= 1.0 - 0.10 * smoothstep(0.6, 1.0, fb2(vec2(uvw.x * 7.0, uvw.y * 0.5)));
-          rough = 0.72 + 0.14 * t;
-        } else if (s < 6.5) {                            // METAL
-          // anodised, not chromed: a brushed surface with a visible grain so
-          // the canopy facets separate from each other
-          rough = 0.30 + 0.30 * fb2(uvw * 26.0) + 0.10 * fb2(uvw * 3.0);
-          gMetal = 0.44;
-          alb *= 0.90 + 0.20 * fb2(uvw * 5.0);
-        } else if (s < 7.5) {                            // PAVING: irregular flags
-          vec2 c = vWP.xz;
-          vec2 warp = vec2(fb3(c * 0.28), fb3(c * 0.28 + 19.0)) - 0.5;
-          vec2 q = c * 1.35 + warp * 1.30;
-          vec2 ci = floor(q); vec2 cf = fract(q);
-          float best = 9.0, second = 9.0; vec2 bid = vec2(0.0);
-          for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
-            vec2 g = vec2(float(i), float(j));
-            vec2 o = vec2(h21(ci + g), h21(ci + g + 41.7));
-            float d = length(g + o - cf);
-            if (d < best) { second = best; best = d; bid = ci + g; }
-            else if (d < second) second = d;
-          }
-          float edge = smoothstep(0.0, 0.055, second - best);
-          float slab = h21(bid * 1.13);
-          alb *= (0.86 + 0.26 * slab) * (0.38 + 0.62 * edge);
-          alb *= 0.95 + 0.12 * fb2(c * 3.2);
-          rough = 0.70 + 0.22 * slab - 0.30 * (1.0 - edge);
-        } else if (s < 8.5) {                            // SAND
-          float d = fb2(vWP.xz * 0.09) * 0.7 + fb2(vWP.xz * 0.9) * 0.3;
-          alb *= 0.86 + 0.28 * d;
-          rough = 0.95;
-        } else if (s < 9.5) {                            // ASPHALT
-          float g = fb2(vWP.xz * 2.6) * 0.6 + fb2(vWP.xz * 14.0) * 0.4;
-          alb *= 0.82 + 0.26 * g;
-          rough = 0.78 + 0.16 * g;
-        } else if (s < 10.5) {                           // FABRIC
-          float w = fb2(uvw * 22.0);
-          alb *= 0.94 + 0.12 * w;
-          rough = 0.88;
-        } else {                                         // FOLIAGE
-          float t = fb2(uvw * 3.0) * 0.55 + h21(floor(vWP.xz * 6.0)) * 0.45;
-          alb *= 0.92 + 0.55 * t;
-          // leaves are thin: they carry light through, so the shaded side of a
-          // canopy stays green instead of going to black
-          alb += vec3(0.055, 0.085, 0.030) * (0.4 + 0.6 * t);
-          rough = 0.90;
-        }
+        // ---- albedo and roughness follow the same height field, so the
+        //      recesses are dark and matt exactly where they are recessed
+        float foli = step(10.5, s);
+        float dk = mix(1.0, cav, 0.72 * (0.35 + 0.65 * rel) * (1.0 - foli));
+        alb *= mix(0.62 + 0.55 * dk, 1.0, foli);
+        alb *= mix(0.80 + 0.42 * grain, 0.90 + 0.26 * grain, foli);
+        // leaves are thin: they pass light, so a canopy never goes to black
+        alb += foli * vec3(0.070, 0.105, 0.038) * (0.45 + 0.55 * grain);
+        rough = clamp(rough * (1.10 - 0.28 * grain) + (1.0 - cav) * 0.20, 0.05, 1.0);
+
+        if (s > 1.5 && s < 2.5) alb = mix(alb, alb * vec3(1.08, 0.95, 0.88), grain);
+        if (s > 3.5 && s < 4.5) alb *= 0.94 + 0.16 * grain;
+        if (s > 5.5 && s < 6.5) { gMetal = 0.44; rough = 0.26 + 0.34 * grain; }
 
         // ---- micro band: hue and value jitter, everywhere, at 6-40 cm
         float micro = fb3(vWP.xz * 3.7 + vWP.y * 2.1);
-        alb *= 0.955 + 0.09 * micro;
-        // ground-contact weathering: every vertical surface darkens and
-        // desaturates in the first 900 mm, warmer where the ground bounces
-        float lowT = smoothstep(1.0, 0.05, vWP.y) * (1.0 - aN.y);
-        alb = mix(alb, alb * vec3(0.80, 0.78, 0.72), lowT * (0.30 + 0.35 * fb2(vec2(vWP.x, vWP.z) * 1.7)));
+        alb *= 0.945 + 0.11 * micro;
+        /* ground-contact weathering: every vertical surface darkens and
+           desaturates in the first 900 mm, warmer where the ground bounces,
+           and the splash line is uneven because rain is uneven */
+        float splash = 0.55 + 0.45 * fb2(vec2(vWP.x, vWP.z) * 1.7);
+        float lowT = smoothstep(0.95 * splash, 0.02, vWP.y) * (1.0 - aN.y);
+        alb = mix(alb, alb * vec3(0.72, 0.69, 0.63), lowT * 0.55);
 
         diffuseColor.rgb = alb;
-        gRough = clamp(rough, 0.05, 1.0);
+        gRough = rough;
       }`);
   };
   mat.customProgramCacheKey = () => 'citysurf';
@@ -641,26 +685,37 @@ function addMesh(geo, mat, shadow) {
 
 /*@DISTRICT_CONTENT@*/
 
-/* ========================================================== NAVIGATION == */
+/* ========================================================== NAVIGATION ==
+   Look is direct: a mouse pixel is a fixed number of radians, applied to a
+   target angle that the camera chases on a 28 ms time constant. It is not an
+   impulse into an angular velocity — that is what made the view keep drifting
+   after the mouse stopped and made the sensitivity depend on frame rate.
+   Movement is exponential-smoothed toward a target velocity with the same
+   frame-rate-independent form, so 30 fps and 144 fps feel identical.       */
 const NAV = {
   mode: 'fly',
-  pos: new THREE.Vector3(26, 6.2, -128),
+  pos: new THREE.Vector3(21, 5.4, -44),
   vel: new THREE.Vector3(),
-  yaw: 0, pitch: 0,
-  yawV: 0, pitchV: 0,
+  yaw: 0, pitch: 0,                 // what the camera is showing
+  tYaw: 0, tPitch: 0,               // where the mouse has asked it to be
   keys: {},
   active: false,
   locked: false,
   eye: 1.68,
   groundY: 0,
-  onGround: false,
-  bob: 0,
+  bob: 0, bobPhase: 0,
+  sens: 0.0023,                     // radians per pixel
+  flySpeed: 17,                     // metres per second, wheel-adjustable
+  walkSpeed: 1.55,
+  invertY: false,
 };
 const KEYMAP = {
-  KeyW: 'f', KeyS: 'b', KeyA: 'l', KeyD: 'r', KeyQ: 'dn', KeyE: 'up',
+  KeyW: 'f', KeyS: 'b', KeyA: 'l', KeyD: 'r',
   ArrowUp: 'f', ArrowDown: 'b', ArrowLeft: 'l', ArrowRight: 'r',
-  Space: 'up', ShiftLeft: 'run', ShiftRight: 'run',
+  KeyE: 'up', KeyQ: 'dn', Space: 'up', KeyC: 'dn', KeyZ: 'dn',
+  ShiftLeft: 'run', ShiftRight: 'run',
 };
+const PITCH_LIMIT = { fly: 1.48, walk: 1.32 };
 
 function navPose() {
   return {
@@ -673,8 +728,8 @@ function navPose() {
 
 function applyPose(p) {
   NAV.pos.fromArray(p.pos);
-  NAV.yaw = THREE.MathUtils.degToRad(p.yaw || 0);
-  NAV.pitch = THREE.MathUtils.degToRad(p.pitch || 0);
+  NAV.yaw = NAV.tYaw = THREE.MathUtils.degToRad(p.yaw || 0);
+  NAV.pitch = NAV.tPitch = THREE.MathUtils.degToRad(p.pitch || 0);
   NAV.vel.set(0, 0, 0);
   setMode(p.mode || 'fly', true);
   syncCam();
@@ -690,61 +745,81 @@ function syncCam() {
 function setMode(m, silent) {
   NAV.mode = m;
   if (m === 'walk') {
-    const g = groundAt(NAV.pos.x, NAV.pos.z, NAV.pos.y);
-    NAV.pos.y = g + NAV.eye;
-    NAV.pitch = clamp(NAV.pitch, -0.95, 0.95);
+    NAV.pos.y = groundAt(NAV.pos.x, NAV.pos.z, NAV.pos.y) + NAV.eye;
+    NAV.vel.y = 0;
   }
+  const lim = PITCH_LIMIT[m];
+  NAV.pitch = clamp(NAV.pitch, -lim, lim);
+  NAV.tPitch = clamp(NAV.tPitch, -lim, lim);
   if (ui.cityMode) ui.cityMode.textContent = m === 'walk' ? 'WALK' : 'FLY';
-  if (ui.cityHint) {
-    ui.cityHint.innerHTML = m === 'walk'
-      ? '<b>W A S D</b> walk · <b>mouse</b> look · <b>Shift</b> run · <b>F</b> fly · <b>Esc</b> map'
-      : '<b>W A S D</b> fly · <b>Q E</b> down / up · <b>mouse</b> look · <b>Shift</b> boost · <b>F</b> walk · <b>Esc</b> map';
-  }
-  if (!silent) showToast(m === 'walk' ? 'Walking' : 'Flying');
+  updateHint();
+  if (!silent) showToast(m === 'walk' ? 'Walking · F to fly' : 'Flying · F to walk');
+}
+
+function updateHint() {
+  if (!ui.cityHint) return;
+  const lock = NAV.locked
+    ? '<b>Esc</b> release mouse'
+    : '<b>click</b> to look · <b>drag</b> also works';
+  ui.cityHint.innerHTML = NAV.mode === 'walk'
+    ? `<b>W A S D</b> walk · <b>Shift</b> run · <b>F</b> fly · ${lock} · <b>Esc Esc</b> map`
+    : `<b>W A S D</b> fly · <b>Q E</b> down / up · <b>Shift</b> boost · <b>wheel</b> speed · <b>F</b> walk · ${lock} · <b>Esc Esc</b> map`;
+}
+
+/* A mouse movement in pixels becomes an absolute change in the target angle.
+   Captured and dragged looking are opposite conventions and both are right:
+   with the pointer locked the mouse IS the head, so right turns right; on a
+   drag the hand is on the world, so dragging right swings the view left. */
+function look(dx, dy) {
+  NAV.tYaw += dx * NAV.sens;
+  NAV.tPitch -= (NAV.invertY ? -dy : dy) * NAV.sens;
+  const lim = PITCH_LIMIT[NAV.mode];
+  NAV.tPitch = clamp(NAV.tPitch, -lim, lim);
 }
 
 function navUpdate(dt) {
   if (!NAV.active) return;
   const k = NAV.keys;
   const run = k.run ? 1 : 0;
-  const spd = NAV.mode === 'walk' ? (1.55 + run * 2.35) : (17 + run * 46);
+
+  // ---- look: chase the target on a fixed time constant, frame-rate free
+  const la = 1 - Math.exp(-dt / 0.028);
+  // take the shortest way round so a fast flick never spins the long way
+  let dy2 = NAV.tYaw - NAV.yaw;
+  while (dy2 > Math.PI) { dy2 -= Math.PI * 2; NAV.tYaw -= Math.PI * 2; }
+  while (dy2 < -Math.PI) { dy2 += Math.PI * 2; NAV.tYaw += Math.PI * 2; }
+  NAV.yaw += dy2 * la;
+  NAV.pitch += (NAV.tPitch - NAV.pitch) * la;
+
+  // ---- move
+  const walk = NAV.mode === 'walk';
+  const spd = walk ? NAV.walkSpeed * (1 + run * 1.55) : NAV.flySpeed * (1 + run * 2.6);
   const fwd = (k.f ? 1 : 0) - (k.b ? 1 : 0);
   const str = (k.r ? 1 : 0) - (k.l ? 1 : 0);
   const vert = (k.up ? 1 : 0) - (k.dn ? 1 : 0);
 
   const cy = Math.cos(NAV.yaw), sy = Math.sin(NAV.yaw);
   const cp = Math.cos(NAV.pitch), sp = Math.sin(NAV.pitch);
-  let dx, dy, dz;
-  if (NAV.mode === 'fly') {
-    dx = sy * cp * fwd + cy * str;
-    dy = sp * fwd + vert;
-    dz = cy * cp * fwd - sy * str;
-  } else {
-    dx = sy * fwd + cy * str;
-    dy = 0;
-    dz = cy * fwd - sy * str;
-  }
-  const l = Math.hypot(dx, dy, dz);
-  if (l > 0.0001) { dx /= l; dy /= l; dz /= l; }
-  const target = V.set(dx * spd, dy * spd, dz * spd);
-  const damp = NAV.mode === 'walk' ? 13.5 : 5.2;
-  NAV.vel.lerp(target, Math.min(1, dt * damp));
+  let dx, dyv, dz;
+  if (walk) { dx = sy * fwd + cy * str; dyv = 0; dz = cy * fwd - sy * str; }
+  else { dx = sy * cp * fwd + cy * str; dyv = sp * fwd + vert; dz = cy * cp * fwd - sy * str; }
+  const l = Math.hypot(dx, dyv, dz);
+  if (l > 0.0001) { dx /= l; dyv /= l; dz /= l; }
+  // stopping is quicker than starting: that is what makes a walk feel planted
+  const moving = l > 0.0001;
+  const tau = walk ? (moving ? 0.085 : 0.055) : (moving ? 0.20 : 0.32);
+  const ma = 1 - Math.exp(-dt / tau);
+  V.set(dx * spd, dyv * spd, dz * spd);
+  NAV.vel.lerp(V, ma);
+  if (NAV.vel.lengthSq() < 1e-6) NAV.vel.set(0, 0, 0);
 
   const px0 = NAV.pos.x, pz0 = NAV.pos.z;
   NAV.pos.addScaledVector(NAV.vel, dt);
 
-  if (NAV.mode === 'walk') {
+  if (walk) {
     const feet = NAV.pos.y - NAV.eye;
     const r = resolve(NAV.pos.x, NAV.pos.z, 0.42, feet);
     NAV.pos.x = r[0]; NAV.pos.z = r[1];
-    /* Belt and braces. Relaxation clears the plan to three points in 340k, all
-       of them where two footprints overlap at a corner; refusing any step that
-       still lands inside makes it impossible rather than merely unlikely. */
-    if (insideSolid(NAV.pos.x, NAV.pos.z, feet)) {
-      NAV.pos.x = px0; NAV.pos.z = pz0; NAV.vel.x *= 0.15; NAV.vel.z *= 0.15;
-    }
-    // you do not walk on water: if the step lands in a channel or a pool with
-    // no deck above it, it is refused
     for (let i = 0; i < WATERBODIES.length; i++) {
       const b = WATERBODIES[i];
       if (NAV.pos.x > b.x0 - 0.3 && NAV.pos.x < b.x1 + 0.3 && NAV.pos.z > b.z0 - 0.3 && NAV.pos.z < b.z1 + 0.3
@@ -752,15 +827,24 @@ function navUpdate(dt) {
         NAV.pos.x = px0; NAV.pos.z = pz0; NAV.vel.x *= 0.2; NAV.vel.z *= 0.2; break;
       }
     }
+    /* Belt and braces: relaxation clears the plan to three points in 340k, all
+       where two footprints overlap at a corner. Refusing any step that still
+       lands inside makes it impossible rather than merely unlikely. */
+    if (insideSolid(NAV.pos.x, NAV.pos.z, feet)) {
+      NAV.pos.x = px0; NAV.pos.z = pz0; NAV.vel.x *= 0.15; NAV.vel.z *= 0.15;
+    }
     const g = groundAt(NAV.pos.x, NAV.pos.z, NAV.pos.y - NAV.eye);
     NAV.groundY = g;
+    // the step up on to a kerb or a stair is eased; the drop off one is faster
     const want = g + NAV.eye;
-    NAV.pos.y += (want - NAV.pos.y) * Math.min(1, dt * 14);
-    const moving = Math.hypot(NAV.vel.x, NAV.vel.z);
-    NAV.bob += dt * moving * 2.15;
-    NAV.pos.y += Math.sin(NAV.bob * 2) * 0.021 * clamp(moving / 2, 0, 1);
+    const rise = want > NAV.pos.y;
+    NAV.pos.y += (want - NAV.pos.y) * (1 - Math.exp(-dt / (rise ? 0.075 : 0.13)));
+    const spdXZ = Math.hypot(NAV.vel.x, NAV.vel.z);
+    NAV.bobPhase += dt * spdXZ * 2.6;
+    const bobT = spdXZ > 0.15 ? Math.sin(NAV.bobPhase * 2) * 0.026 * clamp(spdXZ / 2.2, 0, 1.4) : 0;
+    NAV.bob += (bobT - NAV.bob) * (1 - Math.exp(-dt / 0.05));
+    NAV.pos.y += NAV.bob;
   } else {
-    // never let the flier sink through the ground
     const g = groundAt(NAV.pos.x, NAV.pos.z) + 1.1;
     if (NAV.pos.y < g) { NAV.pos.y = g; if (NAV.vel.y < 0) NAV.vel.y = 0; }
     NAV.pos.y = Math.min(NAV.pos.y, 620);
@@ -768,50 +852,76 @@ function navUpdate(dt) {
   const B = PLAN.bounds;
   NAV.pos.x = clamp(NAV.pos.x, B.x0 - 60, B.x1 + 60);
   NAV.pos.z = clamp(NAV.pos.z, B.z0 - 60, B.z1 + 60);
-
-  // damped look
-  NAV.yaw += NAV.yawV * dt; NAV.pitch += NAV.pitchV * dt;
-  NAV.yawV *= Math.pow(0.0008, dt); NAV.pitchV *= Math.pow(0.0008, dt);
-  NAV.pitch = clamp(NAV.pitch, -1.35, 1.35);
   syncCam();
 }
 
-/* --------------------------------------------------------------- input */
+/* ---------------------------------------------------------------- input */
 function onKeyDown(e) {
   if (!NAV.active) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   const a = KEYMAP[e.code];
-  if (a) { NAV.keys[a] = 1; e.preventDefault(); }
+  if (a) { NAV.keys[a] = 1; e.preventDefault(); return; }
   if (e.code === 'KeyF') { setMode(NAV.mode === 'fly' ? 'walk' : 'fly'); e.preventDefault(); }
+  if (e.code === 'KeyR') { NAV.tPitch = 0; e.preventDefault(); }          // level the horizon
 }
 function onKeyUp(e) {
   const a = KEYMAP[e.code];
-  if (a) { NAV.keys[a] = 0; }
+  if (a) NAV.keys[a] = 0;
 }
 addEventListener('keydown', onKeyDown);
 addEventListener('keyup', onKeyUp);
 addEventListener('blur', () => { NAV.keys = {}; });
 
-let dragging = false, lastX = 0, lastY = 0;
+let dragging = false, lastX = 0, lastY = 0, downT = 0, moved = 0;
 function onPointerDown(e) {
-  if (!NAV.active) return;
-  dragging = true; lastX = e.clientX; lastY = e.clientY;
-  if (!NAV.locked && renderer.domElement.requestPointerLock) {
-    try { renderer.domElement.requestPointerLock(); } catch (err) { }
-  }
+  if (!NAV.active || e.button !== 0) return;
+  dragging = true; lastX = e.clientX; lastY = e.clientY; downT = performance.now(); moved = 0;
 }
-function onPointerUp() { dragging = false; }
+function onPointerUp(e) {
+  if (!NAV.active) { dragging = false; return; }
+  // a click that did not drag asks for pointer lock; a drag was a look
+  if (dragging && moved < 5 && performance.now() - downT < 400 && !NAV.locked) {
+    if (renderer.domElement.requestPointerLock) {
+      try { renderer.domElement.requestPointerLock(); } catch (err) { }
+    }
+  }
+  dragging = false;
+}
 function onPointerMove(e) {
   if (!NAV.active) return;
-  let mx = 0, my = 0;
-  if (NAV.locked) { mx = e.movementX || 0; my = e.movementY || 0; }
-  else if (dragging) { mx = e.clientX - lastX; my = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; }
-  else return;
-  NAV.yawV += -mx * 0.085;
-  NAV.pitchV += -my * 0.085;
+  if (NAV.locked) { look(e.movementX || 0, e.movementY || 0); return; }
+  if (!dragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  moved += Math.abs(dx) + Math.abs(dy);
+  look(-dx, -dy);
+}
+function onWheel(e) {
+  if (!NAV.active) return;
+  e.preventDefault();
+  const f = Math.exp(-e.deltaY * 0.0012);
+  if (NAV.mode === 'fly') {
+    NAV.flySpeed = clamp(NAV.flySpeed * f, 2.5, 140);
+    showToast('Fly speed ' + NAV.flySpeed.toFixed(0) + ' m/s');
+  } else {
+    NAV.walkSpeed = clamp(NAV.walkSpeed * f, 0.6, 4.5);
+    showToast('Walk speed ' + NAV.walkSpeed.toFixed(1) + ' m/s');
+  }
 }
 document.addEventListener('pointerlockchange', () => {
   NAV.locked = document.pointerLockElement === renderer.domElement;
+  document.body.classList.toggle('mouse-locked', NAV.locked);
+  updateHint();
 });
+/* These were written and never attached, which is why looking around did
+   nothing at all. They live on the canvas for the press and on the window for
+   the release, so letting go outside the frame still ends a drag. */
+renderer.domElement.addEventListener('pointerdown', onPointerDown);
+addEventListener('pointerup', onPointerUp);
+addEventListener('pointermove', onPointerMove);
+renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
+renderer.domElement.addEventListener('contextmenu', (e) => { if (NAV.active) e.preventDefault(); });
+;
 
 /* ============================================================ TRANSITION ==
    One continuous move. The map camera dives into Al Khobar's light shaft, the

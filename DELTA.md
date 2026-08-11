@@ -87,3 +87,25 @@ synthetic but the same class of image, 4 = good hobby demo)
 
 Cheapest two implemented this round: the emissive-radiance fix (light transport)
 and the aerial fog/altitude fix (atmosphere & grade).
+
+---
+
+## Round 5 — the structural pass (all four frames)
+
+The first four rounds fixed placement, composition and construction bugs. This
+round went after the three things that made every frame read as a model rather
+than a place.
+
+| # | delta | what changed |
+|---|---|---|
+| 1 | **Every surface was a flat plane with a painted pattern.** The material modulated albedo and roughness only, so a wall of ashlar had no more relief than a wall of paint. This was the single largest tell in every frame. | The surface law now owns a real height field per class — recessed joints, proud blocks, brick beds, board grooves, travertine pores, flag edges, weave. It is sampled three times per fragment and its gradient bends the shading normal through a world-space triplanar frame. Albedo and roughness are derived from the same field, so the recesses are dark and matt exactly where they are recessed, and the relief fades out between 26 and 95 m so it never aliases. |
+| 2 | **Nothing touched anything.** Chairs floated on paving, piers met walls with no seam, a colonnade was a row of pale rectangles. | A depth-only ambient occlusion pass: the composer's own render target now carries a depth texture, the pass reconstructs view position and a normal from its derivatives and samples a golden-angle spiral with a per-pixel rotation. Sixteen samples, no blur, no second geometry pass. The darkening is tinted violet-warm, never grey. |
+| 3 | **Mouse look did nothing at all.** The pointer handlers were written and never attached, so the view could only be moved by the URL. Under them sat an impulse-into-angular-velocity model that would have drifted after the mouse stopped and changed sensitivity with frame rate. | Handlers attached. Look is now direct: a pixel is a fixed number of radians applied to a target angle the camera chases on a 28 ms constant. Measured: 200 px of drag gives 26.28° and 26.36° on two consecutive drags against an expected 26.36°, and the view drifts 0.07° in the 2.5 s after the mouse stops. Captured and dragged looking use opposite conventions, both correct. Wheel sets speed, R levels the horizon, and the build now syntax-checks the assembled module so a stray paren cannot ship. |
+| 4 | Tree crowns were smooth spheres — a silhouette the eye rejects instantly | 74 overlapping tilted leaf clumps on a lumpy shell; palm fronds grew leaflets, so their edge is a comb rather than a plank |
+| 5 | Figures were boxes | robes are stacks of eight-sided tapered drums with shoulders and a falling shemagh |
+| 6 | Shopfronts had nothing outside them | crates, cloth rails, A-boards and rolled mats on the pavement; stone drain channels in both gutters |
+| 7 | Paving flags were 1.2 m | 0.5–0.8 m, with the joint relief carrying them |
+
+Still open, in order: near-field dressing in the lowest third of every frame,
+seated groups and figures with swinging arms, cars on the boulevards, and
+geometric LOD.

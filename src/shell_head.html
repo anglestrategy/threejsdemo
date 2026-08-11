@@ -228,6 +228,12 @@ body.in-city #cityUI{opacity:1;pointer-events:auto;transform:none}
   text-shadow:0 1px 10px rgba(0,0,0,.7)}
 #cityHint b{color:rgba(255,220,170,.92);font-weight:600;letter-spacing:.06em}
 body.in-city #cityHint{opacity:1;transform:translateX(-50%)}
+#reticle{position:fixed;left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;z-index:40;
+  border-radius:50%;background:rgba(255,232,200,.55);box-shadow:0 0 0 1px rgba(0,0,0,.35),0 0 8px rgba(255,200,140,.5);
+  opacity:0;transition:opacity .3s ease;pointer-events:none}
+body.in-city.mouse-locked #reticle{opacity:1}
+body.in-city:not(.mouse-locked) #app{cursor:grab}
+body.in-city.mouse-locked #app{cursor:none}
 #cityPlate{position:fixed;left:26px;top:24px;z-index:41;opacity:0;transform:translateY(-8px);
   transition:opacity .7s ease .25s,transform .7s ease .25s;pointer-events:none;
   text-shadow:0 2px 18px rgba(0,0,0,.75)}
@@ -278,6 +284,7 @@ body.in-city #tag{opacity:.35}
   <button id="cityToggle" type="button"><i></i><b id="cityModeLabel">FLY</b></button>
 </div>
 <div id="cityHint"></div>
+<div id="reticle"></div>
 <div id="cityPlate">
   <div class="cp-ar" dir="rtl" lang="ar">وسط مدينة الخبر</div>
   <div class="cp-en">Downtown Al Khobar</div>
