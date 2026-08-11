@@ -7,7 +7,7 @@
    Local frame: metres, origin at the centre of the canopy plaza, +Z north,
    +X east. The sun is low in the west-south-west, the hour is gold-into-blue.
    ========================================================================== */
-const CITY = (function buildDowntownModule() {
+const CITY = await (async function buildDowntownModule() {
 
 /* ------------------------------------------------------------------ seeds */
 const DRNG = mulberry32(SEED ^ 0x5d0c17);
@@ -134,6 +134,10 @@ const G_CYLT = (function () { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 
 const G_CYL6 = (function () { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 6, 1); g.translate(0, 0.5, 0); return g; })();
 const G_PLANE = (function () { const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI / 2); return g; })();
 const G_SPH = new THREE.SphereGeometry(0.5, 8, 5);
+/* the roof planting is four thousand instances of scenery seen from an aerial
+   shot and never from closer. At 64 triangles a blob it was the single largest
+   triangle bill in the district — larger than every tree put together. */
+const G_SPHL = new THREE.SphereGeometry(0.5, 5, 3);
 const G_CONE = (function () { const g = new THREE.ConeGeometry(0.5, 1, 10); g.translate(0, 0.5, 0); return g; })();
 
 // tapered box (battered walls, watchtowers): top scale relative to bottom
@@ -176,6 +180,46 @@ const TEX = {};
     TEX[k] = { diff: d, nrm: n, mean: TEXPACK[k].mean };
   }
 })();
+
+/* ================================================ PHOTOGRAMMETRY KIT ==
+   Four CC0 scans from Poly Haven, reduced offline by `gen_models.py` and
+   carried inline as GLB. Nothing procedural gets a tree right: bark is not a
+   noise function and a canopy is not a set of tilted planes, and at three
+   metres the difference is the whole illusion.
+
+   Each asset ships one or two levels of detail as separate meshes in the same
+   GLB, sharing the same textures. Which one an instance gets is decided when
+   the district is built, from its distance to the nearest composed viewpoint,
+   so nothing ever pops.                                                    */
+/* every material that wants the irradiance field registers here, so the bake
+   binds one set of textures to all of them */
+const PROBE_MATS = [];
+const MODELPACK = /*@MODELS@*/;
+const MODELS = {};
+{
+  const gl = new GLTFLoader();
+  for (const key in MODELPACK) {
+    const rec = MODELPACK[key];
+    const bin = atob(rec.glb);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    let gltf = null;
+    try {
+      gltf = await gl.parseAsync(u8.buffer, '');
+    } catch (e) { console.warn('model ' + key + ' failed', e); continue; }
+    const lods = [];
+    for (const node of gltf.scene.children) {
+      if (!/^LOD/.test(node.name)) continue;
+      const parts = [];
+      node.traverse((o) => { if (o.isMesh) parts.push({ geo: o.geometry, src: o.material }); });
+      lods[+node.name.slice(3)] = parts;
+    }
+    MODELS[key] = {
+      lods: lods.filter(Boolean), height: rec.height, base: rec.base,
+      radius: rec.radius, credit: rec.credit,
+    };
+  }
+}
 
 /* ================================================= IRRADIANCE PROBES ==
    The difference between "lit by three lights" and "rendered" is that in a
@@ -310,12 +354,15 @@ function bakeProbes() {
   PROBE.sky = mk(skyData);
   PROBE.gnd = mk(gndData);
   INSTCOUNT.probes = nx * nz * ny;
-  cityMat.userData.u.uProbeSky.value = PROBE.sky;
-  cityMat.userData.u.uProbeGnd.value = PROBE.gnd;
-  cityMat.userData.u.uProbeOrg.value.set(PROBE.x0, PROBE.y0, PROBE.z0);
-  cityMat.userData.u.uProbeStp.value.set(PROBE.step, PROBE.ystep, PROBE.step);
-  cityMat.userData.u.uProbeDim.value.set(nx, nz, ny);
-  cityMat.userData.u.uProbeOn.value = 1;
+  for (const m of PROBE_MATS) {
+    const u = m.userData.u;
+    u.uProbeSky.value = PROBE.sky;
+    u.uProbeGnd.value = PROBE.gnd;
+    u.uProbeOrg.value.set(PROBE.x0, PROBE.y0, PROBE.z0);
+    u.uProbeStp.value.set(PROBE.step, PROBE.ystep, PROBE.step);
+    u.uProbeDim.value.set(nx, nz, ny);
+    u.uProbeOn.value = 1;
+  }
 }
 
 /* ========================================================== MASTERPLAN ==
@@ -751,6 +798,77 @@ function makeCityMaterial() {
       }`);
   };
   mat.customProgramCacheKey = () => 'citysurf';
+  PROBE_MATS.push(mat);
+  return mat;
+}
+
+/* Materials for the scanned assets. They already carry their own albedo,
+   normal and roughness, so none of the triplanar law applies — but they still
+   have to stand in the same light as everything else, which means the probe
+   field, and foliage still has to move, which means the wind term. Leaves are
+   masked rather than blended: an alpha-sorted leaf card is a leaf card that
+   flickers as you walk past it. */
+function makeModelMaterial(src, foliage) {
+  const mat = new THREE.MeshStandardMaterial({
+    map: src.map || null, normalMap: foliage ? null : (src.normalMap || null),
+    roughnessMap: foliage ? null : (src.roughnessMap || null),
+    aoMap: foliage ? null : (src.aoMap || null),
+    color: 0xffffff, roughness: foliage ? 0.88 : 0.94, metalness: 0.0,
+    side: THREE.DoubleSide, envMapIntensity: 1.0, fog: true,
+    transparent: false,
+    alphaTest: src.alphaTest > 0 ? src.alphaTest : (foliage && src.map ? 0.42 : 0),
+  });
+  if (mat.map) mat.map.anisotropy = 8;
+  mat.userData.u = {
+    uTime: { value: 0 }, uWind: { value: new THREE.Vector2(0.85, 0.32) },
+    uSway: { value: foliage ? 1 : 0 },
+    uProbeSky: { value: null }, uProbeGnd: { value: null },
+    uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
+    uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
+    uProbeInt: { value: 1.05 },
+  };
+  mat.onBeforeCompile = (sh) => {
+    for (const k in mat.userData.u) sh.uniforms[k] = mat.userData.u[k];
+    sh.vertexShader = `uniform float uTime, uSway; uniform vec2 uWind; varying vec3 vMWP;
+      float mwh(vec3 p){ return fract(sin(dot(p,vec3(12.99,78.23,37.71)))*43758.5453); }\n` +
+      sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        if (uSway > 0.5) {
+          vec3 anchor = vec3(0.0);
+          #ifdef USE_INSTANCING
+            anchor = instanceMatrix[3].xyz;
+          #endif
+          /* the sway rises with height above the instance's own base and with
+             distance from its trunk, so the bole stays put and the outer crown
+             is what moves — which is what a tree actually does */
+          float lift = max(position.y, 0.0);
+          float out2 = length(position.xz);
+          float ph = mwh(floor(anchor * 0.7) + vec3(3.1));
+          float amp = 0.020 * lift + 0.014 * out2;
+          float g = sin(uTime * 1.15 + ph * 62.8) * 0.6 + sin(uTime * 2.4 + ph * 31.4) * 0.4;
+          float gust = 0.62 + 0.38 * sin(uTime * 0.29 + ph * 12.0);
+          transformed.x += uWind.x * amp * g * gust;
+          transformed.z += uWind.y * amp * g * gust;
+          transformed.y -= abs(g) * amp * 0.20;
+        }
+        vMWP = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+    sh.fragmentShader = `varying vec3 vMWP;
+      uniform sampler3D uProbeSky, uProbeGnd;
+      uniform vec3 uProbeOrg, uProbeStp, uProbeDim;
+      uniform float uProbeOn, uProbeInt;\n` +
+      sh.fragmentShader.replace('#include <lights_fragment_begin>', `#include <lights_fragment_begin>
+      if (uProbeOn > 0.5) {
+        vec3 pc = (vMWP - uProbeOrg) / uProbeStp;
+        pc = vec3(pc.x, pc.z, pc.y);
+        vec3 uvw3 = clamp((pc + 0.5) / uProbeDim, 0.5 / uProbeDim, 1.0 - 0.5 / uProbeDim);
+        vec3 psky = pow(texture(uProbeSky, uvw3).rgb, vec3(2.2));
+        vec3 pgnd = pow(texture(uProbeGnd, uvw3).rgb, vec3(2.2));
+        vec3 wN = normalize(vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]));
+        float upW = clamp(dot(normal, wN) * 0.5 + 0.5, 0.0, 1.0);
+        irradiance += mix(pgnd, psky, upW) * uProbeInt;
+      }`);
+  };
+  mat.customProgramCacheKey = () => 'citymodel' + (foliage ? 'f' : 's');
+  PROBE_MATS.push(mat);
   return mat;
 }
 
@@ -1332,7 +1450,7 @@ function update(dt, t) {
   if (sceneState === 'city') {
     navUpdate(dt);
     citySkyMat.uniforms.uTime.value = t;
-    cityMat.userData.u.uTime.value = t;
+    for (const m of PROBE_MATS) m.userData.u.uTime.value = t;
     citySky.position.copy(cityCam.position);
     fitShadow(cityCam.position);
     updatePracticals(cityCam.position);

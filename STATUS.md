@@ -15,7 +15,9 @@ Durable working memory. Deliverable: `living-map-v2.html` (single file, runs fro
 | `src/vendor_mods.json` | three.js r185 + addons, base64, untouched |
 | `src/images.json` | the four embedded SDC renders |
 | `work/relief.json` | baked real DEM (PNG data-URI) |
+| `work/models.json` | the four reduced CC0 scans, one base64 GLB each |
 | `build.py` · `gen_map.py` · `gen_relief.py` | assemble · regenerate MAP · bake relief |
+| `gen_textures.py` · `gen_models.py` · `gen_modelview.py` | pack detail textures · reduce and repack the scans · contact-sheet the scans |
 | `shot.mjs` | headless screenshot harness (Playwright + chromium) |
 | `tests/dive_test.mjs` · `tests/walk_test.mjs` · `tests/sweep_test.mjs` · `tests/controls_test.mjs` | transition, walk, collision-sweep and look-model gates — `node tests/<name>.mjs` |
 | `refs/` | the four renders as PNG + the relief truth image |
@@ -57,14 +59,18 @@ Yaw 0 = looking toward +Z in both scenes, so a pose is portable.
 | p2 | dive in/out ×3 | no state corruption; return pose identical to departure pose; panel keeps both photos; hover/click/legend intact |
 | p2 | collision sweep | 337,448 resolved steps over the whole plan, 3 residual corner leaks (0.0009%), now impossible — a step that still lands inside is refused |
 | p2 | walk probe | 244 samples, 0 inside a building, 0 floating off the ground |
-| p6 | file size | 3.12 MB |
+| p7 | file size | 5.23 MB |
 | p6 | app source | 6,158 lines / 469 KB |
 | p6 | boot to `__ready` (map only, headless swiftshader) | ~3.3 s |
 | p6 | district build (blocking, headless) | ~2.2 s, hidden inside the 3.35 s dive veil |
 | p6 | draw calls / triangles, souq eye-level | 208 / 5.12 M |
 | p7 | look model | 200 px drag → 26.28° / 26.36° (expected 26.36°); drift after 2.5 s = 0.07° |
 | p6 | draw calls / triangles, aerial masterplan | 370 / 5.80 M |
-| p6 | colliders / platforms / walkers / string bulbs | 464 / 15 / 108 / ~250 |
+| p6 | colliders / platforms / walkers / string bulbs | 468 / 15 / 108 / ~250 |
+| p7 | scanned plants | `island_tree_01` 1,599,403 -> 9,200 / 3,200 tris · `quiver_tree_01` 3,599 / 1,199 · `shrub_02` 3,242 / 704 · `potted_plant_01` 1,493 |
+| p7 | hero trees / fabric trees | 68 near-field at 9,200 · 538 at 3,200 |
+| p7 | instanced triangles, aerial | 5.37 M in 73 instanced meshes (was 4.68 M in 58, with procedural plants) |
+| p7 | `roofbush` | 4,029 x 80 tris = 322 k (was 4,133 x 448 = 1.85 M) |
 | p6 | canopy panels | 1,084 folded triangles + fascia + frame + 3-armed columns |
 
 Frame rate is not measurable in this container — see DEVIATIONS 1. The numbers
@@ -78,6 +84,10 @@ optimisation, is geometric LOD for the background fabric: at eye level the whole
 |---|---|---|---|
 | `clay_plaster` (diff, nor_gl, arm) | [Poly Haven](https://polyhaven.com/a/clay_plaster) | CC0 | the photographic micro band on every mineral surface |
 | `dark_wooden_planks` (diff, nor_gl, arm) | [Poly Haven](https://polyhaven.com/a/dark_wooden_planks) | CC0 | the same band on timber |
+| `island_tree_01` (model) | [Poly Haven](https://polyhaven.com/a/island_tree_01) | CC0 | the shade tree and the roof tree |
+| `quiver_tree_01` (model) | [Poly Haven](https://polyhaven.com/a/quiver_tree_01) | CC0 | the courtyard accent and the yucca |
+| `shrub_02` (model) | [Poly Haven](https://polyhaven.com/a/shrub_02) | CC0 | massed low planting in the near field |
+| `potted_plant_01` (model) | [Poly Haven](https://polyhaven.com/a/potted_plant_01) | CC0 | the potted planting at cafes and the majlis |
 
 Both are downscaled to 512, repacked (normal in RG, roughness in B) and embedded
 as data URIs by `gen_textures.py` — 265 KB of base64 for the pair. CC0 needs no
@@ -142,7 +152,8 @@ Local metres, origin at the canopy plaza, +Z north, +X east, sun 11° WSW.
 
 ## Known open items (ranked, for the next session)
 
-1. Geometric LOD for the background fabric — the only remaining real frame-cost lever.
+1. Geometric LOD for the *built* fabric — the vegetation now has it (build-time, distance to the
+   walkable core); the buildings do not.
 2. Near-field dressing in the first 8 m of every bookmark (litter, drain lines,
    A-boards, spilled seating); this is the largest remaining visual delta.
 3. Figures: swinging arms, and groups standing in twos and threes rather than singles.

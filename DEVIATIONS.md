@@ -67,3 +67,16 @@ instanced, every merged quarter is re-indexed into 104 m tiles that share vertex
 camera and the shadow camera can discard most of them, the shadow box is 108 m at 2048, and the
 pixel ratio is capped at 2. LOD for the background fabric is the documented next step; it could
 not be validated here because the container has no GPU (see 1).
+
+## 7. No CC0 palm, and no usable CC0 people
+
+**Spec:** real models for vegetation *and* people.
+
+**Built:** vegetation, yes — four Poly Haven scans (§ DELTA round 7). Palms and people, no.
+
+**Reason:** Poly Haven's 521-model CC0 catalogue contains no palm of any species, and no human
+figure at all. The palm is the signature planting of this district, so it stays procedural — it
+is the one plant where the geometric version was always going to be the closest match, because a
+frond *is* a rachis with leaflets on it. For people, the CC0 options are stylised low-poly
+character packs; dropping game-jam figures into a photographic street would cost more than the
+drums it replaced. The figures remain procedural and are logged as open item 3.

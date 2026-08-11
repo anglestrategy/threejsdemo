@@ -208,9 +208,19 @@ function defineKit() {
         col: i % 2 ? K.leaf : K.leafDk, surf: S.FOLIAGE, shade: 0.68 + 0.05 * i,
       });
     }
-    defInst('roofbush', combine(L));
     defInst('potbush', combine(L));
     defInst('shrub', combine(L));
+    // the roof version is the same shape at a fifth of the triangles
+    const R = [];
+    for (let i = 0; i < 4; i++) {
+      const ang = i / 4 * 6.283;
+      const rad = 0.32 + (i % 2) * 0.22;
+      R.push({
+        geo: G_SPHL, mtx: xf3(Math.sin(ang) * rad, 0.30 + (i % 3) * 0.16, Math.cos(ang) * rad, 0, 0, 0, 0.86, 0.62, 0.86),
+        col: i % 2 ? K.leaf : K.leafDk, surf: S.FOLIAGE, shade: 0.70 + 0.06 * i,
+      });
+    }
+    defInst('roofbush', combine(R));
   }
   /* ---- yucca / desert palm in a pot --------------------------------- */
   {
@@ -597,4 +607,16 @@ function defineKit() {
     }
     defInst('ribbon', combine(L), { shadow: false });
   }
+
+  /* ---------------------------------------------- the scanned substitutes *
+     Handing four of the procedural parts over to the photogrammetry kit. The
+     target heights are the heights the procedural versions were authored at,
+     so every existing placement, scale and pivot still reads correctly — the
+     avenue spacing, the courtyard beds and the roof gardens are unchanged. */
+  routeModel('tree', 'island_tree_01', 6.2, { near: 62 });
+  routeModel('rooftree', 'island_tree_01', 4.1, { near: 0 });
+  routeModel('shrub', 'shrub_02', 1.55, { near: 52 });
+  routeModel('olive', 'quiver_tree_01', 2.6, { near: 999 });
+  routeModel('yucca', 'quiver_tree_01', 2.3, { near: 999 });
+  routeModel('potbush', 'potted_plant_01', 1.05, { near: 999 });
 }

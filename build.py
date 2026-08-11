@@ -42,6 +42,9 @@ if '/*@TEXTURES@*/' in main:
 if '/*@RELIEF@*/' in main:
     main = main.replace('/*@RELIEF@*/', open(p('work/relief.json'), encoding='utf-8').read().strip())
 
+if '/*@MODELS@*/' in main:
+    main = main.replace('/*@MODELS@*/', open(p('work/models.json'), encoding='utf-8').read().strip())
+
 # syntax-check the assembled module before it ships: a stray paren in a
 # 6000-line file is otherwise only discovered by loading the page
 import subprocess, tempfile

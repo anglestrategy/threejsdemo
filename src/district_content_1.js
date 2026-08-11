@@ -25,7 +25,81 @@ const SHOPEMIS = new Acc();   // the lit rooms behind the shopfronts
 const INST = {};
 const INST_DEF = {};
 function defInst(name, geo, opts) { INST_DEF[name] = Object.assign({ geo }, opts || {}); }
+
+/* ------------------------------------------------- scanned-asset routing *
+   A kit name can be handed over to one of the photogrammetry models. The call
+   sites do not change: they still ask for a `tree` at a matrix, and the router
+   substitutes the scan, fits it to the height the procedural part assumed, and
+   picks a level of detail from how close the instance stands to a composed
+   viewpoint. Everything the district plants is therefore either near enough to
+   deserve nine thousand triangles or far enough not to.                     */
+const MODEL_ROUTE = {};
+/* the near field is not the five bookmarks — it is everywhere you can stand:
+   the canopy plaza, the souq spine end to end, the colonnade court and the
+   majlis terrace. Anything planted along those gets the full scan. */
+const NEARFIELD = (function () {
+  const p = [[0, 0], [21, -44], [-40, -30], [40, -20], [150, 235], [-224, 198],
+  [-200, 150], [-250, 230], [258, 374], [-120, -60]];
+  for (let z = 80; z <= 370; z += 34) p.push([4 + (z > 250 ? 26 : 0), z]);
+  return p;
+})();
+const _fitM = new THREE.Matrix4(), _routeM = new THREE.Matrix4(), _routeP = new THREE.Vector3();
+
+function routeModel(kit, model, targetH, opts) {
+  const M = MODELS[model];
+  if (!M || !M.lods.length) return false;
+  opts = opts || {};
+  const parts = [];
+  for (let li = 0; li < M.lods.length; li++) {
+    const k = targetH / Math.max(0.01, M.height);
+    const fit = new THREE.Matrix4()
+      .makeScale(k, k, k)
+      .multiply(new THREE.Matrix4().makeTranslation(0, -(M.base || 0), 0));
+    const names = [];
+    M.lods[li].forEach((p, pi) => {
+      const nm = 'm:' + model + ':' + li + ':' + pi;
+      if (!INST_DEF[nm]) {
+        const leafy = p.src.alphaTest > 0 || /leaf|leaves|shrub|foliage|plant/i.test(p.src.name || '');
+        defInst(nm, p.geo, {
+          mat: makeModelMaterial(p.src, leafy),
+          shadow: opts.shadow !== false, receive: true,
+        });
+      }
+      names.push(nm);
+    });
+    parts.push({ fit, names });
+  }
+  MODEL_ROUTE[kit] = { parts, near: opts.near === undefined ? 62 : opts.near, jitter: opts.jitter !== false };
+  return true;
+}
+
+function modelLOD(r, x, z) {
+  if (r.parts.length < 2) return 0;
+  let best = 1e9;
+  for (const p of NEARFIELD) {
+    const d = (x - p[0]) * (x - p[0]) + (z - p[1]) * (z - p[1]);
+    if (d < best) best = d;
+  }
+  return best <= r.near * r.near ? 0 : r.parts.length - 1;
+}
+
 function inst(name, mtx, colour) {
+  const r = MODEL_ROUTE[name];
+  if (r) {
+    _routeP.setFromMatrixPosition(mtx);
+    const lv = r.parts[modelLOD(r, _routeP.x, _routeP.z)];
+    // the scans are one plant each; without a per-instance tint an avenue of
+    // them reads as a photocopy. A few percent of warmth either way is enough.
+    let c = 0xffffff;
+    if (r.jitter) {
+      const j = 0.90 + 0.16 * DRNG();
+      c = (Math.min(255, (255 * j) | 0) << 16) | (Math.min(255, (255 * (j * 0.99 + 0.01)) | 0) << 8)
+        | Math.min(255, (255 * (j * 0.94 + 0.05)) | 0);
+    }
+    _fitM.multiplyMatrices(mtx, lv.fit);
+    for (const nm of lv.names) inst(nm, _fitM.clone(), c);
+    return;
+  }
   let e = INST[name];
   if (!e) e = INST[name] = { m: [], c: [] };
   e.m.push(mtx);
@@ -37,6 +111,7 @@ function flushInstances() {
     if (!def || !e.m.length) continue;
     const mat = def.mat || cityMat;
     const im = new THREE.InstancedMesh(def.geo, mat, e.m.length);
+    im.name = name;
     for (let i = 0; i < e.m.length; i++) {
       im.setMatrixAt(i, e.m[i]);
       _c3.set(e.c[i]); im.setColorAt(i, _c3);
