@@ -29,7 +29,12 @@ if '/*@IMAGES@*/' not in main:
 main = main.replace('/*@IMAGES@*/', images)
 
 if '/*@DISTRICT@*/' in main:
-    main = main.replace('/*@DISTRICT@*/', open(p('src/district.js'), encoding='utf-8').read())
+    d = open(p('src/district.js'), encoding='utf-8').read()
+    if '/*@DISTRICT_CONTENT@*/' in d:
+        parts = sorted(f for f in os.listdir(p('src')) if f.startswith('district_content'))
+        d = d.replace('/*@DISTRICT_CONTENT@*/',
+                      '\n'.join(open(p('src', f), encoding='utf-8').read() for f in parts))
+    main = main.replace('/*@DISTRICT@*/', d)
 
 if '/*@RELIEF@*/' in main:
     main = main.replace('/*@RELIEF@*/', open(p('work/relief.json'), encoding='utf-8').read().strip())

@@ -1737,12 +1737,14 @@ const clouds = [];
 
 /* ========================================================= 12. POSTPROCESS */
 const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
 /* Bloom law taken from the gold-standard worlds: LOW strength, HIGH threshold —
    only genuinely over-bright pixels bloom, and they bloom gently. The previous
    0.58 / 0.70 pair (a low threshold with high strength) is what smeared the
    beacons into white. */
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.40, 0.62, 1.02);
+const BLOOM_MAP = { s: 0.40, r: 0.62, t: 1.02 };
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), BLOOM_MAP.s, BLOOM_MAP.r, BLOOM_MAP.t);
 composer.addPass(bloom);
 
 const GradeShader = {
@@ -1750,11 +1752,16 @@ const GradeShader = {
     tDiffuse: { value: null }, uTime: { value: 0 },
     uVig: { value: 0.92 }, uDim: { value: 0 },
     uRes: { value: new THREE.Vector2(1, 1) },
+    uVeil: { value: 0 }, uCity: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTime,uVig,uDim; uniform vec2 uRes;
+    uniform sampler2D tDiffuse; uniform float uTime,uVig,uDim,uVeil,uCity; uniform vec2 uRes;
     varying vec2 vUv;
+    float vh(vec2 p){ return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453); }
+    float vnz(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+      return mix(mix(vh(i),vh(i+vec2(1,0)),f.x),mix(vh(i+vec2(0,1)),vh(i+vec2(1,1)),f.x),f.y); }
+    float vfb(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<4;i++){ s+=a*vnz(p); p*=2.07; a*=0.53; } return s; }
     void main(){
       vec2 uv = vUv;
       vec2 d = uv-0.5;
@@ -1765,10 +1772,12 @@ const GradeShader = {
       c.r = texture2D(tDiffuse, uv - d*ca).r;
       c.g = texture2D(tDiffuse, uv).g;
       c.b = texture2D(tDiffuse, uv + d*ca).b;
-      // split tone: cool shadows, warm highlights
+      // split tone: cool shadows, warm highlights. The district grade lifts
+      // the warm end further and lets the shadows go violet rather than grey.
       float l = dot(c, vec3(0.2126,0.7152,0.0722));
-      c += vec3(-0.010,0.002,0.030)*(1.0-smoothstep(0.0,0.28,l));
-      c += vec3(0.028,0.008,-0.014)*smoothstep(0.35,1.0,l);
+      c += mix(vec3(-0.010,0.002,0.030), vec3(0.004,-0.004,0.040), uCity)*(1.0-smoothstep(0.0,0.28,l));
+      c += mix(vec3(0.028,0.008,-0.014), vec3(0.048,0.018,-0.020), uCity)*smoothstep(0.35,1.0,l);
+      c = mix(c, c*vec3(1.035,1.005,0.955), uCity);
       // vignette
       float v = smoothstep(1.16, uVig*0.36, r*1.32);
       c *= mix(0.60, 1.0, v);
@@ -1776,6 +1785,19 @@ const GradeShader = {
       // fine grain keeps the gradients from banding
       float g = fract(sin(dot(uv*uRes+uTime, vec2(12.9898,78.233)))*43758.5453);
       c += (g-0.5)*0.0075;
+      /* the dive veil: the beacon's own glare, thickened into a moving mist.
+         It is a warm sheet with structure, not a white fade — the district is
+         built behind it. */
+      if (uVeil > 0.001) {
+        float m = vfb(uv*vec2(3.1,2.2) + vec2(uTime*0.10, -uTime*0.16));
+        float m2 = vfb(uv*vec2(7.5,5.4) - vec2(uTime*0.22, uTime*0.07));
+        float rad = 1.0 - smoothstep(0.02, 0.78, r);
+        float body = clamp(uVeil*1.28 - 0.10, 0.0, 1.0);
+        float dens = clamp(body*(0.52 + 0.72*rad) + (m*0.55 + m2*0.34 - 0.34)*body*1.25, 0.0, 1.0);
+        vec3 mist = mix(vec3(1.00,0.86,0.66), vec3(1.0,0.97,0.92), dens);
+        c = mix(c, mist, dens);
+        c += vec3(0.34,0.22,0.10)*pow(body,2.0)*rad;
+      }
       gl_FragColor = vec4(c,1.0);
     }`,
 };
@@ -1832,6 +1854,10 @@ const ui = {
   scrim: document.getElementById('scrim'),
   toast: document.getElementById('toast'),
   legend: document.getElementById('legend'),
+  cityMode: document.getElementById('cityModeLabel'),
+  cityHint: document.getElementById('cityHint'),
+  cityBack: document.getElementById('cityBack'),
+  cityToggle: document.getElementById('cityToggle'),
 };
 
 const RENDERS = {
@@ -1868,6 +1894,7 @@ function buildPanel(c) {
     html += `</div>`;
     html += `<div class="p-story">${c.story}</div>`;
     html += `<div class="p-meta"><div><span>DISTRICT</span><b>Downtown ${c.name}</b></div><div><span>STATUS</span><b class="live">Lights on</b></div></div>`;
+    if (c.name === ENTERABLE) html += `<button class="p-enter" id="enterBtn">Enter the Downtown</button>`;
     html += `<button class="p-cta" id="ctaBtn">Register Your Interest</button>`;
   } else {
     html += `<div class="p-plate"><div class="p-plate-ar" dir="rtl" lang="ar">${c.ar}</div>` +
@@ -1885,6 +1912,8 @@ function buildPanel(c) {
   ui.panel.querySelector('.p-close').addEventListener('click', closeCity);
   ui.panel.querySelector('#backLink').addEventListener('click', (e) => { e.preventDefault(); closeCity(); });
   ui.panel.querySelector('#ctaBtn').addEventListener('click', () => showToast());
+  const eb = ui.panel.querySelector('#enterBtn');
+  if (eb) eb.addEventListener('click', () => enterDowntown());
 }
 
 let toastTimer = 0;
@@ -1957,7 +1986,22 @@ function closeCity() {
   ui.toast.classList.remove('show');
 }
 ui.scrim.addEventListener('click', closeCity);
-addEventListener('keydown', (e) => { if (e.key === 'Escape' && activeCity) closeCity(); });
+const ENTERABLE = 'Al Khobar';
+function enterDowntown() {
+  if (!SCENES.city) return;
+  CITY_RETURN.pos.copy(camera.position); CITY_RETURN.tgt.copy(controls.target);
+  document.body.classList.remove('panel-open');
+  activeCity = null; dimTarget = 0;
+  CITIES.forEach(x => x.labelEl.classList.remove('muted'));
+  ui.toast.classList.remove('show');
+  SCENES.city.enter({});
+}
+window.__enterDowntown = enterDowntown;
+addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (sceneState === 'city') { if (!document.pointerLockElement) SCENES.city.exit(); return; }
+  if (activeCity) closeCity();
+});
 
 window.__openCity = (n) => openCity(n);
 window.__flyTo = (n) => { const c = CITIES.find(x => x.name === n); if (c) { const s = cityShot(c, false); flyTo(s.pos, s.tgt, 1200); } };
@@ -1971,11 +2015,11 @@ window.__cam = (p, t, d) => flyTo(new THREE.Vector3(p[0], p[1], p[2]), new THREE
    printer and a hidden counter HUD. Everything a headless shot needs.      */
 const SHOTS = [
   { id: 1, name: 'map poster', scene: 'map', pos: [-72, 66, 206], tgt: [4, 3, -6] },
-  { id: 2, name: 'canopy hero', scene: 'city', pos: [26, 6.2, 128], yaw: 178.5, pitch: 7.5, mode: 'fly' },
-  { id: 3, name: 'souq eye-level', scene: 'city', pos: [-6.5, 1.68, 236], yaw: 183.0, pitch: 1.5, mode: 'walk' },
-  { id: 4, name: 'majlis terrace', scene: 'city', pos: [156, 15.6, 250], yaw: 250.0, pitch: -3.0, mode: 'walk' },
-  { id: 5, name: 'courtyard pool', scene: 'city', pos: [-196, 1.68, 132], yaw: 4.0, pitch: 4.5, mode: 'walk' },
-  { id: 6, name: 'aerial masterplan', scene: 'city', pos: [352, 268, 700], yaw: 205.0, pitch: -19.5, mode: 'fly' },
+  { id: 2, name: 'canopy hero', scene: 'city', pos: [21, 5.4, -44], yaw: 4, pitch: 7.5, mode: 'fly' },
+  { id: 3, name: 'souq eye-level', scene: 'city', pos: [4, 1.68, 178], yaw: 0, pitch: 3, mode: 'walk' },
+  { id: 4, name: 'majlis terrace', scene: 'city', pos: [150, 14.3, 235], yaw: 28, pitch: -1, mode: 'walk' },
+  { id: 5, name: 'courtyard pool', scene: 'city', pos: [-224, 1.68, 198], yaw: -14, pitch: 5, mode: 'walk' },
+  { id: 6, name: 'aerial masterplan', scene: 'city', pos: [258, 168, -228], yaw: -44, pitch: -25, mode: 'fly' },
 ];
 const SHOT_BY_ID = {}; for (const s of SHOTS) SHOT_BY_ID[s.id] = s;
 
@@ -2001,6 +2045,9 @@ function mapPoseOf() {
    is the only scene and city shots resolve to the Al Khobar approach.      */
 const SCENES = { map: { name: 'map' } };
 let sceneState = 'map';
+/* where the map camera was standing when the visitor dived, so the way back
+   returns to exactly the frame they left */
+const CITY_RETURN = { pos: new THREE.Vector3(), tgt: new THREE.Vector3() };
 
 function goShot(id, instant) {
   const s = SHOT_BY_ID[id];
@@ -2066,6 +2113,11 @@ const hud = (function () {
   };
 })();
 window.__hud = hud;
+window.__scenes = SCENES;
+ui.cityBack.addEventListener('click', () => { if (SCENES.city) SCENES.city.exit(); });
+ui.cityToggle.addEventListener('click', () => {
+  if (SCENES.city) SCENES.city.setMode(SCENES.city.nav.mode === 'fly' ? 'walk' : 'fly');
+});
 
 /* ------------------------------------------------------------------- hover */
 const raycaster = new THREE.Raycaster();
@@ -2104,7 +2156,12 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   ptr.y = -(e.clientY / innerHeight) * 2 + 1;
   raycaster.setFromCamera(ptr, camera);
   const hit = raycaster.intersectObjects(pickables, false)[0];
-  if (hit) openCity(hit.object.userData.city.name);
+  if (!hit) return;
+  const name = hit.object.userData.city.name;
+  /* the destination city dives on the second click — the first still opens the
+     panel, so the renders and the story are never skipped past */
+  if (name === ENTERABLE && activeCity && activeCity.name === name) enterDowntown();
+  else openCity(name);
 });
 renderer.domElement.addEventListener('wheel', markIdle, { passive: true });
 
@@ -2186,13 +2243,16 @@ function animate() {
     camera.position.copy(controls.target).add(off);
   }
 
+  if (SCENES.city) SCENES.city.update(dt, t);
+  const onMap = sceneState === 'map' && !(SCENES.city && SCENES.city.diving);
+
   // clamp pan to the map
-  if (!qaFree) {
+  if (onMap && !qaFree) {
     controls.target.x = clamp(controls.target.x, -160, 160);
     controls.target.z = clamp(controls.target.z, -135, 135);
     controls.target.y = clamp(controls.target.y, -8, 34);
   }
-  controls.update();
+  if (onMap) controls.update();
 
   // dim during panel
   dimT += (dimTarget - dimT) * Math.min(1, dt * 4.2);
@@ -2281,7 +2341,7 @@ function animate() {
   }
 
   // hover raycast (cheap: 12 spheres)
-  if (!hoverLock) {
+  if (!hoverLock && onMap) {
     if (ptr.x > -5) {
       raycaster.setFromCamera(ptr, camera);
       const hit = raycaster.intersectObjects(pickables, false)[0];
@@ -2290,6 +2350,7 @@ function animate() {
   }
 
   // label scale / fade / collision culling
+  if (onMap) {
   const camPos = camera.position;
   const order = CITIES.slice().sort((a, b) =>
     (b.lit - a.lit) || (camPos.distanceTo(a.wpos) - camPos.distanceTo(b.wpos)));
@@ -2313,9 +2374,12 @@ function animate() {
     if (ok) boxes.push([sxp, syp, hw, hh]);
     c.labelObj.visible = ok;
   }
+  } else if (sceneState === 'city') {
+    for (const c of CITIES) c.labelObj.visible = false;
+  }
 
   composer.render();
-  labelRenderer.render(scene, camera);
+  if (sceneState !== 'city') labelRenderer.render(scene, camera);
   hud.tick(dt, SCENES.city && SCENES.city.hudInfo ? SCENES.city.hudInfo() : null);
   window.__frames++;
 }

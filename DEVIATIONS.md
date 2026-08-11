@@ -40,3 +40,30 @@ Natural Earth gives Saudi Arabia as a MultiPolygon: one mainland ring plus ten s
 (Farasan group, Gulf islets). The engine's SDF/terrain pipeline takes a single ring. The mainland
 ring is used; the islands are omitted. They are at most a few pixels at poster distance and none
 of the twelve cities is on one.
+
+## 4. The majlis view has no mountains
+
+**Spec (khobar1):** the render puts a mountain silhouette behind the striped tower.
+**Built instead:** a flat Gulf horizon behind the tower, and the tower repositioned north-east
+of the terrace so the composition faces away from the low sun.
+**Reason:** Workstream A puts Al Khobar on the real sabkha shelf at 7 m above sea level, 400 km
+from the nearest relief. Painting mountains into its downtown would contradict the map the
+visitor has just flown down through. The render's mountains belong to its own site; the tower,
+the balustrade, the lanterns and the majlis are what carry that image, and those are all built.
+
+## 5. One canvas ribbon, not a woven catenary
+
+**Spec:** "swaying canvas ribbons overhead".
+**Built instead:** four stacked membrane bands per crossing, each a 14-segment sagging strip that
+flutters on the FABRIC branch of the wind term.
+**Reason:** a true catenary cloth needs a solver or a bone chain; the stacked sagging strips read
+the same at street level and cost 14 boxes each.
+
+## 6. Frame cost is bounded by frustum culling alone
+
+No occlusion culling and no geometric LOD: at eye level the whole 940 m spine sits inside the
+frustum, so ~5.1 M triangles are submitted per frame in 208 draw calls. Everything repeated is
+instanced, every merged quarter is re-indexed into 104 m tiles that share vertex buffers so the
+camera and the shadow camera can discard most of them, the shadow box is 108 m at 2048, and the
+pixel ratio is capped at 2. LOD for the background fabric is the documented next step; it could
+not be validated here because the container has no GPU (see 1).

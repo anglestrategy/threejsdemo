@@ -207,6 +207,49 @@ body.panel-open #panel{transform:none;}
 #toast.show{opacity:1;transform:translate(50%,0);}
 
 @media (max-width:900px){:root{--panel-w:min(400px,88vw);} .p-ar{font-size:31px;}}
+
+/* ---------------------------------------------------------- district UI */
+#cityUI{position:fixed;right:22px;bottom:22px;z-index:42;display:flex;gap:10px;
+  opacity:0;pointer-events:none;transform:translateY(10px);
+  transition:opacity .5s ease,transform .5s ease}
+body.in-city #cityUI{opacity:1;pointer-events:auto;transform:none}
+#cityUI button{font-family:'Readex Pro',system-ui,sans-serif;font-size:11px;letter-spacing:.13em;
+  text-transform:uppercase;color:#f0e4d2;background:rgba(14,20,34,.60);
+  border:1px solid rgba(232,196,140,.30);border-radius:999px;padding:10px 18px;cursor:pointer;
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);display:flex;align-items:center;gap:9px;
+  transition:background .25s ease,border-color .25s ease,color .25s ease}
+#cityUI button:hover{background:rgba(30,42,66,.78);border-color:rgba(232,196,140,.62);color:#fff}
+#cityUI #cityBack span{font-size:13px;line-height:1;opacity:.8}
+#cityToggle i{width:7px;height:7px;border-radius:50%;background:#ffca7d;
+  box-shadow:0 0 10px 2px rgba(255,190,110,.55);display:block}
+#cityHint{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);z-index:41;
+  font-family:'Readex Pro',system-ui,sans-serif;font-size:11px;letter-spacing:.10em;color:rgba(232,222,206,.62);
+  opacity:0;transition:opacity .6s ease,transform .6s ease;pointer-events:none;white-space:nowrap;
+  text-shadow:0 1px 10px rgba(0,0,0,.7)}
+#cityHint b{color:rgba(255,220,170,.92);font-weight:600;letter-spacing:.06em}
+body.in-city #cityHint{opacity:1;transform:translateX(-50%)}
+#cityPlate{position:fixed;left:26px;top:24px;z-index:41;opacity:0;transform:translateY(-8px);
+  transition:opacity .7s ease .25s,transform .7s ease .25s;pointer-events:none;
+  text-shadow:0 2px 18px rgba(0,0,0,.75)}
+body.in-city #cityPlate{opacity:1;transform:none}
+#cityPlate .cp-ar{font-family:'Readex Pro',system-ui,sans-serif;font-size:23px;font-weight:700;
+  color:#fff3e0;letter-spacing:.01em;line-height:1.25}
+#cityPlate .cp-en{font-family:'Readex Pro',system-ui,sans-serif;font-size:11px;letter-spacing:.30em;
+  text-transform:uppercase;color:rgba(255,226,190,.86);margin-top:3px}
+#cityPlate .cp-prop{font-family:'Readex Pro',system-ui,sans-serif;font-size:10.5px;letter-spacing:.09em;
+  color:rgba(226,214,196,.58);margin-top:7px;max-width:230px;line-height:1.5}
+body.diving #hint,body.diving #legend,body.diving #titleLockup,body.diving #tag{opacity:0 !important;
+  transition:opacity .45s ease}
+body.in-city #hint,body.in-city #legend,body.in-city #titleLockup,body.in-city .lbl-layer{opacity:0 !important;
+  pointer-events:none}
+body.in-city #tag{opacity:.35}
+/* the Enter Downtown call to action on a live city panel */
+.p-enter{width:100%;margin-top:14px;font-family:'Readex Pro',system-ui,sans-serif;font-size:11.5px;
+  letter-spacing:.16em;text-transform:uppercase;font-weight:600;color:#20160c;cursor:pointer;
+  background:linear-gradient(101deg,#f0c680,#e8a25b 58%,#d98c46);border:0;border-radius:999px;
+  padding:14px 18px;box-shadow:0 8px 26px -10px rgba(232,162,91,.85);
+  transition:transform .2s ease,box-shadow .2s ease}
+.p-enter:hover{transform:translateY(-1px);box-shadow:0 12px 32px -10px rgba(232,162,91,1)}
 </style>
 </head>
 <body>
@@ -228,6 +271,18 @@ body.panel-open #panel{transform:none;}
 <div id="scrim"></div>
 <aside id="panel"></aside>
 <div id="toast"></div>
+
+<!-- district chrome: only visible inside Downtown Al Khobar -->
+<div id="cityUI">
+  <button id="cityBack" type="button"><span>&#8592;</span> Back to the Map</button>
+  <button id="cityToggle" type="button"><i></i><b id="cityModeLabel">FLY</b></button>
+</div>
+<div id="cityHint"></div>
+<div id="cityPlate">
+  <div class="cp-ar" dir="rtl" lang="ar">وسط مدينة الخبر</div>
+  <div class="cp-en">Downtown Al Khobar</div>
+  <div class="cp-prop">A City of Coastal Shimmering Lights</div>
+</div>
 
 <div id="boot">
   <div class="bw">SAUDI DOWNTOWN COMPANY</div>
