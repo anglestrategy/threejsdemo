@@ -109,3 +109,36 @@ than a place.
 Still open, in order: near-field dressing in the lowest third of every frame,
 seated groups and figures with swinging arms, cars on the boulevards, and
 geometric LOD.
+
+---
+
+## Round 6 — the light field
+
+| # | delta | what changed |
+|---|---|---|
+| 1 | **Ambient was a constant.** A hemisphere light gives every point in the district the same sky, so an arcade soffit, a shaded courtyard and the middle of an open plaza all got the same fill. In a real place ambient light is a *field* — dim and warm under a canopy, bright and blue in the open, tinted by whatever wall you are standing next to. That constant is most of what separates "lit by three lights" from "rendered". | The district now bakes an irradiance field: a 15 m × 7.5 m probe grid over the whole plan, five levels high, each probe casting a 26-ray cosine-weighted hemisphere against the same occluder boxes the AO bake uses. Rays that escape collect the sky in their own direction from the dome's own colour function; rays that hit collect one bounce off what they hit. Two RGBA `Data3DTexture`s sampled trilinearly, folded straight into the material's `irradiance` at `lights_fragment_begin`. About a second at build time, two samplers, two fetches per fragment. The constant hemisphere dropped from 0.26 to 0.06 and the environment from 0.82 to 0.42, because the field now does that work and would otherwise be counted three times. |
+| 2 | Detail textures repainted the palette orange | only the value passes through, with a quarter of the hue |
+| 3 | Detail normalisation was computed in sRGB and applied in linear, darkening every surface roughly threefold | the normalising mean is now the linear mean |
+
+## On the two things offered
+
+**The SPZ.** Decoded: SPZ v2, 1,920,000 splats, SH degree 0, 36.5 MB raw. It does
+not contain a district. Median splat scale is 1.5 mm — it is a point cloud, not a
+set of splats with area — mean saturation is 0.16, and the geometry renders as a
+soft blob with radial streaks and no walls, no ground plane and no structures
+(`shots/spz_a.png`, `shots/spz_c.png`). Even a good splat scene would be the
+wrong tool here: splats carry baked radiance, so they cannot be relit, cannot
+receive the sun, cannot cast a shadow and cannot be collided with — the district
+has to be walkable and has to sit under one sky with everything else.
+
+**WebGPU.** Declined, with the constraint formally lifted and considered. Moving
+to `WebGPURenderer` means rewriting every shader in the file into TSL — the
+surface law, the emissive materials, the water, the sky dome, the terrain, the
+glimmer points, the beacon shafts, the AO pass, the grade, the veil — which is
+the entire rendering layer of a 6,500-line file, at high regression risk, for
+zero pixels of quality on its own. What WebGPU actually buys is compute shaders
+and cheaper draw submission; at eye level this scene submits 5.1 M triangles in
+214 draws, so draw submission is nowhere near the limit. The gap to a
+triple-A look is content and lighting technique — models, density, indirect
+light, shadows, post — every one of which is reachable on WebGL2. It would also
+cost compatibility for a file that must open from `file://` anywhere.

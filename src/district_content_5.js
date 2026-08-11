@@ -390,6 +390,7 @@ function* buildSteps() {
   yield 'tensile'; buildTensile();
   yield 'planting'; buildPlanting();
   yield 'identity'; buildIdentity();
+  yield 'probes'; bakeProbes();
   yield 'life'; buildLife();
   yield 'merge'; finalise();
 }

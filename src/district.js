@@ -177,6 +177,147 @@ const TEX = {};
   }
 })();
 
+/* ================================================= IRRADIANCE PROBES ==
+   The difference between "lit by three lights" and "rendered" is that in a
+   real place the ambient light is not a constant — it is a field. Under an
+   arcade it is dim and warm; in the middle of the plaza it is bright and
+   blue; a metre from a sunlit wall it carries that wall's colour.
+
+   So the district bakes one: a coarse 3D grid of probes, each holding the
+   sky-side and ground-side irradiance it can actually see. Every probe casts
+   a small hemisphere of rays against the same occluder boxes the AO bake
+   uses; rays that escape collect the sky in their direction, rays that hit
+   collect one bounce off what they hit. Two RGBA 3D textures, sampled
+   trilinearly, added straight into the material's irradiance.
+
+   It costs about a second at build time, two samplers, and nothing per pixel
+   beyond two texture fetches — and it is the single largest step this scene
+   takes toward looking rendered rather than lit.                          */
+const PROBE = { step: 15, ystep: 7.5, ny: 5, y0: 1.6, nx: 0, nz: 0, x0: 0, z0: 0, sky: null, gnd: null };
+
+// the sky dome's own colour, in JS, so the bake and the shader agree
+function skyColourAt(dx, dy, dz) {
+  const up = clamp(dy, 0, 1);
+  const zen = [0.063, 0.102, 0.231], mid = [0.239, 0.271, 0.431], hor = [0.761, 0.643, 0.584];
+  const p = Math.pow(up, 0.62);
+  let r = mid[0] + (zen[0] - mid[0]) * p;
+  let g = mid[1] + (zen[1] - mid[1]) * p;
+  let b = mid[2] + (zen[2] - mid[2]) * p;
+  const hz = Math.pow(1 - up, 5.0);
+  r = r + (hor[0] - r) * hz * 0.92; g = g + (hor[1] - g) * hz * 0.92; b = b + (hor[2] - b) * hz * 0.92;
+  const sd = Math.max(dx * CSUN.x + dy * CSUN.y + dz * CSUN.z, 0);
+  const glow = Math.pow(sd, 5.0) * 0.55 * (0.35 + 0.65 * hz) + Math.pow(sd, 24.0) * 0.7;
+  return [r + 1.00 * glow, g + 0.82 * glow, b + 0.63 * glow];
+}
+
+function bakeProbes() {
+  const B = PLAN.bounds;
+  PROBE.x0 = B.x0 - 30; PROBE.z0 = B.z0 - 30;
+  PROBE.nx = Math.ceil((B.x1 - B.x0 + 60) / PROBE.step) + 1;
+  PROBE.nz = Math.ceil((B.z1 - B.z0 + 60) / PROBE.step) + 1;
+  const { nx, nz, ny } = PROBE;
+  const skyData = new Uint8Array(nx * nz * ny * 4);
+  const gndData = new Uint8Array(nx * nz * ny * 4);
+
+  // a fixed hemisphere of directions, golden-angle so it never bands
+  const DIRS = [];
+  const ND = 26;
+  for (let i = 0; i < ND; i++) {
+    const t = (i + 0.5) / ND;
+    const y = Math.sqrt(1 - t);            // cosine-weighted toward the horizon
+    const r = Math.sqrt(1 - y * y);
+    const a = i * 2.39996323;
+    DIRS.push([Math.cos(a) * r, y, Math.sin(a) * r]);
+  }
+  // one bounce off whatever a ray hits: warm stone under a dusk sky
+  const BOUNCE = [0.40, 0.335, 0.255];
+  const GROUND = [0.46, 0.395, 0.30];
+
+  const hitDist = (ox, oy, oz, dx, dy, dz) => {
+    const list = OGRID.get(Math.floor(ox / OCELL) + ',' + Math.floor(oz / OCELL));
+    let best = 1e9;
+    // march the occluder grid coarsely: three cells is plenty at this spacing
+    for (let s = 0; s < 4; s++) {
+      const px = ox + dx * s * OCELL, pz = oz + dz * s * OCELL;
+      const arr = OGRID.get(Math.floor(px / OCELL) + ',' + Math.floor(pz / OCELL));
+      if (!arr) continue;
+      for (let i = 0; i < arr.length; i++) {
+        const b = arr[i];
+        // slab test against the box, which spans y 0..b.h
+        let t0 = -1e9, t1 = 1e9;
+        for (let ax = 0; ax < 3; ax++) {
+          const o = ax === 0 ? ox : ax === 1 ? oy : oz;
+          const d = ax === 0 ? dx : ax === 1 ? dy : dz;
+          const lo = ax === 0 ? b.x - b.hw : ax === 1 ? 0 : b.z - b.hd;
+          const hi = ax === 0 ? b.x + b.hw : ax === 1 ? b.h : b.z + b.hd;
+          if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { t0 = 1e9; break; } continue; }
+          let a1 = (lo - o) / d, a2 = (hi - o) / d;
+          if (a1 > a2) { const tt = a1; a1 = a2; a2 = tt; }
+          if (a1 > t0) t0 = a1;
+          if (a2 < t1) t1 = a2;
+        }
+        if (t0 < t1 && t0 > 0.25 && t0 < best) best = t0;
+      }
+    }
+    return best;
+  };
+
+  let i4 = 0;
+  for (let ly = 0; ly < ny; ly++) {
+    const py = PROBE.y0 + ly * PROBE.ystep;
+    for (let lz = 0; lz < nz; lz++) {
+      const pz = PROBE.z0 + lz * PROBE.step;
+      for (let lx = 0; lx < nx; lx++) {
+        const px = PROBE.x0 + lx * PROBE.step;
+        let sr = 0, sg = 0, sb = 0, open = 0;
+        for (let d = 0; d < ND; d++) {
+          const dv = DIRS[d];
+          const dist = hitDist(px, py, pz, dv[0], dv[1], dv[2]);
+          if (dist > 55) {
+            const c = skyColourAt(dv[0], dv[1], dv[2]);
+            sr += c[0]; sg += c[1]; sb += c[2];
+            open++;
+          } else {
+            // one bounce: what it hits is lit by the sky above it
+            const k = 0.34 * (1 - Math.min(1, dist / 55));
+            sr += BOUNCE[0] * k; sg += BOUNCE[1] * k; sb += BOUNCE[2] * k;
+          }
+        }
+        const inv = 1 / ND;
+        sr *= inv; sg *= inv; sb *= inv;
+        const vis = open / ND;
+        // the ground half: bounced sun and sky off paving, occluded the same way
+        const gk = 0.35 + 0.65 * vis;
+        const o = i4 * 4;
+        const enc = (v) => Math.max(0, Math.min(255, Math.round(Math.pow(v, 1 / 2.2) * 255)));
+        skyData[o] = enc(sr); skyData[o + 1] = enc(sg); skyData[o + 2] = enc(sb);
+        skyData[o + 3] = Math.round(vis * 255);
+        gndData[o] = enc(GROUND[0] * gk); gndData[o + 1] = enc(GROUND[1] * gk); gndData[o + 2] = enc(GROUND[2] * gk);
+        gndData[o + 3] = 255;
+        i4++;
+      }
+    }
+  }
+  const mk = (data) => {
+    const t = new THREE.Data3DTexture(data, nx, nz, ny);
+    t.format = THREE.RGBAFormat;
+    t.type = THREE.UnsignedByteType;
+    t.minFilter = t.magFilter = THREE.LinearFilter;
+    t.wrapS = t.wrapT = t.wrapR = THREE.ClampToEdgeWrapping;
+    t.needsUpdate = true;
+    return t;
+  };
+  PROBE.sky = mk(skyData);
+  PROBE.gnd = mk(gndData);
+  INSTCOUNT.probes = nx * nz * ny;
+  cityMat.userData.u.uProbeSky.value = PROBE.sky;
+  cityMat.userData.u.uProbeGnd.value = PROBE.gnd;
+  cityMat.userData.u.uProbeOrg.value.set(PROBE.x0, PROBE.y0, PROBE.z0);
+  cityMat.userData.u.uProbeStp.value.set(PROBE.step, PROBE.ystep, PROBE.step);
+  cityMat.userData.u.uProbeDim.value.set(nx, nz, ny);
+  cityMat.userData.u.uProbeOn.value = 1;
+}
+
 /* ========================================================== MASTERPLAN ==
    The plan is authored, not scattered: five SDC asset zones flowing into one
    another around a public core, on a walkable grid with a water course
@@ -432,6 +573,10 @@ function makeCityMaterial() {
     uDetD: { value: TEX.stone.diff }, uDetN: { value: TEX.stone.nrm },
     uWoodD: { value: TEX.timber.diff }, uWoodN: { value: TEX.timber.nrm },
     uDetK: { value: new THREE.Vector2(1 / Math.max(0.08, TEX.stone.mean), 1 / Math.max(0.08, TEX.timber.mean)) },
+    uProbeSky: { value: null }, uProbeGnd: { value: null },
+    uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
+    uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
+    uProbeInt: { value: 1.05 },
   };
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = mat.userData.u.uTime;
@@ -441,6 +586,13 @@ function makeCityMaterial() {
     sh.uniforms.uWoodD = mat.userData.u.uWoodD;
     sh.uniforms.uWoodN = mat.userData.u.uWoodN;
     sh.uniforms.uDetK = mat.userData.u.uDetK;
+    sh.uniforms.uProbeSky = mat.userData.u.uProbeSky;
+    sh.uniforms.uProbeGnd = mat.userData.u.uProbeGnd;
+    sh.uniforms.uProbeOrg = mat.userData.u.uProbeOrg;
+    sh.uniforms.uProbeStp = mat.userData.u.uProbeStp;
+    sh.uniforms.uProbeDim = mat.userData.u.uProbeDim;
+    sh.uniforms.uProbeOn = mat.userData.u.uProbeOn;
+    sh.uniforms.uProbeInt = mat.userData.u.uProbeInt;
     sh.vertexShader = `attribute float aSurf; varying float vSurf; varying vec3 vWP; varying vec3 vONrm; varying vec3 vWNrm;
       uniform float uTime; uniform vec2 uWind;
       float wh(vec3 p){ return fract(sin(dot(p,vec3(12.99,78.23,37.71)))*43758.5453); }\n` +
@@ -472,7 +624,11 @@ function makeCityMaterial() {
           #endif`);
     sh.fragmentShader = `varying float vSurf; varying vec3 vWP; varying vec3 vONrm; varying vec3 vWNrm;
       float gRough; float gMetal; vec3 gNrmW;
-      uniform sampler2D uDetD, uDetN, uWoodD, uWoodN; uniform vec2 uDetK;\n` + SURF_GLSL +
+      uniform sampler2D uDetD, uDetN, uWoodD, uWoodN; uniform vec2 uDetK;
+      uniform sampler3D uProbeSky, uProbeGnd;
+      uniform vec3 uProbeOrg, uProbeStp, uProbeDim;
+      uniform float uProbeOn, uProbeInt;
+      vec3 gProbeSky, gProbeGnd;\n` + SURF_GLSL +
       sh.fragmentShader
         .replace('void main() {', 'void main() {\n gRough = roughness; gMetal = metalness;')
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = gRough;')
@@ -570,6 +726,28 @@ function makeCityMaterial() {
 
         diffuseColor.rgb = alb;
         gRough = rough;
+
+        /* the probe field, sampled where this fragment actually stands. The
+           half-texel inset keeps the trilinear filter off the clamped edge. */
+        if (uProbeOn > 0.5) {
+          vec3 pc = (vWP - uProbeOrg) / uProbeStp;
+          pc = vec3(pc.x, pc.z, pc.y);
+          vec3 uvw3 = (pc + 0.5) / uProbeDim;
+          uvw3 = clamp(uvw3, 0.5 / uProbeDim, 1.0 - 0.5 / uProbeDim);
+          vec4 sky = texture(uProbeSky, uvw3);
+          vec4 gnd = texture(uProbeGnd, uvw3);
+          gProbeSky = pow(sky.rgb, vec3(2.2));
+          gProbeGnd = pow(gnd.rgb, vec3(2.2));
+        } else { gProbeSky = vec3(0.0); gProbeGnd = vec3(0.0); }
+      }`)
+        .replace('#include <lights_fragment_begin>', `#include <lights_fragment_begin>
+      if (uProbeOn > 0.5) {
+        // a hemisphere weighting, but a spatially varying one: this is the
+        // whole point of the field
+        float up = normal.y * 0.5 + 0.5;
+        vec3 wN = normalize(vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]));
+        float upW = clamp(dot(normal, wN) * 0.5 + 0.5, 0.0, 1.0);
+        irradiance += mix(gProbeGnd, gProbeSky, upW) * uProbeInt;
       }`);
   };
   mat.customProgramCacheKey = () => 'citysurf';
@@ -585,7 +763,7 @@ cityScene.fog = new THREE.FogExp2(0xc2a495, CITY_FOG);
 const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.08, 1900);
 
 const CSUN = new THREE.Vector3(-0.895, 0.196, -0.170).normalize();   // 11 degrees, WSW
-const cityHemi = new THREE.HemisphereLight(0x6f8ec6, 0x7d5730, 0.26);
+const cityHemi = new THREE.HemisphereLight(0x6f8ec6, 0x7d5730, 0.06);
 cityScene.add(cityHemi);
 const citySun = new THREE.DirectionalLight(0xffc596, 1.95);
 citySun.position.copy(CSUN).multiplyScalar(300);
@@ -726,7 +904,7 @@ function buildEnvironment() {
   const rt = pmrem.fromScene(s, 0.04);
   cityEnv = rt.texture;
   cityScene.environment = cityEnv;
-  cityScene.environmentIntensity = 0.82;
+  cityScene.environmentIntensity = 0.42;
   gm.dispose();
   ground.geometry.dispose();
   sky.geometry.dispose();
