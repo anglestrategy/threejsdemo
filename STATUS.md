@@ -17,11 +17,14 @@ Durable working memory. Deliverable: `living-map-v2.html` (single file, runs fro
 | `work/relief.json` | baked real DEM (PNG data-URI) |
 | `build.py` · `gen_map.py` · `gen_relief.py` | assemble · regenerate MAP · bake relief |
 | `shot.mjs` | headless screenshot harness (Playwright + chromium) |
-| `work/dive_test.mjs` · `work/walk_test.mjs` · `work/sweep_test.mjs` | transition, walk and collision-sweep gates |
+| `tests/dive_test.mjs` · `tests/walk_test.mjs` · `tests/sweep_test.mjs` | transition, walk and collision-sweep gates — `node tests/<name>.mjs` |
 | `refs/` | the four renders as PNG + the relief truth image |
 | `shots/` | every verification frame, the contact sheet and the four-frame test |
 
 Build: `python3 build.py`. Shoot: `node shot.mjs <name> "<query>" [--w --h --wait]`.
+Gates: `node tests/dive_test.mjs` · `node tests/walk_test.mjs` · `node tests/sweep_test.mjs`.
+`work/` holds only regenerable intermediates (DEM tiles, decoded vendor modules) and is not tracked;
+`gen_map.py` and `gen_relief.py` rebuild everything in it.
 
 ## QA grammar
 
