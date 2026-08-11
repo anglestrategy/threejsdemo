@@ -66,6 +66,7 @@ const QA = {
   grade: QP.get('grade') !== '0',
   norefl: QP.get('norefl') === '1',
   noshadow: QP.get('noshadow') === '1',
+  nodof: QP.get('nodof') === '1',
 };
 const SEED = QA.seed;
 const T0 = performance.now(); const TM = {}; const mark = (k) => { TM[k] = Math.round(performance.now() - T0); };
@@ -1848,6 +1849,90 @@ const AOShader = {
 };
 const aoPass = new ShaderPass(AOShader);
 composer.addPass(aoPass);
+
+/* ------------------------------------------------------ depth of field --
+   The AO pass already keeps a full-resolution depth texture, so the circle of
+   confusion is one more read off a buffer that is already there.
+
+   It is a gather, not a scatter: each pixel walks a golden-angle disc the size
+   of its own blur and accepts a neighbour only if that neighbour's own circle
+   of confusion is wide enough to have reached it, or if the neighbour is
+   further away. That single test is what stops a sharp foreground from
+   smearing over a blurred background — the classic tell of cheap DOF.
+
+   The focus distance is not a constant and not an average of the frame: the
+   district raymarches the view ray against its own ground and colliders and
+   pulls focus toward whatever the camera is actually pointed at, damped, so
+   turning to look down a street racks focus the way a lens would.          */
+const DOFShader = {
+  uniforms: {
+    tDiffuse: { value: null }, tDepth: { value: aoDepth },
+    uProjInv: { value: new THREE.Matrix4() },
+    uRes: { value: new THREE.Vector2(1, 1) },
+    uFocus: { value: 18 }, uRange: { value: 110 }, uFar: { value: 200 },
+    uMaxCoC: { value: 5.0 }, uOn: { value: 0 },
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform highp sampler2D tDepth;
+    uniform mat4 uProjInv; uniform vec2 uRes;
+    uniform float uFocus,uRange,uFar,uMaxCoC,uOn;
+    varying vec2 vUv;
+    float viewZ(vec2 uv){
+      float d = texture2D(tDepth, uv).x;
+      if (d >= 0.99999) return 1.0e6;
+      vec4 v = uProjInv * vec4(uv*2.0-1.0, d*2.0-1.0, 1.0);
+      return -v.z / v.w;
+    }
+    /* Signed: negative in front of the focal plane, positive behind it.
+       The near side is the real thin-lens term, in reciprocal distance — a
+       linear one blurs a doorway at eight metres as hard as a hand at one, and
+       makes the whole frame mush the moment focus racks out. The far side is
+       linear and capped at half, because a distant street should soften, not
+       dissolve. */
+    float coc(float z){
+      float inv = 1.0 / uFocus - 1.0 / max(0.35, z);
+      float c = inv < 0.0
+        ? max(-1.0, inv * 2.1)
+        : clamp((z - uFocus) / max(8.0, uRange), 0.0, 1.0) * 0.5;
+      return c * uMaxCoC;
+    }
+    float hash12(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+    void main(){
+      vec4 src = texture2D(tDiffuse, vUv);
+      if (uOn < 0.5) { gl_FragColor = src; return; }
+      float z0 = min(viewZ(vUv), uFar);
+      float c0 = coc(z0);
+      float r = abs(c0);
+      if (r < 0.75) { gl_FragColor = src; return; }
+      float rot = hash12(floor(vUv * uRes)) * 6.2831853;
+      float ca = cos(rot), sa = sin(rot);
+      vec3 acc = src.rgb; float wsum = 1.0;
+      const int N_S = 22;
+      for (int i = 0; i < N_S; i++) {
+        float fi = float(i) + 0.5;
+        float ang = fi * 2.39996323;
+        float rad = sqrt(fi / float(N_S));
+        vec2 o = vec2(cos(ang), sin(ang)) * rad * r;
+        o = vec2(o.x*ca - o.y*sa, o.x*sa + o.y*ca);
+        vec2 suv = vUv + o / uRes;
+        if (suv.x < 0.0 || suv.x > 1.0 || suv.y < 0.0 || suv.y > 1.0) continue;
+        float zs = min(viewZ(suv), uFar);
+        float cs = coc(zs);
+        // accept the neighbour if its own blur reaches here, or if it sits
+        // behind us — a sharp near object must never bleed outward
+        float reach = abs(cs) >= length(o) * 0.82 ? 1.0 : 0.0;
+        float behind = zs >= z0 - 0.35 ? 1.0 : 0.0;
+        float w = max(reach, behind) * (0.35 + 0.65 * min(1.0, abs(cs) / max(0.5, r)));
+        acc += texture2D(tDiffuse, suv).rgb * w;
+        wsum += w;
+      }
+      vec3 blurred = acc / max(0.0001, wsum);
+      gl_FragColor = vec4(mix(src.rgb, blurred, smoothstep(0.75, 1.9, r)), src.a);
+    }`,
+};
+const dofPass = new ShaderPass(DOFShader);
+composer.addPass(dofPass);
 /* Bloom law taken from the gold-standard worlds: LOW strength, HIGH threshold —
    only genuinely over-bright pixels bloom, and they bloom gently. The previous
    0.58 / 0.70 pair (a low threshold with high strength) is what smeared the
@@ -1924,6 +2009,7 @@ function setSizes() {
   aoDepth.image.width = Math.floor(w * pr); aoDepth.image.height = Math.floor(h * pr);
   aoDepth.needsUpdate = true;
   aoPass.uniforms.uRes.value.set(w * pr, h * pr);
+  dofPass.uniforms.uRes.value.set(w * pr, h * pr);
   labelRenderer.setSize(w, h);
   bloom.resolution.set(w, h);
   fxaa.material.uniforms.resolution.value.set(1 / (w * pr), 1 / (h * pr));
@@ -2343,6 +2429,15 @@ function animate() {
        muddy the baked terrain light. The district is where contact matters. */
     aoPass.uniforms.uOn.value = sceneState === 'city' ? 1 : 0;
     aoPass.uniforms.uRadius.value = sceneState === 'city' ? 2.3 : 4.0;
+    dofPass.uniforms.uProjInv.value.copy(cam.projectionMatrixInverse);
+    dofPass.uniforms.uOn.value = (sceneState === 'city' && !QA.nodof) ? 1 : 0;
+    if (sceneState === 'city' && SCENES.city) {
+      const f = SCENES.city.focus();
+      dofPass.uniforms.uFocus.value = f;
+      // a longer lens wants a shallower field; walking, that is a metre or two
+      dofPass.uniforms.uRange.value = 60 + f * 3.0;
+      dofPass.uniforms.uMaxCoC.value = 4.2;
+    }
   }
 
   // tween

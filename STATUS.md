@@ -32,7 +32,7 @@ Gates: `node tests/dive_test.mjs` · `node tests/walk_test.mjs` · `node tests/s
 
 `?seed=N` · `?scene=map|city` · `?shot=1..6` · `?cam=x,y,z,yaw,pitch[,dist]`
 `?hud=1` · `?flat=1` (drop the plinth tilt, for map-truth) · `?noveil=1` · `?nolife=1` · `?walk=1`
-`?norefl=1` (no planar reflection) · `?noshadow=1` (no shadow map) · `?grade=0`
+`?norefl=1` (no planar reflection) · `?noshadow=1` (no shadow map) · `?nodof=1` · `?grade=0`
 Key **P** prints/copies the pose · **F3** toggles the counter HUD · **F** toggles fly/walk · **Esc** back to the map.
 Yaw 0 = looking toward +Z in both scenes, so a pose is portable.
 
@@ -164,8 +164,6 @@ Local metres, origin at the canopy plaza, +Z north, +X east, sun 11° WSW.
    walkable core); the buildings do not.
 2. Near-field dressing in the first 8 m of every bookmark (litter, drain lines,
    A-boards, spilled seating); this is the largest remaining visual delta.
-2b. Depth of field: the AO pass already keeps a depth texture, so the circle of
-   confusion is one more read off a buffer that is already there.
 3. Figures: swinging arms, and groups standing in twos and threes rather than singles.
 4. Cars on the boulevards.
 5. Shopfront interiors want figures and richer merchandise.

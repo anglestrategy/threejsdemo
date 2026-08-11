@@ -188,3 +188,16 @@ cost compatibility for a file that must open from `file://` anywhere.
 | 8 | Re-balance: real shadows changed every value that had been tuned without them. | Key 1.95 → 2.35, sky counter-fill 0.40 → 0.54, ground bounce 0.62 → 0.74, and `shadow.intensity` 0.92 rather than 1.0 — a shadow at this hour is filled by a whole sky, and the pillar is that nothing here ever goes to a grey void. |
 
 `?noshadow=1` turns the whole thing off, which is how rounds 2 and 3 above were diagnosed.
+
+---
+
+## Round 10 — depth
+
+| # | delta | what changed |
+|---|---|---|
+| 1 | Every frame was sharp from the paving under your feet to the watchtower 350 m away, which is the one thing no camera has ever done. | A depth-of-field pass, reading the depth texture the AO pass already keeps — so the circle of confusion costs one more buffer that was already there. |
+| 2 | Cheap DOF smears a sharp foreground over a blurred background. | It is a gather, not a scatter: each pixel walks a 22-tap golden-angle disc the size of its own blur and accepts a neighbour only if that neighbour's *own* circle of confusion is wide enough to have reached it, or if the neighbour lies behind. |
+| 3 | The first CoC model was linear in distance, and racked the whole frame to mush the moment the focus went long: focused at 200 m, a doorway at 8 m blurred as hard as a hand at 1 m. | The near side is the real thin-lens term, in reciprocal distance. The far side stays linear and is capped at half the maximum, because a distant street should soften, not dissolve. |
+| 4 | Focus. A constant is dead and a frame average hunts. | The district raymarches the view ray against its own ground and colliders and pulls focus toward what the camera is pointed at, damped — fast in, slow out, like a lens. And it marches a **second ray seven degrees below** the first, taking the nearer hit: looking level along a street the centre ray runs to the horizon, and focusing at two hundred metres throws the ground you are standing on out of focus, which is not what anyone pointing a camera down a street would do. Clamped to 3.5–48 m. |
+
+`?nodof=1` turns it off.

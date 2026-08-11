@@ -1617,6 +1617,39 @@ function renderReflection() {
   REFL.live = 1;
 }
 
+/* ---------------------------------------------------------- focus pull --
+   What the camera is pointed at, in metres. The view ray is marched against
+   the district's own ground and colliders with a step that grows with
+   distance, so a nearby wall costs a handful of tests and an empty street
+   costs a few dozen. The result is damped: a lens does not snap. */
+const _fRay = new THREE.Vector3();
+let FOCUS = 18;
+function focusRay(dx, dy, dz, p) {
+  let t = 1.6, step = 0.7;
+  for (let i = 0; i < 120 && t < 200; i++) {
+    const x = p.x + dx * t, y = p.y + dy * t, z = p.z + dz * t;
+    if (y <= groundAt(x, z) + 0.12) return t;
+    if (insideSolid(x, z, y)) return t;
+    t += step;
+    step = Math.min(6.5, step * 1.055);
+  }
+  return 200;
+}
+function focusProbe() {
+  cityCam.getWorldDirection(_fRay);
+  const p = cityCam.position;
+  const a = focusRay(_fRay.x, _fRay.y, _fRay.z, p);
+  /* and a second ray seven degrees down. Looking level along a street the
+     centre ray runs to the horizon, and focusing at two hundred metres throws
+     the ground you are standing on out of focus — which is not what anybody
+     pointing a camera down a street would do. */
+  const fl = Math.hypot(_fRay.x, _fRay.z) || 1;
+  const c = Math.cos(0.122), s = Math.sin(0.122);
+  const b = focusRay(_fRay.x / fl * (fl * c), _fRay.y * c - fl * s, _fRay.z / fl * (fl * c), p);
+  return Math.min(48, Math.max(3.5, Math.min(a, b)));
+}
+function focusDistance() { return FOCUS; }
+
 function update(dt, t) {
   diveUpdate(dt);
   if (sceneState === 'city') {
@@ -1627,6 +1660,10 @@ function update(dt, t) {
     fitShadow(cityCam.position);
     updatePracticals(cityCam.position);
     updateLife(dt, t);
+    const want = focusProbe();
+    // a fast pull toward something nearer, a slower drift back out
+    const k = 1 - Math.exp(-dt * (want < FOCUS ? 7.0 : 3.2));
+    FOCUS += (want - FOCUS) * k;
   }
   grade.uniforms.uVeil.value = veil;
 }
@@ -1685,6 +1722,7 @@ return {
   pose: navPose,
   get built() { return BUILT; },
   reflect: renderReflection,
+  focus: focusDistance,
   scene: cityScene, cam: cityCam, nav: NAV,
   setMode,
   plan: PLAN,
