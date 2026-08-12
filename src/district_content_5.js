@@ -607,14 +607,20 @@ function buildLandmarks() {
     const bx = (bx0 + bx1) / 2, bw = Math.abs(bx1 - bx0);
     for (let z = gz0 + 6; z <= gz1 - 12; z += 24) {
       const g = terrainY(bx, z);
-      inst('lawn', xf(bx, g + 0.16, z, 0, bw * 0.94, 1, 22), pick([K.leaf, K.leafDk, 0x4b6d3e]));
+      /* a bed, not a pitch: a travertine kerb round each plate and a metre of
+         variation in its size, so the row does not read as mown rectangles */
+      const pw = bw * rr(0.80, 0.94), pd = rr(17, 22);
+      const jx = bx + rr(-2.2, 2.2);
+      ACC.arch.add(G_BOXT, xf(jx, g, z, 0, pw + 1.1, 0.30, pd + 1.1), K.travert, S.TRAVERTINE, 1.04);
+      ACC.arch.add(G_BOXT, xf(jx, g + 0.06, z, 0, pw - 0.5, 0.18, pd - 0.5), 0x6a5b45, S.SAND, 0.86);
+      inst('lawn', xf(jx, g + 0.26, z, 0, pw - 0.7, 1, pd - 0.7), pick([K.leaf, K.leafDk, 0x4b6d3e]));
       for (let k = 0; k < 5; k++) {
-        const qx = bx + rr(-bw * 0.42, bw * 0.42), qz = z + rr(-9, 9);
+        const qx = jx + rr(-pw * 0.42, pw * 0.42), qz = z + rr(-pd * 0.38, pd * 0.38);
         inst(chance(0.5) ? 'wshrub' : 'bougain',
           xf3(qx, terrainY(qx, qz) + 0.18, qz, 0, rnd() * 6.28, 0,
             0.8 + rnd() * 0.6, 0.8 + rnd() * 0.6, 0.8 + rnd() * 0.6), 0xffffff);
       }
-      inst('slimtree', xf(bx + rr(-bw * 0.3, bw * 0.3), g + 0.16, z + rr(-8, 8), rnd() * 6.28));
+      inst('slimtree', xf(jx + rr(-pw * 0.3, pw * 0.3), g + 0.26, z + rr(-pd * 0.34, pd * 0.34), rnd() * 6.28));
     }
   }
 
@@ -801,6 +807,104 @@ function buildRoundabout() {
   }
 }
 
+/* ========================================================= FABRIC PROPS ==
+   The district's architecture is procedural, which is what lets it be a
+   district rather than four buildings — but every wall in it came out of the
+   same grammar, and at plan scale that reads. These are the generated blocks
+   dropped into the fabric to break it: a scanned shophouse row, a scanned
+   apartment block, and the blue-roofed hall from the first aerial.
+
+   Nothing is hand-placed. Each candidate site is tested against the colliders
+   the block pass has already registered, so a prop only ever lands in a gap
+   that was genuinely empty — which also means the seed decides where they go
+   and the world stays identical between reloads.                          */
+function buildFabricProps() {
+  CURCHUNK = 'fabprops';
+  const a = ACC.arch;
+
+  /* returns true and places if the footprint is clear */
+  const tryPlace = (kit, x, z, hw, hd, rot, top, plinth) => {
+    if (!MODEL_ROUTE[kit]) return false;
+    const c = Math.abs(Math.cos(rot)), s = Math.abs(Math.sin(rot));
+    const ex = hw * c + hd * s, ez = hw * s + hd * c;
+    // four corners and the centre, all of which have to miss everything
+    for (const p of [[0, 0], [-ex, -ez], [ex, -ez], [-ex, ez], [ex, ez]]) {
+      if (nearBuilding(x + p[0], z + p[1], 2.5)) return false;
+    }
+    for (const b of WATERBODIES) {
+      if (x + ex > b.x0 - 3 && x - ex < b.x1 + 3 && z + ez > b.z0 - 3 && z - ez < b.z1 + 3) return false;
+    }
+    for (const r of ROADS) {
+      const dx = r[2] - r[0], dz = r[3] - r[1], l2 = dx * dx + dz * dz;
+      const t = clamp(((x - r[0]) * dx + (z - r[1]) * dz) / l2, 0, 1);
+      if (Math.hypot(x - (r[0] + t * dx), z - (r[1] + t * dz)) < r[4] / 2 + Math.max(ex, ez) * 0.72) return false;
+    }
+    const gy = terrainY(x, z);
+    if (plinth !== false) {
+      a.add(G_BOXT, xf(x, gy - 0.55, z, rot, hw * 2 + 1.6, 0.72, hd * 2 + 1.6),
+        K.sandDk, S.ASHLAR, 0.88);
+    }
+    platform(x - ex, z - ez, x + ex, z + ez, gy + 0.17);
+    inst(kit, xf(x, gy + 0.17, z, rot));
+    collider(x, z, hw, hd, rot, gy + top);
+    occluder(x, z, hw, hd, gy + top);
+    return true;
+  };
+
+  /* ---- apartment blocks in the residential quarters ------------------- */
+  let res = 0;
+  for (const Z of [PLAN.resN, PLAN.resS, PLAN.resW]) {
+    for (let x = Z.x0 + 24; x < Z.x1 - 24; x += 41) {
+      for (let z = Z.z0 + 24; z < Z.z1 - 24; z += 41) {
+        if (!chance(0.34)) continue;
+        const rot = Math.round(rnd() * 4) * (Math.PI / 2);
+        if (tryPlace('resblock', x + rr(-6, 6), z + rr(-6, 6), 7.0, 6.9, rot, 15.4)) res++;
+      }
+    }
+  }
+
+  /* ---- shophouse rows facing the boulevards --------------------------- */
+  let shop = 0;
+  for (const r of ROADS) {
+    if (r[5] !== 0) continue;
+    const dx = r[2] - r[0], dz = r[3] - r[1];
+    const len = Math.hypot(dx, dz);
+    const ux = dx / len, uz = dz / len, nx = uz, nz = -ux;
+    const ang = Math.atan2(ux, uz) + Math.PI / 2;
+    for (let t = 60; t < len - 60; t += 74) {
+      for (const side of [-1, 1]) {
+        if (!chance(0.36)) continue;
+        const off = r[4] / 2 + 13.5;
+        const px = r[0] + ux * t + nx * off * side, pz = r[1] + uz * t + nz * off * side;
+        if (Math.abs(pz - TRAM.z) < 22) continue;
+        if (tryPlace('shophouse', px, pz, 21.3, 5.2, ang, 12.4)) shop++;
+      }
+    }
+  }
+
+  /* ---- the blue hall: two of them, wherever the plan has room --------- */
+  let hall = 0;
+  const HALLS = [[PLAN.comm.x0 + 60, PLAN.comm.z1 - 46], [PLAN.enter.x1 - 52, PLAN.enter.z1 - 44],
+  [PLAN.resN.x0 + 90, PLAN.resN.z0 + 44], [PLAN.comm.x1 - 40, PLAN.comm.z0 + 50]];
+  for (const h of HALLS) {
+    if (hall >= 2) break;
+    if (tryPlace('bluehall', h[0], h[1], 26.4, 16.3, Math.round(rnd() * 2) * Math.PI, 16.4)) hall++;
+  }
+
+  /* ---- single sails over the café spill on the souq -------------------- */
+  let sails = 0;
+  const S1 = PLAN.souq, sp = PLAN.spineX;
+  for (let z = S1.z0 + 8; z < S1.z1 - 8; z += rr(15, 26)) {
+    const side = chance(0.5) ? 1 : -1;
+    const px = sp + side * rr(6.5, 8.5), pz = z;
+    if (insideSolid(px, pz, terrainY(px, pz) + 1.2)) continue;
+    inst('sail1', xf3(px, terrainY(px, pz) + 4.4, pz, 0, rnd() * 6.28, 0,
+      1.0 + rnd() * 0.5, 0.9, 1.0 + rnd() * 0.5));
+    sails++;
+  }
+  INSTCOUNT.fabprops = res + shop + hall + sails;
+}
+
 /* =========================================================== BUILD ORDER */
 function* buildSteps() {
   yield 'env'; buildEnvironment();
@@ -819,6 +923,7 @@ function* buildSteps() {
   yield 'landmarks'; buildLandmarks();
   yield 'transit'; buildTransit();
   yield 'roundabout'; buildRoundabout();
+  yield 'fabprops'; buildFabricProps();
   yield 'planting'; buildPlanting();
   yield 'green'; buildGreen();
   yield 'identity'; buildIdentity();

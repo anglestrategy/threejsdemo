@@ -315,3 +315,13 @@ the other 600 MB never crosses the wire.
 | 2 | **The signature of both aerials is a turquoise rill tracing every public edge**, not one channel down the middle. | Four more water runs frame the canopy plaza, broken either side of the souq's axis so you can always walk between them, and the water itself went from a dark harbour green to a Gulf turquoise. |
 | 3 | **No arrival monument.** | The roundabout from the second aerial, at West Avenue × South Boulevard: a raised paved island the roads pass around, a 28 m water bowl with a circular water disc and twenty-six jets in it, a 12 m obelisk standing in the middle, ten uplights and a ring of date palms. |
 | 4 | **Two of the twelve were generated but are not routed.** The palm is a crown with no trunk — it decimates to a low bush — and the street bench is a thin frame that reads worse than the wooden one already in the kit. | Both stay in `work/props.json` and out of `defineKit`. The hand-built palm and `benchw` keep their places. Recording it here rather than deleting them, because the next batch may supersede either. |
+
+**Fabric props.** The district's architecture is procedural, which is what lets
+it be a district rather than four buildings — but every wall in it came out of
+the same grammar, and at plan scale that reads. `buildFabricProps` drops the
+scanned shophouse row, apartment block and blue-roofed hall into it to break
+that up. Nothing is hand-placed: each candidate site is tested against the
+colliders the block pass has already registered, against the water bodies and
+against every road centreline, so a prop only lands in a gap that was genuinely
+empty — which also means the seed decides where they go and the world stays
+identical between reloads.
