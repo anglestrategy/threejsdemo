@@ -273,6 +273,8 @@ reasons, all of them fixable, none of them about triangle count.
 | 3 | **From two hundred metres up you do not see a street, a shopfront or a person — you see roofs.** Every roof was a bare tan slab with a grey box on it. | The roofscape now carries the aerial: planted terraces with a real green plate, pergolas (the most legible thing on a roof from the air — a striped dark rectangle), photovoltaic arrays in deep blue, bougainvillea over the pergola frames, and a table and chairs where someone would sit. Green roofs went from 45% to 78% of blocks. |
 | 4 | **One note of sand.** Every reference for this place is stone *and* deep green *and* one strong flowering colour. | `buildGreen`: lawn panels and hedge lines in the public rooms, and 460 bougainvillea placed on the walls they would actually climb, found the same way the dressing pass finds a frontage. |
 
+| 5 | The green cost more than every tree in the district. A bougainvillea built from thirty-five 64-sided spheres is 2,240 triangles, and at 693 instances that was 1.55 M — the aerial gained 2 M triangles, of which three quarters were shrubs nobody looks at from closer than two metres. | Twenty-sided blobs at the same silhouette, and sixteen bracts instead of twenty-two: 580 triangles apiece, 402 k in total. 9.33 M back to 8.10 M. |
+
 **On generated 3D models.** A 1.9 M-triangle Tripo GLB of one of the renders
 came back as a single welded blob — one mesh, one material, the lighting baked
 into the albedo — a diorama of the district rather than a building. It reads

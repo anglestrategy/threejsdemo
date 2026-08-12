@@ -79,6 +79,9 @@ Yaw 0 = looking toward +Z in both scenes, so a pose is portable.
 | p10 | focus pull | ray-marched against the district's own ground and colliders, clamped 3.5-48 m |
 | p11 | near-field dressing | 1,122 props on 18 anchors, 4,029 litter scraps |
 | p11 | instanced triangles, aerial | 5.97 M in 74 instanced meshes |
+| p15 | instanced triangles, aerial | 8.10 M in 104 meshes (interiors, skyline, roofscape, green) |
+| p15 | fog | directional, warm toward the sun and blue away, density 0.00034 (was 0.00058 flat) |
+| p15 | skyline | towers 1.1-2.25 km, clustered toward the coast; sky dome 3.3 km, camera far 3.4 km |
 | p11 | collision sweep after dressing | 337,960 steps, 6 stuck (0.0018%), 468 colliders, 15 platforms |
 | p6 | canopy panels | 1,084 folded triangles + fascia + frame + 3-armed columns |
 
