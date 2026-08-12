@@ -1982,10 +1982,18 @@ const GradeShader = {
     uVig: { value: 0.92 }, uDim: { value: 0 },
     uRes: { value: new THREE.Vector2(1, 1) },
     uVeil: { value: 0 }, uCity: { value: 0 },
+    /* the golden (t=19.0) and dusk (t=20.6) keyframes interpolated to this
+       scene's hour. Kept as uniforms so the grade stays tunable in one place. */
+    uWB: { value: new THREE.Vector3(1.038, 0.981, 0.960) },
+    uShTint: { value: new THREE.Vector3(0.758, 0.914, 1.185) },
+    uHiTint: { value: new THREE.Vector3(1.168, 1.011, 0.838) },
+    uShAmt: { value: 0.55 }, uHiAmt: { value: 0.425 },
+    uSat: { value: 1.075 }, uCon: { value: 1.081 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: `
     uniform sampler2D tDiffuse; uniform float uTime,uVig,uDim,uVeil,uCity; uniform vec2 uRes;
+    uniform vec3 uWB,uShTint,uHiTint; uniform float uShAmt,uHiAmt,uSat,uCon;
     varying vec2 vUv;
     float vh(vec2 p){ return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453); }
     float vnz(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
@@ -2007,6 +2015,31 @@ const GradeShader = {
       c += mix(vec3(-0.010,0.002,0.030), vec3(0.004,-0.004,0.040), uCity)*(1.0-smoothstep(0.0,0.28,l));
       c += mix(vec3(0.028,0.008,-0.014), vec3(0.048,0.018,-0.020), uCity)*smoothstep(0.35,1.0,l);
       c = mix(c, c*vec3(1.035,1.005,0.955), uCity);
+
+      /* ---- colour script -------------------------------------------------
+         A proper per-time-of-day grade, the shape of it taken from the
+         fable5 world demo's ColorScript (its render layer is WebGPU/TSL and
+         does not port, but a keyframed grade is data and arithmetic and does).
+         This scene sits at one hour — the sun twenty degrees up, WSW — so the
+         values are its golden and dusk keyframes interpolated to t=19.6 and
+         baked in as uniforms rather than evaluated per frame.
+
+         What it buys over the split tone above it is that the tints multiply
+         rather than add, so they hold their hue through the highlights instead
+         of washing to white, and saturation and contrast are applied about a
+         luma pivot rather than by lifting the whole curve. That is the
+         difference between a warm cast and a graded frame. */
+      {
+        c *= uWB;
+        float ls = dot(c, vec3(0.2126,0.7152,0.0722));
+        float sw = 1.0 - smoothstep(0.0, 0.42, ls);       // shadow weight
+        float hw = smoothstep(0.34, 1.0, ls);             // highlight weight
+        c = mix(c, c * uShTint, sw * uShAmt * uCity);
+        c = mix(c, c * uHiTint, hw * uHiAmt * uCity);
+        float lg = dot(c, vec3(0.2126,0.7152,0.0722));
+        c = mix(vec3(lg), c, mix(1.0, uSat, uCity));      // saturation about luma
+        c = mix(vec3(0.18), c, mix(1.0, uCon, uCity));    // contrast about mid grey
+      }
       // vignette
       float v = smoothstep(1.16, uVig*0.36, r*1.32);
       c *= mix(0.60, 1.0, v);
