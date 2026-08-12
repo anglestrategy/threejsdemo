@@ -944,9 +944,13 @@ function buildScanFabric() {
     return true;
   };
 
-  /* line every public street in the core, both sides, back to back */
+  /* Line every street in the core, both sides, back to back — and where the
+     first rank cannot take a site, try a second one set back behind it. Most
+     rejections are legitimate (the plan's own set pieces are reserved before
+     anything claims a site), but a rejection used to skip eleven metres of
+     frontage whether the obstruction was eleven metres or one. */
   for (const r of ROADS) {
-    if (r[5] !== 0) continue;
+    if (r[5] === 1) continue;   // pedestrian ways are dressed, not built on
     const dx = r[2] - r[0], dz = r[3] - r[1];
     const len = Math.hypot(dx, dz);
     const ux = dx / len, uz = dz / len, nx = uz, nz = -ux;
@@ -959,12 +963,24 @@ function buildScanFabric() {
         const px = r[0] + ux * (t + b.w / 2) + nx * off * side;
         const pz = r[1] + uz * (t + b.w / 2) + nz * off * side;
         // only inside the plan's own bounds, and only where a walker goes
-        if (px > PLAN.bounds.x0 + 40 && px < PLAN.bounds.x1 - 40 &&
-            pz > PLAN.bounds.z0 + 40 && pz < PLAN.bounds.z1 - 40 &&
-            place(b, px, pz, ang + (side > 0 ? Math.PI : 0), rr(6, 17))) {
+        const inBounds = px > PLAN.bounds.x0 + 40 && px < PLAN.bounds.x1 - 40 &&
+          pz > PLAN.bounds.z0 + 40 && pz < PLAN.bounds.z1 - 40;
+        const face = ang + (side > 0 ? Math.PI : 0);
+        if (inBounds && place(b, px, pz, face, rr(6, 17))) {
           t += b.w + rr(1.2, 5.0);
+          continue;
+        }
+        /* the second rank: a courtyard block set back behind the frontage,
+           which is how this fabric actually works and which picks up the
+           depth the first rank could not reach */
+        const b2 = pick(pool);
+        const off2 = r[4] / 2 + b2.d / 2 + 4.5 + b2.d + 9;
+        const qx = r[0] + ux * (t + b2.w / 2) + nx * off2 * side;
+        const qz = r[1] + uz * (t + b2.w / 2) + nz * off2 * side;
+        if (inBounds && chance(0.55) && place(b2, qx, qz, face + (chance(0.5) ? Math.PI : 0), rr(0, 8))) {
+          t += b2.w * 0.7 + rr(1.0, 4.0);
         } else {
-          t += 11;
+          t += 6;
         }
       }
     }

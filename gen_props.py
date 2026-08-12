@@ -106,11 +106,11 @@ PROPS = [
     #     gully in the district, and the signals it never had at all.
     ('Meshy_AI_street_lamppost_3d_0812130902_image-to-3d-texture.glb',      'lamppost',   36000, 2048, 3600),
     ('Meshy_AI_bollard_traffic_post__0812130956_image-to-3d-texture.glb',   'bollard2',   14000, 2048, 1600),
-    ('Meshy_AI_manhole_drain_grate_3_0812130756_image-to-3d-texture.glb',   'grate',      10000, 2048, 1100),
+    ('Meshy_AI_manhole_drain_grate_3_0812130756_image-to-3d-texture.glb',   'grate',       3000, 2048, 500),
     ('Meshy_AI_traffic_signal_pole_3_0812130857_image-to-3d-texture.glb',   'tsignal',    30000, 2048, 3000),
     ('Meshy_AI_pedestrian_signal_pol_0812130836_image-to-3d-texture.glb',   'psignal',    24000, 2048, 2600),
     ('Meshy_AI_curb_gutter_edge_3d_0812130913_image-to-3d-texture.glb',     'kerb',       14000, 2048, 1600),
-    ('Meshy_AI_sidewalk_paver_segmen_0812130848_image-to-3d-texture.glb',   'walkseg',    16000, 2048, 1800),
+    ('Meshy_AI_sidewalk_paver_segmen_0812130848_image-to-3d-texture.glb',   'walkseg',     6000, 2048, 900),
     ('Meshy_AI_straight_road_segment_0812130817_image-to-3d-texture.glb',   'roadseg',    24000, 2048, 2600),
     ('Meshy_AI_road_intersection_seg_0812130807_image-to-3d-texture.glb',   'roadx',      36000, 2048, 3600),
 ]
@@ -184,7 +184,8 @@ WELD = {   # key -> (near tolerance, far tolerance) on the 2 m normalised box
     'lagoon_a': (0.003, 0.022), 'lagoon_b': (0.003, 0.022),
     'extra': (0.003, 0.020), 'majlisset': (0.002, 0.016),
     'trellis': (0.003, 0.020), 'pots': (0.002, 0.016),
-    'solar': (0.002, 0.014),
+    'solar': (0.002, 0.014), 'walkseg': (0.003, 0.020), 'kerb': (0.003, 0.018),
+    'grate': (0.002, 0.016), 'roadseg': (0.003, 0.020),
 }
 
 
