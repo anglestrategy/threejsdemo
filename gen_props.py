@@ -48,7 +48,8 @@ TMP = 'work/user'
 
 # more than one archive now: each index entry remembers which zip it came from
 ZIPS = {'work/zipindex.json': ZIP,
-        'work/zipindex2.json': REL + 'Archive.2.zip'}
+        'work/zipindex2.json': REL + 'Archive.2.zip',
+        'work/zipindex3.json': REL + 'Archive.3.zip'}
 ZIDX = {}
 for idxf, url in ZIPS.items():
     if os.path.exists(idxf):
@@ -113,6 +114,22 @@ PROPS = [
     ('Meshy_AI_sidewalk_paver_segmen_0812130848_image-to-3d-texture.glb',   'walkseg',     6000, 2048, 900),
     ('Meshy_AI_straight_road_segment_0812130817_image-to-3d-texture.glb',   'roadseg',    24000, 2048, 2600),
     ('Meshy_AI_road_intersection_seg_0812130807_image-to-3d-texture.glb',   'roadx',      36000, 2048, 3600),
+    # --- the final batch. Sustainability kit, which is the one theme in the
+    #     four SDC renders the district was carrying only as a solar array:
+    #     a wind tower, PV over the planters and over a heritage roof, an
+    #     electric shuttle. Plus the soft landscape the plaza was short of —
+    #     tiered planters, deck benches, market stalls, and a palm that comes
+    #     with its own base rather than needing one built under it.
+    ('Meshy_AI_solar_wind_tower_3d_0812151559_image-to-3d-texture.glb',    'windtower', 140000, 4096, 14000),
+    ('Meshy_AI_solar_roofed_heritage_0812151635_image-to-3d-texture.glb',  'heritage',  240000, 4096, 24000),
+    ('Meshy_AI_electric_shuttle_vehi_0812151632_image-to-3d-texture.glb',  'shuttle',   130000, 4096, 13000),
+    ('Meshy_AI_market_stall_canopy_3_0812151557_image-to-3d-texture.glb',  'stall',      70000, 2048, 7000),
+    ('Meshy_AI_tiered_planter_cluste_0812151630_image-to-3d-texture.glb',  'planters',   70000, 2048, 7000),
+    ('Meshy_AI_solar_panel_planter_b_0812151606_image-to-3d-texture.glb',  'pvplanter',  50000, 2048, 5000),
+    ('Meshy_AI_wooden_deck_bench_pla_0812151613_image-to-3d-texture.glb',  'deckbench',  34000, 2048, 3600),
+    # a scanned palm with its own base: the base is why this gets a budget
+    # closer to palm2's than a bench's — the frond crown is most of the mesh
+    ('Meshy_AI_palm_tree_on_base_3d_0812151615_image-to-3d-texture.glb',   'palmbase',   60000, 2048, 7000),
 ]
 
 
@@ -186,6 +203,13 @@ WELD = {   # key -> (near tolerance, far tolerance) on the 2 m normalised box
     'trellis': (0.003, 0.020), 'pots': (0.002, 0.016),
     'solar': (0.002, 0.014), 'walkseg': (0.003, 0.020), 'kerb': (0.003, 0.018),
     'grate': (0.002, 0.016), 'roadseg': (0.003, 0.020),
+    # final batch: the same rule as the rest — anything scanned with
+    #    disconnected leaf or slat shells needs a tolerance weld before the
+    #    simplifier has an edge it can collapse. Planters and palms are foliage;
+    #    the PV arrays are hundreds of separate panel shells. 
+    'planters': (0.003, 0.022), 'palmbase': (0.004, 0.026),
+    'pvplanter': (0.002, 0.016), 'stall': (0.002, 0.016),
+    'deckbench': (0.002, 0.014), 'windtower': (0.002, 0.016),
 }
 
 

@@ -614,7 +614,7 @@ function water(x0, z0, x1, z1, y, depth, flow) {
   WATERBODIES.push({ x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: Math.min(z0, z1), z1: Math.max(z0, z1), y, depth: depth || 0.5, flow: flow || 0 });
 }
 
-const waterMat = new THREE.ShaderMaterial({
+const waterMat = MATERIALS && MATERIALS.water ? MATERIALS.water({}) : new THREE.ShaderMaterial({
   transparent: true,
   uniforms: {
     uTime: { value: 0 }, uSun: { value: CSUN.clone() },

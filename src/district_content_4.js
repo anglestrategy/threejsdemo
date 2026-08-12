@@ -44,7 +44,7 @@ const emisRoomMat = makeEmissive(0.42, false);
    A lantern that does not put a pool of light on the ground is a prop, not a
    light. These are additive discs with a soft radial falloff and a little
    noise so the edge is not a circle; one instanced quad each.            */
-const poolMat = new THREE.ShaderMaterial({
+const poolMat = MATERIALS && MATERIALS.water ? MATERIALS.water({ pool: true }) : new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   uniforms: { uTime: { value: 0 } },
   vertexShader: `varying vec2 vU; varying vec3 vC; varying vec3 vWP;

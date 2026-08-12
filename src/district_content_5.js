@@ -461,8 +461,8 @@ function updateLife(dt, t) {
   emisFlickMat.userData.u.uTime.value = t;
   emisSoftMat.userData.u.uTime.value = t;
   emisShopMat.userData.u.uTime.value = t;
-  poolMat.uniforms.uTime.value = t;
-  waterMat.uniforms.uTime.value = t;
+  _wu(poolMat).uTime.value = t;
+  _wu(waterMat).uTime.value = t;
 }
 
 /* ============================================================ LANDMARKS ==

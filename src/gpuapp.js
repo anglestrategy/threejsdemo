@@ -31,7 +31,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { makeCityMaterial as gpuCityMaterial, cityFogNode } from './gpu/material.js';
 import { makeModelMaterial as gpuModelMaterial } from './gpu/modelmat.js';
-import { buildSun } from './gpu/lighting.js';
+import { makeSkyMaterial, makeGroundBounceMaterial } from './gpu/sky.js';
+import { makeWaterMaterial } from './gpu/water.js';
+import { attachCSM } from './gpu/lighting.js';
 import { buildPost } from './gpu/post.js';
 
 /* ---------------------------------------------------------------- the shims
@@ -126,6 +128,9 @@ const CITY_MATERIALS = {
     return m;
   },
   model: (src, foliage) => { const m = gpuModelMaterial(src, foliage); GPU_MATS.push(m); return m; },
+  water: (o) => { const m = makeWaterMaterial(o); GPU_MATS.push(m); return m; },
+  sky: () => makeSkyMaterial(),
+  groundBounce: () => makeGroundBounceMaterial(),
 };
 
 /* the loaders district.js expects to find in scope */
@@ -155,7 +160,11 @@ const CITIES = [{
 const ui = { panel: null };
 const BLOOM_MAP = { s: 0.40, r: 0.62, t: 1.02 };
 const bloom = { strength: BLOOM_MAP.s, radius: BLOOM_MAP.r, threshold: BLOOM_MAP.t };
-const grade = { uniforms: { uCity: { value: 1 } } };
+/* the map's grade pass: `uCity` crossfades the district grade in during the
+   dive, `uVeil` is the dive's white-out. Neither exists on this renderer —
+   the colour script in src/gpu/grade.js does the grading and there is no
+   dive — but district.js writes both every frame. */
+const grade = { uniforms: { uCity: { value: 1 }, uVeil: { value: 0 } } };
 const markIdle = () => {};
 let dimTarget = 0;
 let sceneState = 'map';
@@ -199,10 +208,22 @@ cityScene3.traverse((o) => {
 });
 if (swapped) say('substituted ' + swapped + ' ShaderMaterial(s) — stand-ins, not ports');
 
-const lit = await buildSun(cityScene3, cam, {
-  webgpu: IS_GPU, cascades: 3, maxFar: 340, mapSize: 2048,
+/* The district's own sun, not a new one. Its rig — sun, cool counter-fill,
+   warm up-bounce, hemisphere — is measured against the SDC renders and is most
+   of why the district reads the way it does; adding a second directional light
+   beside it would flatten every shadow the rig exists to place. Only the
+   shadow is replaced, and only on the backend that can take cascades. */
+let citySunLight = null;
+CITY.scene.traverse((o) => {
+  if (o.isDirectionalLight && o.castShadow && !citySunLight) citySunLight = o;
 });
-say('sun: ' + (lit.csm ? '3-cascade CSM' : 'single shadow camera (WebGL2 path)'));
+const csm = citySunLight
+  ? await attachCSM(citySunLight, cam, { webgpu: IS_GPU, cascades: 3, maxFar: 340 })
+  : null;
+const lit = { csm, update: () => { if (csm) csm.updateFrustums(); } };
+say('sun: ' + (csm
+  ? '3-cascade CSM on the district rig'
+  : "the district's own fitted shadow camera (WebGL2 path)"));
 
 let post = null, setTime = null;
 if (flag('post')) {
@@ -216,28 +237,49 @@ if (flag('post')) {
   say('post: ' + Object.keys(built.nodes).join(' → '));
 }
 
-/* the six bookmarks, in the district's own frame: metres, origin at the centre
-   of the canopy plaza, +Z north */
-const VIEWS = {
-  plaza:  [[6, 1.68, -46], [0, 6, 40]],
-  souq:   [[4, 1.68, 150], [4, 3.2, 300]],
-  court:  [[-224, 1.68, 200], [-224, 3.0, 270]],
-  arcade: [[-96, 1.68, 30], [-40, 3.6, 60]],
-  water:  [[-34, 1.68, 90], [-34, 2.4, 210]],
-  aerial: [[210, 190, -240], [-20, 8, 150]],
-};
-const v = VIEWS[QA.view] || VIEWS.plaza;
-say('view: ' + QA.view);
+/* THE BOOKMARKS, copied from `SHOTS` in src/main.js — same ids, same poses.
+   Not approximated: the whole judgement criterion is a side-by-side against
+   these exact frames, and a camera two metres off makes a rendering comparison
+   into a composition comparison. Shot 1 is the map poster, which this renderer
+   does not carry; 2 through 6 are the district. */
+const SHOTS = [
+  { id: 2, name: 'canopy hero',       pos: [21, 5.4, -44],    yaw: 4,   pitch: 7.5, mode: 'fly' },
+  { id: 3, name: 'souq eye-level',    pos: [4, 1.68, 178],    yaw: 0,   pitch: 3,   mode: 'walk' },
+  { id: 4, name: 'majlis terrace',    pos: [150, 14.3, 235],  yaw: 28,  pitch: -1,  mode: 'walk' },
+  { id: 5, name: 'courtyard pool',    pos: [-224, 1.68, 198], yaw: -14, pitch: 5,   mode: 'walk' },
+  { id: 6, name: 'aerial masterplan', pos: [258, 168, -228],  yaw: -44, pitch: -25, mode: 'fly' },
+];
+const shotId = QA.shot || ({ canopy: 2, souq: 3, majlis: 4, court: 5, aerial: 6 }[QA.view]) || 2;
+const shot = SHOTS.find(x => x.id === shotId) || SHOTS[0];
+await CITY.goShot(shot, true);
+say('shot ' + shot.id + ': ' + shot.name);
+
+/* `aFlow` is authored on the channel geometry and not on every water body the
+   channel material ends up on. GLSL reads a missing attribute as zero; TSL
+   warns and the backend is free to hand back anything. Zeroed explicitly here,
+   which is also what it means: no flow. */
+let flowFixed = 0;
+CITY.scene.traverse((o) => {
+  if (!o.isMesh || !o.material || !o.material.userData || !o.material.userData.u) return;
+  if (!o.material.userData.u.uReflOn) return;          // not the water material
+  if (o.geometry.getAttribute('aFlow')) return;
+  const n = o.geometry.attributes.position.count;
+  o.geometry.setAttribute('aFlow', new THREE.BufferAttribute(new Float32Array(n), 1));
+  flowFixed++;
+});
+if (flowFixed) say('aFlow zeroed on ' + flowFixed + ' still water body(ies)');
 
 const READY_AT = Math.max(1, +(_q.get('frames') || 14));
 let f = 0;
 renderer.setAnimationLoop(() => {
-  const t = clock.getElapsedTime();
-  // the clock the wind and the practicals run on, exactly as the WebGL2 build
+  const dt = Math.min(0.05, clock.getDelta());
+  const t = clock.elapsedTime;
+  /* The district's own frame: practicals recycled onto the nearest lantern,
+     the life system, the water and sky clocks, the shadow refit, the focus
+     probe. Running the port without this leaves a district that is correct and
+     completely still, which is not what any of the four renders show. */
+  CITY.update(dt, t);
   for (const m of GPU_MATS) m.userData.u.uTime.value = t;
-  cam.position.set(...v[0]);
-  cam.lookAt(...v[1]);
-  cam.updateMatrixWorld(true);
   lit.update();
   if (post) post.render(); else renderer.render(cityScene3, cam);
   window.__frames++;

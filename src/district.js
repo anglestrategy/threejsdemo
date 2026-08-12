@@ -805,6 +805,12 @@ const SURF_GLSL = `
    one copy and not the other. */
 const MATERIALS = (typeof CITY_MATERIALS !== 'undefined') ? CITY_MATERIALS : null;
 
+/* `.uniforms` on a ShaderMaterial, `.userData.u` on the node material the
+   seam substitutes. One accessor, so the reflection and the clock wire
+   themselves under either renderer without a branch at every call site. */
+const _wu = (m) => m.uniforms || m.userData.u;
+
+
 function makeCityMaterial(cacheKey) {
   /* Still pushed to PROBE_MATS, and the alternative shape of the seam is worse:
      the probe bake and the clock both write through `userData.u.<name>.value`,
@@ -1281,7 +1287,13 @@ function fitShadow(target) {
 }
 
 /* ------------------------------------------------------------- city sky */
-const citySkyMat = new THREE.ShaderMaterial({
+/* The sky is behind the same seam as the two surface materials, and for a
+   sharper reason than they are: `buildEnvironment()` bakes a PMREM off this
+   material, so on a renderer that cannot compile it the failure is not a flat
+   dome — it is a flat WORLD, and every surface in the district inherits the
+   wrong indirect light from it. Substituting after the fact would be too late;
+   the bake has already run. */
+const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: {
     uSun: { value: CSUN.clone() }, uTime: { value: 0 },
@@ -1338,7 +1350,7 @@ function buildEnvironment() {
   sky.material.side = THREE.BackSide;
   s.add(sky);
   // the ground half: warm sand bounce, brighter toward the sun
-  const gm = new THREE.ShaderMaterial({
+  const gm = MATERIALS && MATERIALS.groundBounce ? MATERIALS.groundBounce() : new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
     uniforms: { uSun: { value: CSUN.clone() } },
     vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
@@ -1869,7 +1881,7 @@ function reflectionPlane() {
 
 function renderReflection() {
   const body = REFL.on ? reflectionPlane() : null;
-  if (!body) { REFL.live = 0; waterMat.uniforms.uReflOn.value = 0; return; }
+  if (!body) { REFL.live = 0; _wu(waterMat).uReflOn.value = 0; return; }
   REFL.y = body.y;
   const rt = reflectionTarget();
   const cam = REFL.cam;
@@ -1926,10 +1938,10 @@ function renderReflection() {
   renderer.shadowMap.autoUpdate = autoShadow;
   citySky.position.copy(cityCam.position);
 
-  waterMat.uniforms.uRefl.value = rt.texture;
-  waterMat.uniforms.uReflMtx.value.copy(REFL.tex);
-  waterMat.uniforms.uReflOn.value = 1;
-  waterMat.uniforms.uReflY.value = REFL.y;
+  _wu(waterMat).uRefl.value = rt.texture;
+  _wu(waterMat).uReflMtx.value.copy(REFL.tex);
+  _wu(waterMat).uReflOn.value = 1;
+  _wu(waterMat).uReflY.value = REFL.y;
   REFL.live = 1;
 }
 
@@ -1970,7 +1982,9 @@ function update(dt, t) {
   diveUpdate(dt);
   if (sceneState === 'city') {
     navUpdate(dt);
-    citySkyMat.uniforms.uTime.value = t;
+    /* `.uniforms` on a ShaderMaterial, `.userData.u` on the node material the
+       seam substitutes — the same handle under the two renderers' own spellings */
+    (citySkyMat.uniforms || citySkyMat.userData.u).uTime.value = t;
     for (const m of PROBE_MATS) m.userData.u.uTime.value = t;
     citySky.position.copy(cityCam.position);
     fitShadow(cityCam.position);

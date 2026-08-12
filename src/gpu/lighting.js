@@ -38,6 +38,51 @@ export const SUN = {
 };
 
 /**
+ * Attach cascades to a light that already exists.
+ *
+ * This is the entry point the district uses, and the distinction matters: the
+ * district builds its own rig — a 2.35-intensity sun at 20 degrees WSW, a cool
+ * counter-fill from the east sky so shadowed stone reads blue-violet rather
+ * than black, a warm bounce aimed up off the paving, and a hemisphere at 0.06.
+ * Those four are measured against the SDC renders and they are most of why the
+ * district reads the way it does. Adding a second sun beside them, which is
+ * what `buildSun` would do, is not "lighting the scene" — it is double
+ * lighting it, and it flattens every shadow the rig was built to place.
+ *
+ * So on the district this replaces only the SHADOW, and leaves the rig alone.
+ *
+ * @param light   the existing DirectionalLight to attach cascades to
+ * @param camera  the camera the cascades are fitted to
+ * @param opts.webgpu   true when the real backend came up
+ * @param opts.cascades number of cascades (WebGPU only)
+ * @param opts.maxFar   how far the cascades reach, in metres
+ */
+export async function attachCSM(light, camera, opts = {}) {
+  if (!opts.webgpu) {
+    /* Nothing to do: the district's own `fitShadow` refits a single shadow
+       camera every frame against the walker's height and view direction, with
+       texel- and grazing-angle-scaled bias. That is a good single-camera fit
+       and it stays. Cascades beat it, but only on the backend that can run
+       them. */
+    return null;
+  }
+  const { CSMShadowNode } = await import('three/addons/csm/CSMShadowNode.js');
+  const csm = new CSMShadowNode(light, {
+    cascades: opts.cascades || 3,
+    maxFar: opts.maxFar || 340,
+    mode: 'practical',
+    lightMargin: 220,
+  });
+  csm.camera = camera;
+  csm.fade = true;               // no visible seam where a cascade hands over
+  light.shadow.shadowNode = csm;
+  return csm;
+}
+
+/**
+ * Build a whole rig from scratch. Used by the standalone testbed only — the
+ * district has its own and `attachCSM` is the door for it.
+ *
  * @param scene   Scene
  * @param camera  the camera the cascades are fitted to
  * @param opts.webgpu   true when the real backend came up
