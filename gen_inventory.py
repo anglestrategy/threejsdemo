@@ -35,13 +35,10 @@ DESC = {
 }
 # kits that are generated but deliberately not routed, and why
 UNROUTED = {
-    'palm2': 'crown with no trunk; decimates to a low bush. The procedural '
-             'date palm reads better and carries a real LOD chain.',
-    'bench2': 'thin frame; reads worse than benchw.',
-    'majlisset': 'shape did not survive reduction in the first intake — '
-                 're-check against the new UV-correct pipeline.',
-    'extra': 'unclassified rock mass; no sited use yet.',
-    'lagoon_b': 'unclassified structure; no sited use yet.',
+    # everything from the release is now sited. Kept as a place to record any
+    # future rejection WITH its evidence — the last four entries here were all
+    # the broken intake's fault rather than the asset's, and were only found by
+    # re-auditing every model through the corrected one.
 }
 
 idx = json.load(open('work/props.json'))

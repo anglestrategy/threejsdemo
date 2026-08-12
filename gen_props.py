@@ -78,7 +78,7 @@ PROPS = [
     ('Meshy_AI_single_shade_sail_3d_0812060450_image-to-3d-texture.glb',   'sail1',      20000, 2048, 2200),
     ('Meshy_AI_street_bench_3d_0812060429_image-to-3d-texture.glb',        'bench2',     20000, 2048, 2400),
     ('Meshy_AI_majlis_lounge_seating_0812054315_image-to-3d-texture.glb',  'majlisset',  120000, 2048, 6000),
-    ('Meshy_AI_palm_tree_masterplan__0812060509_image-to-3d-texture.glb',  'palm2',      200000, 2048, 6000),
+    ('Meshy_AI_palm_tree_masterplan__0812060509_image-to-3d-texture.glb',  'palm2',       40000, 2048, 6000),
     # --- the solar array goes down 750 times: the one budget here set by
     #     arithmetic rather than by how it looks from two metres
     ('Meshy_AI_solar_panel_array_3d_0812052938_image-to-3d-texture.glb',   'solar',       2600, 1024, 700),

@@ -457,3 +457,37 @@ procedural thobes and abayas still outnumber them, but a set generated as
 *thobe and abaya, standing, isolated* would be the single highest-value thing
 to add next — the renders live on their people and these are the only ones in
 the build that are photographic.
+
+## Round 21 — re-auditing every model, because four rejections were mine
+
+Challenged on the palm, and the challenge was right. `palm2` had been rejected
+in round 17 as "a crown with no trunk that decimates to a low bush" — on the
+strength of a screenshot of what the *broken* intake had done to it. Through
+the corrected pipeline it is a full date palm with a scarred trunk and a real
+crown, and it is better than the procedural one built to replace it.
+
+That prompted re-auditing all 31 through the fixed pipeline rather than
+trusting any earlier judgement. Four of the five rejections were wrong:
+
+| asset | what I said | what it actually is |
+|---|---|---|
+| `palm2` | crown with no trunk, decimates to a bush | a full date palm. Now routed as `palm`, 37 k near / 5.5 k far, replacing the procedural one district-wide. |
+| `extra` | unclassified rock mass | a three-storey vernacular building with balconies and an arcaded ground floor |
+| `lagoon_b` | unclassified structure | a larger vernacular block, same family |
+| `bench2` | thin frame, reads worse than benchw | a bench, and a good one |
+| `majlisset` | 16 k of brown rubble | 120 k, and it holds together — back on the majlis rugs |
+
+`extra` and `lagoon_b` are now `townhouse` and `townhouse2`, placed through the
+same fabric-prop pass that tests every candidate site against the colliders,
+the water and the road centrelines. Nothing from the release is unsited.
+
+**The method note is the point.** Every one of those judgements was made by
+looking at a render, which is the right way to judge an asset — but the render
+was of a pipeline I had not verified. An asset is only ever as good as the last
+thing that touched it, and a contact sheet is evidence about the *pipeline*
+until the pipeline is proven. The procedural date palm stays in the source,
+registered underneath and taking over if the asset ever fails to load; it was
+good work and it is the fallback, but a photogrammetric palm beats it and
+always would have.
+
+157 instanced meshes, 24.3 M triangles, scale audit green, walk cycle green.

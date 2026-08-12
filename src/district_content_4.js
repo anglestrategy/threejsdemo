@@ -246,7 +246,7 @@ function palmGeo(detail) {
   return g;
 }
 
-let STANDERS = [], SITTERS = [];
+let STANDERS = [], SITTERS = [], PALM_PROC = null;
 
 function defineKit() {
   /* ---- palm ----------------------------------------------------------- */
@@ -259,6 +259,8 @@ function defineKit() {
       near: 48, jitter: true,
     };
   }
+  // ... and handed to the scan if it arrived. See the note in defineKit's tail.
+  PALM_PROC = MODEL_ROUTE.palm;
 
   /* ---- broad shade tree (the ficus/olive canopies framing madinah2) -- */
   {
@@ -1093,6 +1095,15 @@ function defineKit() {
   routeProp('obelisk', 'obelisk', 12.0, { jitter: false });
   routeProp('sail1', 'sail1', 5.0, { near: 60 });
   routeProp('kiosk', 'kiosk', 3.0, { near: 90 });
+  /* Re-audited through the corrected intake, and three more of the earlier
+     rejections were the pipeline's fault rather than the asset's: `extra` and
+     `lagoon_b` are vernacular buildings with balconies and arcaded ground
+     floors, not the unclassified rock masses the broken output made them look
+     like, and the street bench is a bench. */
+  routeProp('bench3', 'bench2', 0.62, { near: 26 });
+  routeProp('townhouse', 'extra', 11.5, { near: 150 });
+  routeProp('townhouse2', 'lagoon_b', 13.0, { near: 150 });
+  routeProp('majlisset', 'majlisset', 0.80, { near: 30 });
 
   /* ---- the scanned people ---------------------------------------------
      Ten standing figures and five seated ones, each split out of its scene
@@ -1101,5 +1112,20 @@ function defineKit() {
      division the walk cycle was built for. */
   STANDERS = routePersonParts('people10', 'gp', 1.72);
   SITTERS = routePersonParts('people5s', 'gs', 1.28);
+
+  /* ---- the palm --------------------------------------------------------
+     This asset was rejected in an earlier round on the strength of a
+     screenshot — and the screenshot was of what the broken intake had done to
+     it, not of the model. Through the corrected pipeline it is a full date
+     palm with a scarred trunk and a real crown, and it is better than the
+     procedural one built to replace it. Worth recording as a method note:
+     never judge an asset on the output of a pipeline you have not verified.
+
+     It goes down 450 times, so the near level is 37 k rather than the 194 k
+     the source can carry, and the radius is tight. The procedural palm stays
+     registered underneath and takes over if the asset ever fails to load. */
+  if (!routeProp('palm', 'palm2', 9.5, { near: 26 }) && PALM_PROC) {
+    MODEL_ROUTE.palm = PALM_PROC;
+  }
   // palm2 and bench2 are generated but not routed: see DELTA.md
 }

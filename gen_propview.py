@@ -22,6 +22,7 @@ text-shadow:0 1px 2px #000}</style>
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'addons/GLTFLoader.js';
+import { MeshoptDecoder } from 'addons/meshopt_decoder.js';
 const INDEX = %s;
 const W = innerWidth, H = innerHeight;
 const rn = new THREE.WebGLRenderer({ antialias: true });
@@ -40,7 +41,7 @@ const gm = new THREE.Mesh(new THREE.PlaneGeometry(400, 400),
   new THREE.MeshStandardMaterial({ color: 0x6d6153, roughness: 0.95 }));
 gm.rotation.x = -Math.PI / 2; gm.receiveShadow = true; sc.add(gm);
 const cam = new THREE.PerspectiveCamera(34, W / H, 0.05, 400);
-const loader = new GLTFLoader();
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 /* every prop is stood at the height it will actually be used at, because a
    bench and a mosque in the same normalised box tell you nothing */
 const TARGET = %s;
@@ -51,7 +52,7 @@ let x = 0, span = 0; const info = [];
 for (const n of show) {
   if (!INDEX[n]) continue;
   const g = await loader.loadAsync(INDEX[n].file);
-  const root = g.scene;
+  const root = g.scene; root.updateMatrixWorld(true);
   const k = (TARGET[n] || 2) / Math.max(0.01, INDEX[n].height);
   root.scale.setScalar(k);
   root.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true;
@@ -76,15 +77,16 @@ let f = 0; window.__frames = 0;
   if (++f === 3) window.__ready = true; })();
 </script></body></html>
 """ % (json.dumps({'imports': MAP}), json.dumps(INDEX),
-       json.dumps({'bicycle': 1.75, 'benchw': 0.85, 'bins': 1.1, 'pots': 1.0,
-                   'hammock': 1.1, 'evpoint': 1.5, 'solar': 0.35, 'trellis': 2.6,
+       json.dumps({'bicycle': 1.05, 'benchw': 0.86, 'bins': 1.15, 'pots': 1.0,
+                   'hammock': 1.05, 'evpoint': 1.5, 'solar': 0.42, 'trellis': 2.6,
                    'extra': 6.0, 'mosque': 26.0, 'arcade': 11.0, 'majlisset': 0.8,
-                   'carpet': 0.05, 'bunting': 0.5, 'watershrub': 1.4,
+                   'carpet': 0.09, 'bunting': 0.5, 'watershrub': 1.45,
                    'lagoon_a': 6.0, 'lagoon_b': 7.0,
                    'canopypav': 15.0, 'palm2': 9.5, 'tram': 3.6, 'tramstop': 3.4,
                    'shophouse': 12.0, 'bluehall': 16.0, 'resblock': 15.0,
-                   'fountain': 3.0, 'obelisk': 12.0, 'sail1': 5.0,
-                   'kiosk': 3.0, 'bench2': 0.85}))
+                   'fountain': 2.46, 'obelisk': 12.0, 'sail1': 5.0,
+                   'kiosk': 3.0, 'bench2': 0.6,
+                   'people10': 1.72, 'people5s': 1.28}))
 
 os.makedirs('dist', exist_ok=True)
 open('dist/props.html', 'w').write(html)

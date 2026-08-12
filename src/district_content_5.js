@@ -632,8 +632,13 @@ function buildLandmarks() {
     const g = terrainY(mx, mz);
     const rot = rnd() * 6.28;
     inst('rugbig', xf(mx, g + 0.13, mz, rot, 1.15, 1, 1.15));
-    // seating round the rug: the hand-built majlis kit, because the scanned
-    // lounge set did not survive its own decimation
+    if (MODEL_ROUTE.majlisset) {
+      // the scanned lounge set: it survives the corrected intake perfectly well
+      inst('majlisset', xf(mx, g + 0.14, mz, rot));
+      inst('lowtable', xf3(mx, g + 0.15, mz, 0, rot, 0, 1, 1, 1), 0xf2ece0);
+      if (chance(0.6)) inst('potset', xf(mx + rr(-3.4, 3.4), g + 0.13, mz + rr(-3.4, 3.4), rnd() * 6.28));
+      continue;
+    }
     for (let k = 0; k < 7; k++) {
       const a2 = rot + k / 7 * 6.2831853;
       const px = mx + Math.sin(a2) * 1.55, pz = mz + Math.cos(a2) * 1.55;
@@ -891,6 +896,20 @@ function buildFabricProps() {
     if (tryPlace('bluehall', h[0], h[1], 26.4, 16.3, Math.round(rnd() * 2) * Math.PI, 16.4)) hall++;
   }
 
+  /* ---- the two vernacular blocks -------------------------------------- */
+  let town = 0;
+  for (const Z of [PLAN.resN, PLAN.resS, PLAN.resW, PLAN.enter, PLAN.comm]) {
+    for (let x = Z.x0 + 30; x < Z.x1 - 30; x += 57) {
+      for (let z = Z.z0 + 30; z < Z.z1 - 30; z += 57) {
+        if (!chance(0.30)) continue;
+        const two = chance(0.42);
+        const rot = Math.round(rnd() * 4) * (Math.PI / 2);
+        if (tryPlace(two ? 'townhouse2' : 'townhouse', x + rr(-8, 8), z + rr(-8, 8),
+          two ? 9.2 : 6.3, two ? 6.2 : 5.9, rot, two ? 13.2 : 11.7)) town++;
+      }
+    }
+  }
+
   /* ---- single sails over the café spill on the souq -------------------- */
   let sails = 0;
   const S1 = PLAN.souq, sp = PLAN.spineX;
@@ -902,7 +921,7 @@ function buildFabricProps() {
       1.0 + rnd() * 0.5, 0.9, 1.0 + rnd() * 0.5));
     sails++;
   }
-  INSTCOUNT.fabprops = res + shop + hall + sails;
+  INSTCOUNT.fabprops = res + shop + hall + sails + town;
 }
 
 /* ======================================================= SCANNED PEOPLE ==
