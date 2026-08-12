@@ -16,6 +16,7 @@ const ACC = {
   get fine() { return chunkAcc('fine'); },      // trim, railings, frames
   water: new Acc(),
 };
+const INTERIOR = new Acc();   // the shell of every shop, lit by its own ceiling
 const GLASS = new Acc();
 const SHOPGLASS = new Acc();
 const EMIS = new Acc();   // signage, lamp lenses, slit windows
@@ -640,49 +641,237 @@ function archHead(a, cx, y, cz, ang, w, rise, th, colour, surf, shade) {
 
 /* a lit shop interior seen through glass: a glazed plane, a warm emissive
    back wall set back, and a couple of fittings so the room has depth      */
+/* ==================================================== SHOP INTERIORS ==
+   The souq is 216 metres of shopfront and you walk it at two metres from the
+   glass, so what is behind the glass is not set dressing — it is half the
+   experience. A lit box with a counter in it is the thing that gives a demo
+   away, because a real shop is a floor, a ceiling with a light in it, a back
+   wall doing something, and three or four pieces of furniture arranged by
+   somebody who wanted to sell you something.
+
+   So every bay is given a trade, and the trade lays itself out. The composer
+   works in the room's own frame — `at(across, into, up)` — so a programme can
+   say "counter along the left wall, machine on it, two tables in the window"
+   without knowing which way the street runs. Everything it places is an
+   instanced kit part, because there are two hundred of these rooms.
+
+   Interior light is baked, not lit: eight pooled point lights cannot light two
+   hundred rooms, so each room carries a ceiling cove, its pendants' own glow,
+   and whatever its trade lights — a pastry case, a gold cabinet, an oven — as
+   emissive geometry, plus one practical registered at the opening so the room
+   still throws light onto the pavement.                                     */
+const TRADES = [
+  'cafe', 'restaurant', 'textile', 'grocer', 'gold', 'bakery',
+  'perfume', 'books', 'barber', 'pharmacy', 'cafe', 'textile', 'restaurant',
+];
+const TRADE_LIGHT = {
+  cafe: 0xffcf94, restaurant: 0xffb877, textile: 0xffe3c0, grocer: 0xfff0cf,
+  gold: 0xffd98a, bakery: 0xffc98a, perfume: 0xffe8d8, books: 0xffdcae,
+  barber: 0xf2f0e6, pharmacy: 0xdff0ee,
+};
+const TRADE_FLOOR = {
+  cafe: 0x6d5c46, restaurant: 0x5a3f30, textile: 0xc9bda6, grocer: 0x9c9384,
+  gold: 0x3f3a35, bakery: 0xbcae94, perfume: 0xd8d2c6, books: 0x7a5c3c,
+  barber: 0xcfc9bc, pharmacy: 0xd4d8d6,
+};
+
+const SHOPS = [];        // every fitted room, for QA and for the trade census
 function shopInterior(cx, y, cz, ang, w, h, depth, warm) {
   const cs = Math.cos(ang), sn = Math.sin(ang);
-  const push = (d) => [cx + sn * d, cz + cs * d];
-  // glazing — nearly clear, because the room behind it is the point
-  let p = push(0.05);
+  /* the room's own frame: `across` runs along the shopfront, `into` runs away
+     from the street, `up` is up. Every piece below is placed in it. */
+  const at = (across, into) => [cx + sn * into + cs * across, cz + cs * into - sn * across];
+  const trade = TRADES[Math.floor(rnd() * TRADES.length)];
+  /* A fitted room is 2,200 triangles and there are eleven hundred of them, and
+     an instanced mesh has one bounding sphere for every instance in it — so a
+     shop nobody can walk to is 2,200 triangles submitted every frame forever.
+     The same rule the planting uses applies here: full fit-out inside the
+     walkable core, a lit shell with a window display outside it. Which one a
+     bay gets is decided once, at build time, so nothing pops. */
+  let nearest = 1e9;
+  for (const a2 of NEARFIELD) {
+    const d2 = (cx - a2[0]) * (cx - a2[0]) + (cz - a2[1]) * (cz - a2[1]);
+    if (d2 < nearest) nearest = d2;
+  }
+  const fitted = nearest <= 30 * 30;
+  const tint = TRADE_LIGHT[trade] || warm || 0xffd6a0;
+  const halfW = w / 2;
+  const D = depth;
+
+  // ---- glazing: nearly clear, because the room behind it is the point
+  let p = at(0, 0.05);
   SHOPGLASS.add(G_BOXT, xf(p[0], y, p[1], ang, w, h, 0.05), 0xcfe0ea, S.METAL, 1);
-  // frame
   ACC.fine.add(G_BOXT, xf(p[0], y, p[1], ang, 0.10, h, 0.16), K.steelDk, S.METAL, 0.8);
-  ACC.fine.add(G_BOXT, xf(p[0] - cs * (w / 2 - 0.05), y, p[1] + sn * (w / 2 - 0.05), ang, 0.10, h, 0.16), K.steelDk, S.METAL, 0.8);
-  ACC.fine.add(G_BOXT, xf(p[0] + cs * (w / 2 - 0.05), y, p[1] - sn * (w / 2 - 0.05), ang, 0.10, h, 0.16), K.steelDk, S.METAL, 0.8);
-  ACC.fine.add(G_BOXT, xf(p[0], y + h - 0.06, p[1], ang, w, 0.12, 0.18), K.steelDk, S.METAL, 0.8);
-  // back wall, emissive — this is the lamp of the whole street
-  p = push(depth);
-  const tint = warm === undefined ? 0xffd6a0 : warm;
-  SHOPEMIS.add(G_BOXT, xf(p[0], y + 0.02, p[1], ang, w * 0.98, h * 0.94, 0.08), tint, 0, 1);
-  // the light that lands on the pavement in front of the shop
-  const gp = push(-1.35);
-  inst('pool', xf3(gp[0], y - 0.10, gp[1], 0, 0, 0, w * 2.2, 1, w * 2.2), tint);
-  // side walls catch the light
   for (const s of [-1, 1]) {
-    const q = [p[0] + cs * s * w / 2, p[1] - sn * s * w / 2];
-    ACC.arch.add(G_BOXT, xf(q[0] + sn * depth * 0.5, y, q[1] + cs * depth * 0.5, ang, 0.1, h, depth), 0xdcc7a6, S.RENDER, 0.9);
+    const e = at(s * (halfW - 0.05), 0.05);
+    ACC.fine.add(G_BOXT, xf(e[0], y, e[1], ang, 0.10, h, 0.16), K.steelDk, S.METAL, 0.8);
   }
-  // ceiling + a run of downlights
-  const q = push(depth * 0.5);
-  ACC.arch.add(G_BOXT, xf(q[0], y + h - 0.12, q[1], ang, w, 0.12, depth), 0xd8c6ab, S.RENDER, 0.8);
-  const n = Math.max(2, Math.round(w / 1.1));
-  for (let i = 0; i < n; i++) {
-    const o = -w / 2 + w * (i + 0.5) / n;
-    const lp = [q[0] + cs * o, q[1] - sn * o];
-    inst('shoplight', xf(lp[0], y + h - 0.22, lp[1], ang), 0xfff0d4);
+  ACC.fine.add(G_BOXT, xf(p[0], y + h - 0.06, p[1], ang, w, 0.12, 0.18), K.steelDk, S.METAL, 0.8);
+
+  // ---- the shell: floor, back wall, side walls, ceiling
+  const fp = at(0, D * 0.5);
+  inst('i_shopfloor', xf(fp[0], y - 0.015, fp[1], ang, w, 1, D), TRADE_FLOOR[trade] || 0x8a7a62);
+  const bp = at(0, D);
+  INTERIOR.add(G_BOXT, xf(bp[0], y, bp[1], ang, w, h, 0.14), 0xe0d0b4, S.RENDER, 1.02);
+  for (const s of [-1, 1]) {
+    const q = at(s * halfW, D * 0.5);
+    INTERIOR.add(G_BOXT, xf(q[0], y, q[1], ang, 0.1, h, D), 0xdcc7a6, S.RENDER, 0.94);
   }
-  // the light that actually leaves the shop and lands on the paving
-  const fp = push(-0.6);
-  PRACTICALS.push({ x: fp[0], y: y + h * 0.55, z: fp[1], c: tint, i: 5.2, r: 13 });
-  // merchandise: a counter and a couple of shelf stacks, silhouetted
-  const cpos = push(depth * 0.62);
-  ACC.fine.add(G_BOXT, xf(cpos[0], y + 0.02, cpos[1], ang, w * 0.62, 0.95, 0.5), 0x6b4b2e, S.TIMBER, 0.7);
-  for (let i = 0; i < 3; i++) {
-    const o = -w / 2 + w * (i + 0.5) / 3;
-    const sp = [push(depth * 0.9)[0] + cs * o, push(depth * 0.9)[1] - sn * o];
-    ACC.fine.add(G_BOXT, xf(sp[0], y + 0.4, sp[1], ang, w * 0.2, h * (0.42 + 0.2 * rnd()), 0.28), 0x7a5636, S.TIMBER, 0.6);
+  INTERIOR.add(G_BOXT, xf(fp[0], y + h - 0.12, fp[1], ang, w, 0.12, D), 0xd8c6ab, S.RENDER, 0.82);
+
+  /* the cove: a strip of light washing the back wall, which is what actually
+     makes a small room read as lit rather than as a glowing rectangle */
+  const cvp = at(0, D - 0.34);
+  inst('cove', xf(cvp[0], y + h - 0.20, cvp[1], ang, w * 0.94, 1, 1), tint);
+
+  // ---- ceiling pendants, on the room's own rhythm
+  const np = Math.max(1, Math.round(w / 1.5));
+  for (let i = 0; i < np; i++) {
+    const o = -w / 2 + w * (i + 0.5) / np;
+    const lp = at(o, D * 0.45 + ((i % 2) - 0.5) * 0.5);
+    inst('pendant', xf(lp[0], y + h - 0.12, lp[1], ang), pick([0xc4a06a, 0xb08a52, 0xd8cbb0]));
+    inst('pendantglow', xf(lp[0], y + h - 0.12, lp[1], ang), tint);
   }
+
+  // ---- and now the trade lays itself out
+  const put = (name, across, into, rot, sx, sy, sz, col) =>
+    inst(name, xf(at(across, into)[0], y, at(across, into)[1], ang + (rot || 0),
+      sx === undefined ? 1 : sx, sy === undefined ? 1 : sy, sz === undefined ? 1 : sz), col);
+  const putY = (name, across, into, up, rot, sx, sy, sz, col) =>
+    inst(name, xf(at(across, into)[0], y + up, at(across, into)[1], ang + (rot || 0),
+      sx === undefined ? 1 : sx, sy === undefined ? 1 : sy, sz === undefined ? 1 : sz), col);
+
+  /* Every shop gets a window piece, whatever its trade. Standing outside an
+     arched reveal you see a cone perhaps forty degrees wide, and everything a
+     programme puts against a side wall falls outside it — so if nothing stands
+     in the first metre, the shop reads as a lit empty wall no matter how well
+     it is fitted out behind. */
+  if (trade !== 'textile') {
+    const wo = rr(-halfW * 0.28, halfW * 0.28);
+    put('i_windisp', wo, 0.72, chance(0.5) ? 0 : Math.PI, Math.min(1.25, w * 0.52), 1, 1, 0xffffff);
+    put('windispglow', wo, 0.72, 0, Math.min(1.25, w * 0.52), 1, 1, tint);
+  }
+
+  if (!fitted) {
+    // the far version: a lit room with something in the window and a counter
+    put('i_counter', rr(-halfW * 0.2, halfW * 0.2), D * 0.62, chance(0.5) ? 0 : Math.PI, Math.min(1.4, w * 0.6), 1, 0.9, 0xffffff);
+    if (chance(0.5)) putY('i_shelfbay', 0, D - 0.30, 0, 0, w * 0.8, h * 0.44, 1, 0xffffff);
+  } else if (trade === 'cafe') {
+    const side = chance(0.5) ? -1 : 1;
+    put('i_counter', side * (halfW - 0.42), D * 0.62, side * Math.PI / 2, Math.min(2.2, D * 0.62), 1, 0.9, 0xffffff);
+    putY('i_espresso', side * (halfW - 0.52), D * 0.52, 0.92, side * Math.PI / 2, 0.9, 0.9, 0.9, 0xffffff);
+    putY('i_bottles', side * (halfW - 0.30), D - 0.28, 1.35, 0, w * 0.42, 1, 1, 0xffffff);
+    put('i_dispcase', -side * (halfW - 0.55), D * 0.72, 0, Math.min(1.1, w * 0.42), 1, 0.85, 0xffffff);
+    put('dispglow', -side * (halfW - 0.55), D * 0.72, 0, Math.min(1.1, w * 0.42), 1, 0.85, 0xfff0d0);
+    putY('i_menuboard', side * (halfW - 0.18), D - 0.22, h * 0.52, 0, w * 0.34, 1, 1, 0xffffff);
+    for (let i = 0; i < 2; i++) {
+      const tx = -side * (halfW * 0.45) + (i - 0.5) * 0.1;
+      put('i_table', tx, 0.95 + i * 1.05, 0, 0.78, 0.78, 0.78, pick([0xe8e3d6, 0xd6c6a8]));
+      for (let cch = 0; cch < 2; cch++) {
+        const a2 = rnd() * 6.28;
+        put('i_chair', tx + Math.sin(a2) * 0.62, 0.95 + i * 1.05 + Math.cos(a2) * 0.62, a2 + Math.PI, 0.8, 0.8, 0.8, 0xefeade);
+      }
+    }
+    if (chance(0.7)) put('i_potbush', -side * (halfW - 0.3), 0.5, 0, 0.7, 0.7, 0.7, K.leaf);
+  } else if (trade === 'restaurant') {
+    const side = chance(0.5) ? -1 : 1;
+    put('i_banquette', side * (halfW - 0.34), D * 0.55, side * Math.PI / 2, Math.min(2.4, D * 0.7), 1, 0.9, pick([0x6d3a34, 0x33465a, 0x4a5240]));
+    put('i_counter', 0, D - 0.55, Math.PI, w * 0.55, 1, 0.85, 0xffffff);
+    putY('i_bottles', 0, D - 0.26, 1.30, 0, w * 0.55, 1, 1, 0xffffff);
+    for (let i = 0; i < 2; i++) {
+      const tz = 1.0 + i * 1.15;
+      put('i_table', side * (halfW - 0.92), tz, 0, 0.72, 0.75, 0.72, 0xe8e3d6);
+      put('i_chair', side * (halfW - 1.55), tz, -side * Math.PI / 2, 0.78, 0.78, 0.78, pick([0x5d5148, 0x3f3a33]));
+      put('i_platter', side * (halfW - 0.92), tz, 0, 0.7, 0.7, 0.7, 0xffffff);
+    }
+    put('i_rug', 0, D * 0.4, 0, w * 0.7, 1, D * 0.5, 0xffffff);
+  } else if (trade === 'textile') {
+    for (const s of [-1, 1]) {
+      putY('i_railrack', s * (halfW - 0.42), D * 0.55 + s * 0.25, 0.16, s * Math.PI / 2, Math.min(1.9, D * 0.55), 1, 1, 0xffffff);
+    }
+    put('i_stack', 0, D * 0.60, 0, w * 0.42, 0.85, 0.8, 0xffffff);
+    put('i_mannequin', -halfW * 0.55, 0.62, rnd() * 6.28, 0.95, 0.95, 0.95, pick([0xe4dccc, 0xd8c9b0]));
+    if (chance(0.6)) put('i_mannequin', halfW * 0.5, 0.72, rnd() * 6.28, 0.9, 0.9, 0.9, pick([0xd6cbb6, 0xc9bda6]));
+    put('i_counter', halfW - 0.55, D - 0.62, 0, Math.min(1.2, w * 0.45), 1, 0.85, 0xffffff);
+  } else if (trade === 'grocer') {
+    for (let i = 0; i < 2; i++) {
+      putY('i_shelfbay', -halfW + 0.55 + i * 1.02, D - 0.30, 0, 0, 1, h * 0.42, 1, 0xffffff);
+    }
+    for (const s of [-1, 1]) putY('i_shelfbay', s * (halfW - 0.28), D * 0.55, 0, s * Math.PI / 2, Math.min(1.8, D * 0.5), h * 0.40, 1, 0xffffff);
+    put('i_crate', -halfW * 0.5, 0.66, rnd() * 6.28, 0.85, 0.85, 0.85, pick([0x9a7444, 0x86643a]));
+    put('i_crate', halfW * 0.45, 0.80, rnd() * 6.28, 0.8, 0.75, 0.8, 0x86643a);
+    put('i_counter', halfW - 0.62, D * 0.45, 0, Math.min(1.1, w * 0.42), 1, 0.85, 0xffffff);
+  } else if (trade === 'gold') {
+    // cabinets down both sides and across the back, all of them lit
+    for (const s of [-1, 1]) {
+      const n2 = 2;
+      for (let i = 0; i < n2; i++) {
+        const into = D * (0.34 + i * 0.30);
+        put('i_dispcase', s * (halfW - 0.32), into, s * Math.PI / 2, Math.min(1.1, D * 0.3), 1, 0.9, 0xffffff);
+        put('dispglow', s * (halfW - 0.32), into, s * Math.PI / 2, Math.min(1.1, D * 0.3), 1, 0.9, 0xffe6a8);
+      }
+    }
+    put('i_dispcase', 0, D - 0.42, 0, w * 0.7, 1, 0.9, 0xffffff);
+    put('dispglow', 0, D - 0.42, 0, w * 0.7, 1, 0.9, 0xffe6a8);
+    put('i_chair', -halfW * 0.3, D * 0.5, rnd() * 6.28, 0.75, 0.75, 0.75, 0x5d5148);
+  } else if (trade === 'bakery') {
+    put('i_dispcase', 0, 1.05, 0, w * 0.86, 1.05, 0.95, 0xffffff);
+    put('dispglow', 0, 1.05, 0, w * 0.86, 1.05, 0.95, 0xffe0b0);
+    for (let i = 0; i < 2; i++) putY('i_shelfbay', -halfW + 0.6 + i * 1.05, D - 0.28, 0, 0, 1, h * 0.44, 1, 0xffffff);
+    put('i_counter', halfW - 0.6, D * 0.62, 0, Math.min(1.1, w * 0.42), 1, 0.85, 0xffffff);
+    // the oven's own glow at the back of the room
+    const op = at(-halfW * 0.4, D - 0.20);
+    SHOPEMIS.add(G_BOXT, xf(op[0], y + 0.55, op[1], ang, 0.7, 0.5, 0.06), 0xff7a30, 0, 1);
+  } else if (trade === 'perfume') {
+    for (const s of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        putY('i_bottles', s * (halfW - 0.24), D * 0.55, 0.55 + i * 0.46, s * Math.PI / 2, Math.min(1.7, D * 0.5), 1, 1, 0xffffff);
+      }
+    }
+    putY('i_bottles', 0, D - 0.24, 1.05, 0, w * 0.8, 1, 1, 0xffffff);
+    put('i_counter', 0, D * 0.42, Math.PI, w * 0.5, 1, 0.85, 0xffffff);
+    put('dispglow', 0, D * 0.42, Math.PI, w * 0.5, 0.55, 0.7, 0xffe6d4);
+  } else if (trade === 'books') {
+    for (const s of [-1, 1]) putY('i_shelfbay', s * (halfW - 0.26), D * 0.58, 0, s * Math.PI / 2, Math.min(2.0, D * 0.6), h * 0.46, 1, 0xffffff);
+    for (let i = 0; i < 2; i++) putY('i_shelfbay', -halfW + 0.58 + i * 1.05, D - 0.28, 0, 0, 1, h * 0.46, 1, 0xffffff);
+    put('i_chair', 0, 1.0, rnd() * 6.28, 0.85, 0.85, 0.85, pick([0x6d3a34, 0x3f4a3a]));
+    put('i_table', -halfW * 0.4, 1.6, 0, 0.6, 0.6, 0.6, 0xd6c6a8);
+  } else if (trade === 'barber') {
+    const side = chance(0.5) ? -1 : 1;
+    for (let i = 0; i < 2; i++) {
+      put('i_chair', side * (halfW - 0.55), 0.95 + i * 1.10, side * Math.PI / 2, 0.95, 1.05, 0.95, pick([0x2f2a26, 0x3d3630]));
+    }
+    // the mirror run: a bright wall panel over a shelf of bottles
+    for (let i = 0; i < 2; i++) {
+      const mp = at(side * (halfW - 0.12), 0.95 + i * 1.10);
+      SHOPEMIS.add(G_BOXT, xf(mp[0], y + 0.95, mp[1], ang + side * Math.PI / 2, 0.8, 1.0, 0.04), 0xdfe6ea, 0, 1);
+      putY('i_bottles', side * (halfW - 0.22), 0.95 + i * 1.10, 0.86, side * Math.PI / 2, 0.7, 1, 1, 0xffffff);
+    }
+    put('i_counter', -side * (halfW - 0.55), D - 0.6, 0, Math.min(1.0, w * 0.4), 1, 0.85, 0xffffff);
+  } else {  // pharmacy
+    for (let i = 0; i < 2; i++) putY('i_shelfbay', -halfW + 0.58 + i * 1.05, D - 0.28, 0, 0, 1, h * 0.46, 1, 0xf2f4f2);
+    for (const s of [-1, 1]) putY('i_shelfbay', s * (halfW - 0.26), D * 0.6, 0, s * Math.PI / 2, Math.min(1.8, D * 0.55), h * 0.44, 1, 0xf2f4f2);
+    put('i_counter', 0, D * 0.36, Math.PI, w * 0.62, 1, 0.9, 0xeef2f0);
+    putY('i_menuboard', 0, D - 0.24, h * 0.55, 0, w * 0.4, 1, 1, 0xffffff);
+  }
+
+  /* somebody is in the shop. A lit room with nobody in it reads as closed,
+     and every one of these is open. */
+  if (chance(0.62)) {
+    const who = chance(0.55) ? 'thobe' : 'abaya';
+    put(who, rr(-halfW * 0.5, halfW * 0.5), rr(D * 0.35, D * 0.8), rnd() * 6.28, 1, 1, 1,
+      who === 'thobe' ? pick([0xf2efe6, 0xe8e2d4]) : pick([0x1c1a1c, 0x241f24]));
+  }
+
+  // the light that leaves the shop and lands on the paving
+  SHOPS.push({ trade, x: cx, y, z: cz, ang, w, h });
+  const gp = at(0, -1.35);
+  inst('pool', xf3(gp[0], y - 0.10, gp[1], 0, 0, 0, w * 2.2, 1, w * 2.2), tint);
+  /* the practical belongs *inside* the room, where the ceiling is. Sitting it
+     in front of the glass put a hotspot on the pier instead of light in the
+     shop, and at two metres that hotspot is the brightest thing in the frame. */
+  const pr = at(0, D * 0.45);
+  PRACTICALS.push({ x: pr[0], y: y + h * 0.72, z: pr[1], c: tint, i: 3.6, r: 10 });
 }
 
 /* parapet with a crenellated / stepped top — the Najdi silhouette */

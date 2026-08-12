@@ -39,7 +39,7 @@ const fps = await page.evaluate(() => new Promise(res => {
 }));
 
 fs.mkdirSync(path.join(ROOT, 'shots'), { recursive: true });
-await page.screenshot({ path: path.join(ROOT, 'shots', name + '.png'), timeout: 180000 });
+await page.screenshot({ path: path.join(ROOT, 'shots', name + '.png'), timeout: 300000 });
 
 let stats = null;
 try { stats = await page.evaluate(() => (window.__stats ? window.__stats() : null)); } catch (e) { }

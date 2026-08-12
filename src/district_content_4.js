@@ -38,6 +38,7 @@ const emisMat = makeEmissive(1.70, false);
 const emisFlickMat = makeEmissive(2.10, true);
 const emisSoftMat = makeEmissive(0.85, false);
 const emisShopMat = makeEmissive(1.55, false);
+const emisRoomMat = makeEmissive(0.42, false);
 
 /* ------------------------------------------------------------ light pools
    A lantern that does not put a pool of light on the ground is a prop, not a
@@ -500,6 +501,163 @@ function defineKit() {
     defInst('drain', combine(L), { shadow: false });
   }
 
+  /* ================================================== INTERIOR FIT-OUT ==
+     A shop you can see into is not a lit box with a counter in it. It is a
+     floor, a ceiling with a light in it, a back wall doing something, and
+     three or four pieces of furniture arranged by someone who wanted to sell
+     you something. All of it instanced, because there are two hundred shops
+     and every one of them is looked into from two metres away.
+
+     Everything here is authored in a one-metre cell with its origin at the
+     floor and -Z facing the street, so the room composer can place a piece by
+     giving it a position, a facing and a scale, and nothing has to know what
+     kind of shop it ended up in.                                            */
+
+  { // shelving bay: four shelves of stock, the colours baked in so one
+    // instanced draw still gives a wall of mixed merchandise
+    const L = [];
+    for (const sd of [-1, 1]) kitBox(L, sd * 0.47, 0, 0, 0.06, 2.0, 0.42, 0x6a4a2c, S.TIMBER, 0.62);
+    kitBox(L, 0, 0, 0.20, 1.0, 2.0, 0.04, 0x5d4126, S.TIMBER, 0.5);
+        // muted into the district's own palette: a shelf of primaries reads as a
+    // toy shop from the street, whatever the trade is meant to be
+    const GOODS = [0x9c6248, 0xbe9a5c, 0x7d8358, 0x5f7180, 0xc4b596, 0x8a7288, 0xd2cbb8, 0x6f4a2e];
+    for (let s = 0; s < 4; s++) {
+      const y = 0.34 + s * 0.46;
+      kitBox(L, 0, y, 0, 0.98, 0.045, 0.40, 0x7a5636, S.TIMBER, 0.86);
+      let x = -0.44;
+      let i = 0;
+      while (x < 0.40) {
+        const w = 0.09 + ((s * 7 + i * 3) % 5) * 0.035;
+        const h = 0.16 + ((s * 5 + i * 11) % 4) * 0.055;
+        kitBox(L, x + w / 2, y + 0.045, ((i + s) % 3) * 0.04 - 0.04, w * 0.92, h, 0.24 + ((i + s) % 3) * 0.05,
+          GOODS[(s * 3 + i * 5) % GOODS.length], S.RENDER, 0.74 + 0.10 * ((i + s) % 3));
+        x += w + 0.018; i++;
+      }
+    }
+    defInst('shelfbay', combine(L));
+  }
+  { // the window display: a plinth right behind the glass with product on it,
+    // which is the piece of a shop anyone standing outside actually looks at
+    const L = [];
+    kitBox(L, 0, 0, 0, 1.0, 0.52, 0.52, 0xc9bda6, S.TRAVERTINE, 0.98);
+    kitBox(L, 0, 0.52, 0, 1.04, 0.035, 0.56, 0xdcd3bf, S.TRAVERTINE, 1.10);
+    const C = [0xb08a52, 0x8d6a4a, 0xa8a08c, 0xc4b596, 0x7d8358];
+    for (let i = 0; i < 4; i++) {
+      const w = 0.13 + (i % 3) * 0.05;
+      kitBox(L, -0.34 + i * 0.23, 0.555, ((i % 3) - 1) * 0.07, w, 0.14 + (i % 4) * 0.09, w * 0.9,
+        C[i % C.length], S.RENDER, 0.92 + 0.08 * (i % 2));
+    }
+    defInst('windisp', combine(L));
+    const G = [];
+    G.push({ geo: G_BOXT, mtx: xf3(0, 0.555, 0, 0, 0, 0, 0.94, 0.012, 0.48), col: 0xffffff, surf: 0, shade: 1 });
+    defInst('windispglow', combine(G), { mat: emisRoomMat, shadow: false });
+  }
+  { // a serving / sales counter: a solid base, a stone top, a kick recess
+    const L = [];
+    kitBox(L, 0, 0, 0.04, 1.0, 0.86, 0.52, 0x54402a, S.TIMBER, 0.62);
+    kitBox(L, 0, 0.10, -0.26, 1.0, 0.76, 0.03, 0x6b5236, S.TIMBER, 0.72);
+    kitBox(L, 0, 0.86, 0, 1.08, 0.055, 0.62, 0xd6cdb8, S.TRAVERTINE, 1.06);
+    kitBox(L, 0, 0.915, -0.30, 1.08, 0.03, 0.03, 0xb9ad92, S.TRAVERTINE, 1.1);
+    defInst('counter', combine(L));
+  }
+  { // a glazed display case — the carcass. Its glow is a separate part.
+    const L = [];
+    kitBox(L, 0, 0, 0, 1.0, 0.72, 0.56, 0x3d3a34, S.METAL, 0.66);
+    kitBox(L, 0, 0.72, 0, 1.02, 0.02, 0.58, 0x8d8578, S.METAL, 0.9);
+    for (const sd of [-1, 1]) kitBox(L, sd * 0.49, 0.74, 0, 0.03, 0.42, 0.56, 0x8d8578, S.METAL, 0.9);
+    kitBox(L, 0, 1.16, 0, 1.02, 0.04, 0.58, 0x8d8578, S.METAL, 1.0);
+    defInst('dispcase', combine(L));
+    const G = [];
+    // the lit deck and the goods standing on it
+    G.push({ geo: G_BOXT, mtx: xf3(0, 0.74, 0, 0, 0, 0, 0.94, 0.02, 0.50), col: 0xffffff, surf: 0, shade: 1 });
+    for (let i = 0; i < 7; i++) {
+      G.push({ geo: G_BOXT, mtx: xf3(-0.38 + i * 0.126, 0.76, ((i % 3) - 1) * 0.10, 0, 0, 0,
+        0.07 + (i % 3) * 0.02, 0.10 + (i % 4) * 0.05, 0.07 + (i % 2) * 0.03), col: 0xffffff, surf: 0, shade: 1 });
+    }
+    defInst('dispglow', combine(G), { mat: emisRoomMat, shadow: false });
+  }
+  { // upholstered banquette against a wall
+    const L = [];
+    kitBox(L, 0, 0, 0, 1.0, 0.40, 0.60, 0x6d3a34, S.FABRIC, 0.78);
+    kitBox(L, 0, 0.40, 0.02, 1.0, 0.10, 0.56, 0x8a4a42, S.FABRIC, 0.94);
+    kitBox(L, 0, 0.42, 0.26, 1.0, 0.62, 0.10, 0x7a413a, S.FABRIC, 0.86);
+    for (let i = 0; i < 3; i++) kitBox(L, -0.3 + i * 0.3, 0.52, 0.19, 0.24, 0.24, 0.09, 0xc9b48c, S.FABRIC, 1.0, 0, 0, 0.2);
+    defInst('banquette', combine(L));
+  }
+  { // espresso machine and its grinder
+    const L = [];
+    kitBox(L, 0, 0, 0, 0.62, 0.30, 0.42, 0xc8c2b6, S.METAL, 1.02);
+    kitBox(L, 0, 0.30, 0.04, 0.56, 0.16, 0.34, 0x8f2f28, S.METAL, 0.92);
+    for (const sd of [-1, 1]) kitCyl(L, sd * 0.18, 0.20, -0.20, 0.035, 0.10, 0x2c2a26, S.METAL, 0.7);
+    kitCyl(L, 0.42, 0, 0.02, 0.09, 0.46, 0x3a3833, S.METAL, 0.8);
+    kitCyl(L, 0.42, 0.46, 0.02, 0.07, 0.14, 0xc8c2b6, S.METAL, 1.0);
+    defInst('espresso', combine(L));
+  }
+  { // a rail of clothes on hangers, seen from the shop side
+    const L = [];
+    for (const sd of [-1, 1]) kitBox(L, sd * 0.46, 0, 0, 0.05, 1.62, 0.05, 0x4a4740, S.METAL, 0.8);
+    kitBox(L, 0, 1.62, 0, 0.96, 0.04, 0.04, 0x4a4740, S.METAL, 0.9);
+    const CLOTH = [0xd8d2c4, 0x8e5b4a, 0x4b5f72, 0xc2a45e, 0x6e6a5c, 0x9a8fa8, 0xe0d6bc];
+    for (let i = 0; i < 9; i++) {
+      kitBox(L, -0.40 + i * 0.10, 0.56, ((i % 3) - 1) * 0.03, 0.085, 1.04, 0.13,
+        CLOTH[i % CLOTH.length], S.FABRIC, 0.72 + 0.16 * (i % 3));
+    }
+    defInst('railrack', combine(L));
+  }
+  { // a dressed torso on a stand, for the window
+    const L = [];
+    kitCyl(L, 0, 0, 0, 0.16, 0.04, 0x3a3833, S.METAL, 0.8);
+    kitCyl(L, 0, 0.04, 0, 0.03, 0.72, 0x3a3833, S.METAL, 0.85);
+    L.push({ geo: G_CYLT, mtx: xf3(0, 0.76, 0, 0, 0, 0, 0.38, 0.62, 0.26), col: 0xe4dccc, surf: S.FABRIC, shade: 1.0 });
+    L.push({ geo: G_SPH, mtx: xf3(0, 1.38, 0, 0, 0, 0, 0.20, 0.16, 0.18), col: 0xd8cfbd, surf: S.FABRIC, shade: 1.05 });
+    defInst('mannequin', combine(L));
+  }
+  { // a stack of folded stock on a table
+    const L = [];
+    kitBox(L, 0, 0, 0, 0.9, 0.72, 0.62, 0x6a4a2c, S.TIMBER, 0.66);
+    const C = [0xd8d2c4, 0xa8674f, 0x546b7a, 0xc2a45e, 0x8d8272];
+    for (let i = 0; i < 5; i++) kitBox(L, ((i % 2) - 0.5) * 0.34, 0.72 + i * 0.075, ((i % 3) - 1) * 0.05, 0.34, 0.07, 0.30, C[i % C.length], S.FABRIC, 0.86 + 0.06 * (i % 2));
+    defInst('stack', combine(L));
+  }
+  { // a shelf of bottles behind a bar
+    const L = [];
+    kitBox(L, 0, 0, 0, 1.0, 0.035, 0.22, 0x5d4126, S.TIMBER, 0.9);
+    const C = [0x7a4a2a, 0x3f5a3a, 0xc8b48a, 0x6a3040, 0xb8a05a, 0x3a4a5c];
+    for (let i = 0; i < 11; i++) {
+      // six-sided: a 30 mm bottle behind glass at two metres does not need twelve
+      L.push({ geo: G_CYL6, mtx: xf(-0.44 + i * 0.088, 0.035, ((i % 2) - 0.5) * 0.05, 0,
+        (0.032 + (i % 3) * 0.008) * 2, 0.20 + (i % 4) * 0.055, (0.032 + (i % 3) * 0.008) * 2),
+        col: C[i % C.length], surf: S.RENDER, shade: 0.9 });
+    }
+    defInst('bottles', combine(L));
+  }
+  { // pendant lamp: cord and shade, with its own bulb as an emissive part
+    const L = [];
+    kitBox(L, 0, -0.62, 0, 0.018, 0.62, 0.018, 0x2e2a24, S.METAL, 0.6);
+    L.push({ geo: G_CONE, mtx: xf3(0, -0.62, 0, Math.PI, 0, 0, 0.30, 0.22, 0.30), col: 0xc4a06a, surf: S.METAL, shade: 0.9 });
+    defInst('pendant', combine(L), { shadow: false });
+    const G = [];
+    G.push({ geo: G_SPH, mtx: xf3(0, -0.70, 0, 0, 0, 0, 0.15, 0.11, 0.15), col: 0xffffff, surf: 0, shade: 1 });
+    G.push({ geo: G_BOXT, mtx: xf3(0, -0.845, 0, 0, 0, 0, 0.30, 0.012, 0.30), col: 0xffffff, surf: 0, shade: 1 });
+    defInst('pendantglow', combine(G), { mat: emisRoomMat, shadow: false });
+  }
+  { // a lit cove: the strip of light along the back of a ceiling
+    const L = [];
+    L.push({ geo: G_BOXT, mtx: xf3(0, 0, 0, 0, 0, 0, 1.0, 0.05, 0.12), col: 0xffffff, surf: 0, shade: 1 });
+    defInst('cove', combine(L), { mat: emisRoomMat, shadow: false });
+  }
+  { // a menu or price board
+    const L = [];
+    kitBox(L, 0, 0, 0, 1.0, 0.66, 0.04, 0x2a2620, S.TIMBER, 0.5);
+    for (let i = 0; i < 5; i++) kitBox(L, -0.10 + (i % 2) * 0.06, 0.10 + i * 0.11, -0.025, 0.62 - (i % 3) * 0.14, 0.028, 0.01, 0xd8cfb8, S.RENDER, 1.1);
+    defInst('menuboard', combine(L), { shadow: false });
+  }
+  { // a floor plate: one tiled or boarded slab, tinted per shop
+    const L = [];
+    kitBox(L, 0, 0, 0, 1.0, 0.03, 1.0, 0xffffff, S.PAVING, 1.0);
+    defInst('shopfloor', combine(L), { shadow: false });
+  }
+
   /* ---- light fittings ------------------------------------------------ */
   { const L = []; L.push({ geo: G_SPH, mtx: xf3(0, 0, 0, 0, 0, 0, 0.11, 0.14, 0.11), col: 0xffffff, surf: 0, shade: 1 }); defInst('bulb', combine(L), { mat: emisFlickMat, shadow: false }); }
   {
@@ -619,6 +777,20 @@ function defineKit() {
     L.push({ geo: G_PLANE, mtx: xf3(0, 0, 0, 0, 0, 0, 1, 1, 1), col: 0xffffff, surf: S.FABRIC, shade: 0.92 });
     L.push({ geo: G_PLANE, mtx: xf3(0.36, 0.055, 0.10, 0.42, 0.5, 0, 0.7, 1, 0.7), col: 0xffffff, surf: S.FABRIC, shade: 1.04 });
     defInst('scrap', combine(L), { shadow: false });
+  }
+
+  /* ------------------------------------------------- the interior copies *
+     A chair on the pavement and a chair in a cafe are the same geometry under
+     different skies, and an instanced mesh has exactly one material. So every
+     part a shop can contain is registered a second time under an `i_` name
+     against the interior material — same buffers, no extra geometry, and none
+     of them casts into the shadow map, because the sun never gets in.      */
+  for (const nm of ['shelfbay', 'windisp', 'counter', 'dispcase', 'banquette', 'espresso',
+    'railrack', 'mannequin', 'stack', 'bottles', 'menuboard', 'shopfloor',
+    'chair', 'table', 'rug', 'platter', 'crate', 'potbush', 'thobe', 'abaya',
+    'basket', 'lowtable', 'cushion', 'bolster']) {
+    const src = INST_DEF[nm];
+    if (src) defInst('i_' + nm, src.geo, { mat: cityIntMat, shadow: false, receive: false });
   }
 
   routeModel('tree', 'island_tree_01', 6.2, { near: 62 });

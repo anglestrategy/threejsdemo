@@ -624,8 +624,14 @@ function makeCityMaterial() {
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
     uProbeInt: { value: 1.05 },
+    /* A room the sun never enters is lit by its own ceiling, and no pooled
+       point light can do that for two hundred shops at once. So an interior
+       variant of this material carries a constant warm irradiance — the
+       ceiling cove and the downlights, as a number rather than as lights. */
+    uRoomAdd: { value: new THREE.Color(0, 0, 0) },
   };
   mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uRoomAdd = mat.userData.u.uRoomAdd;
     sh.uniforms.uTime = mat.userData.u.uTime;
     sh.uniforms.uWind = mat.userData.u.uWind;
     sh.uniforms.uDetD = mat.userData.u.uDetD;
@@ -675,6 +681,7 @@ function makeCityMaterial() {
       uniform sampler3D uProbeSky, uProbeGnd;
       uniform vec3 uProbeOrg, uProbeStp, uProbeDim;
       uniform float uProbeOn, uProbeInt;
+      uniform vec3 uRoomAdd;
       vec3 gProbeSky, gProbeGnd;\n` + SURF_GLSL +
       sh.fragmentShader
         .replace('void main() {', 'void main() {\n gRough = roughness; gMetal = metalness;')
@@ -795,7 +802,8 @@ function makeCityMaterial() {
         vec3 wN = normalize(vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]));
         float upW = clamp(dot(normal, wN) * 0.5 + 0.5, 0.0, 1.0);
         irradiance += mix(gProbeGnd, gProbeSky, upW) * uProbeInt;
-      }`);
+      }
+      irradiance += uRoomAdd;`);
   };
   mat.customProgramCacheKey = () => 'citysurf';
   PROBE_MATS.push(mat);
@@ -1074,6 +1082,11 @@ const cityRoot = new THREE.Group();
 cityScene.add(cityRoot);
 const INSTCOUNT = {};
 const cityMat = makeCityMaterial();
+/* the same law, with the ceiling switched on. Everything inside a shop uses
+   this: the shell, the fittings, the stock and the shopkeeper. */
+const cityIntMat = makeCityMaterial();
+cityIntMat.userData.u.uRoomAdd.value.setRGB(1.05, 0.86, 0.62);
+cityIntMat.side = THREE.DoubleSide;
 const DISPOSE = [];
 
 function addMesh(geo, mat, shadow) {
@@ -1542,7 +1555,12 @@ function reflectionPlane() {
     const dx = Math.max(b.x0 - p.x, 0, p.x - b.x1);
     const dz = Math.max(b.z0 - p.z, 0, p.z - b.z1);
     const d = dx * dx + dz * dz;
-    if (d >= bestD || d > 300 * 300) continue;
+    /* how far a reflection is worth paying for scales with how high you are.
+       Walking in the souq the channel is forty metres away behind two hundred
+       metres of building, and mirroring the district for it is a whole extra
+       pass for pixels that do not exist. */
+    const maxD = Math.min(300, 70 + p.y * 2.6);
+    if (d >= bestD || d > maxD * maxD) continue;
     _rBox.min.set(b.x0, b.y - 0.4, b.z0);
     _rBox.max.set(b.x1, b.y + 0.4, b.z1);
     if (!_rFrus.intersectsBox(_rBox)) continue;
@@ -1723,6 +1741,7 @@ return {
   get built() { return BUILT; },
   reflect: renderReflection,
   focus: focusDistance,
+  shops: () => SHOPS,
   scene: cityScene, cam: cityCam, nav: NAV,
   setMode,
   plan: PLAN,
