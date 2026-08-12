@@ -34,7 +34,7 @@ const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
 const errs = [];
 page.on('pageerror', (e) => errs.push(String(e.message)));
 await page.goto(BASE + '?scene=city&nolife=0', { waitUntil: 'load', timeout: 300000 });
-await page.waitForFunction('window.__ready === true', { timeout: 300000 });
+await page.waitForFunction('window.__ready === true', null, { timeout: 300000 });
 
 const sizes = await page.evaluate(() => (window.__scenes && window.__scenes.city ? window.__scenes.city.debug.sizes() : {}));
 await browser.close();

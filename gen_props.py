@@ -1,252 +1,260 @@
 #!/usr/bin/env python3
-"""Fetch every generated prop from the release, reduce it, and pack it as an
-asset the district can instance.
+"""Intake for the client-supplied GLBs: fetch, reduce, compress, inventory.
 
-Meshy returns ~95 MB and two million triangles for a bicycle, with a 4k PBR set.
-None of that is wrong — it is just not what a prop seen from two metres in a
-scene with a thousand other things in it needs. Each comes down to a few
-thousand triangles and a 1k set, and is written straight into dist/assets/props
-as a real file, because there is no longer any reason to base64 it into the page.
+WHY THIS WAS REWRITTEN
+----------------------
+The first version rolled its own decimator: `fast_simplification` for the
+triangles, then a cKDTree lookup that gave every surviving vertex the UV of
+the nearest *original* vertex. That is wrong, and it is wrong in the worst
+possible way — quadric simplification MOVES vertices to optimal positions, so
+after a heavy reduction almost no surviving vertex sits where an original one
+did, and every one of them took its texel from somewhere else on the sheet.
+The tram came back with its window frames smeared across the bodywork. It was
+not the triangle count and it was not the texture size — 30 k triangles is
+plenty for a tram. It was that the texture had been shuffled.
+
+The fix is to stop hand-rolling it. gltf-transform's `simplify` is
+meshoptimizer, which is attribute-aware: it respects UV seams, it never
+invents a texture coordinate, and it stops early rather than exceed an error
+bound. Every other step is its own tool too —
+
+    weld       merge the split vertices Meshy emits, or the simplifier has
+               nothing it is allowed to collapse
+    simplify   meshoptimizer, to a per-asset triangle budget
+    resize     textures to a per-asset size, not one global ceiling
+    webp       q92, visually lossless at these sizes
+    meshopt    vertex and index compression, so full-quality assets still
+               arrive over the wire at a sane size
+
+BUDGETS
+-------
+Set from what the asset is and how many of them the plan places, not from a
+file-size ceiling — that ceiling is gone. One mosque can afford 400 k
+triangles. A solar panel the roofscape puts down 750 times cannot afford a
+hundredth of that, and does not need it: it is four flat rectangles.
 """
-import io, json, os, struct, subprocess, sys
-import numpy as np
-from PIL import Image
-from scipy.spatial import cKDTree
-import fast_simplification
+import json
+import os
+import struct
+import subprocess
+import sys
+
+from preweld import preweld
 
 REL = 'https://github.com/anglestrategy/threejsdemo/releases/download/glb/'
 ZIP = REL + 'glbs.zip'
 OUT = 'dist/assets/props'
-TMP = 'work/user/dl.glb'
+TMP = 'work/user'
 
-# The second batch arrived as one 706 MB zip. Its central directory says where
-# every member's bytes start, so each one is pulled out with two range requests
-# and inflated here — the other 600 MB never crosses the wire.
 ZIDX = {}
 if os.path.exists('work/zipindex.json'):
     ZIDX = {e['name']: e for e in json.load(open('work/zipindex.json'))}
 
+# (source file, key, triangle budget, texture px, second-LOD budget or 0)
+PROPS = [
+    # --- heroes: a handful of instances each, so they get real budgets
+    ('Meshy_AI_mosque_with_minaret_3_0812054244_image-to-3d-texture.glb',  'mosque',    400000, 4096, 0),
+    ('Meshy_AI_arcaded_colonnade_bui_0812054346_image-to-3d-texture.glb',  'arcade',    260000, 4096, 26000),
+    ('Meshy_AI_golden_canopy_pavilio_0812060405_image-to-3d-texture.glb',  'canopypav', 220000, 4096, 0),
+    ('Meshy_AI_light_rail_tram_3d_0812060436_image-to-3d-texture.glb',     'tram',      240000, 4096, 0),
+    ('Meshy_AI_blue_roofed_building__0812060516_image-to-3d-texture.glb',  'bluehall',  240000, 4096, 24000),
+    ('Meshy_AI_arcade_shophouse_row__0812060413_image-to-3d-texture.glb',  'shophouse', 200000, 4096, 20000),
+    ('Meshy_AI_residential_apartment_0812060442_image-to-3d-texture.glb',  'resblock',  150000, 2048, 15000),
+    ('Meshy_AI_roundabout_fountain_p_0812060423_image-to-3d-texture.glb',  'fountain',  120000, 2048, 0),
+    ('Meshy_AI_roundabout_obelisk_mo_0812060524_image-to-3d-texture.glb',  'obelisk',    60000, 2048, 0),
+    ('Meshy_AI_tram_stop_shelter_3d_0812060457_image-to-3d-texture.glb',   'tramstop',   90000, 2048, 0),
+    ('Meshy_AI_small_kiosk_booth_3d_0812060504_image-to-3d-texture.glb',   'kiosk',      60000, 2048, 0),
+    # --- near-field props: tens of instances, seen from two metres
+    ('Meshy_AI_bicycle_3d_0812052922_image-to-3d-texture.glb',             'bicycle',    45000, 2048, 5000),
+    ('Meshy_AI_wooden_bench_3d_0812052914_image-to-3d-texture.glb',        'benchw',     28000, 2048, 3000),
+    ('Meshy_AI_trash_recycling_bins__0812052908_image-to-3d-texture.glb',  'bins',       26000, 2048, 3000),
+    ('Meshy_AI_small_potted_plants_3_0812052829_image-to-3d-texture.glb',  'pots',       70000, 2048, 3000),
+    ('Meshy_AI_rooftop_hammock_3d_0812052837_image-to-3d-texture.glb',     'hammock',    22000, 2048, 2600),
+    ('Meshy_AI_ev_charging_station_3_0812052930_image-to-3d-texture.glb',  'evpoint',    24000, 2048, 2600),
+    ('Meshy_AI_vine_trellis_panel_3d_0812052859_image-to-3d-texture.glb',  'trellis',    90000, 2048, 4000),
+    ('Meshy_AI_waterside_shrubs_3d_0812054531_image-to-3d-texture.glb',    'watershrub', 260000, 2048, 5000),
+    ('Meshy_AI_outdoor_carpet_rug_3d_0812054335_image-to-3d-texture.glb',  'carpet',     12000, 2048, 0),
+    ('Meshy_AI_string_light_bunting__0812054217_image-to-3d-texture.glb',  'bunting',    12000, 1024, 1600),
+    ('Meshy_AI_single_shade_sail_3d_0812060450_image-to-3d-texture.glb',   'sail1',      20000, 2048, 2200),
+    ('Meshy_AI_street_bench_3d_0812060429_image-to-3d-texture.glb',        'bench2',     20000, 2048, 2400),
+    ('Meshy_AI_majlis_lounge_seating_0812054315_image-to-3d-texture.glb',  'majlisset',  120000, 2048, 6000),
+    ('Meshy_AI_palm_tree_masterplan__0812060509_image-to-3d-texture.glb',  'palm2',      200000, 2048, 6000),
+    # --- the solar array goes down 750 times: the one budget here set by
+    #     arithmetic rather than by how it looks from two metres
+    ('Meshy_AI_solar_panel_array_3d_0812052938_image-to-3d-texture.glb',   'solar',       2600, 1024, 700),
+    # --- the lagoon set
+    ('Meshy_AI__0812054904_texture.glb',                                   'lagoon_a',  150000, 2048, 5000),
+    ('Meshy_AI__0812055014_texture.glb',                                   'lagoon_b',  150000, 2048, 8000),
+    ('Meshy_AI__0812052843_texture.glb',                                   'extra',     120000, 2048, 6000),
+    # --- people: the largest remaining delta in the whole build
+    ('models_of_people_x_10_00.glb',                                       'people10',  160000, 4096, 18000),
+    ('sitting_people_x_5_11.glb',                                          'people5s',  100000, 4096, 12000),
+]
+
+
+def rng(url, a, b):
+    return subprocess.run(['curl', '-sSL', '-H', 'Range: bytes=%d-%d' % (a, b), url],
+                          capture_output=True).stdout
+
 
 def zfetch(member, dest):
+    """Pull one member out of the 706 MB zip with two range requests."""
     import zlib
     e = ZIDX.get(member)
     if not e:
         return False
-
-    def rng(a, b):
-        return subprocess.run(['curl', '-sSL', '-H', 'Range: bytes=%d-%d' % (a, b), ZIP],
-                              capture_output=True).stdout
-    # the local header's extra field is not the central directory's, so it has
-    # to be read rather than assumed
-    lh = rng(e['lho'], e['lho'] + 29)
+    lh = rng(ZIP, e['lho'], e['lho'] + 29)
     if lh[:4] != b'PK\x03\x04':
         return False
     nl, el = struct.unpack('<HH', lh[26:30])
     off = e['lho'] + 30 + nl + el
-    raw = rng(off, off + e['csize'] - 1)
+    raw = rng(ZIP, off, off + e['csize'] - 1)
     if len(raw) < e['csize']:
         return False
-    data = zlib.decompress(raw, -15) if e['method'] == 8 else raw
-    open(dest, 'wb').write(data)
+    open(dest, 'wb').write(zlib.decompress(raw, -15) if e['method'] == 8 else raw)
     return True
 
-# file -> (key, triangle budget, texture size, what it is for)
-PROPS = [
-    ('Meshy_AI_bicycle_3d_0812052922_image-to-3d-texture.glb',        'bicycle',  7000,  1024),
-    ('Meshy_AI_wooden_bench_3d_0812052914_image-to-3d-texture.glb',   'benchw',   2600,  1024),
-    ('Meshy_AI_trash_recycling_bins__0812052908_image-to-3d-texture.glb', 'bins',   4000,  1024),
-    ('Meshy_AI_small_potted_plants_3_0812052829_image-to-3d-texture.glb', 'pots',  2600,  1024),
-    ('Meshy_AI_rooftop_hammock_3d_0812052837_image-to-3d-texture.glb', 'hammock',  2600,  1024),
-    ('Meshy_AI_ev_charging_station_3_0812052930_image-to-3d-texture.glb', 'evpoint', 2600, 1024),
-    ('Meshy_AI_solar_panel_array_3d_0812052938_image-to-3d-texture.glb', 'solar',  900,  1024),
-    ('Meshy_AI_vine_trellis_panel_3d_0812052859_image-to-3d-texture.glb', 'trellis', 5000, 1024),
-    ('Meshy_AI__0812052843_texture.glb',                              'extra',    16000,  1024),
-    # the lagoon set
-    ('Meshy_AI_mosque_with_minaret_3_0812054244_image-to-3d-texture.glb',  'mosque',   60000, 2048),
-    ('Meshy_AI_arcaded_colonnade_bui_0812054346_image-to-3d-texture.glb',  'arcade',   45000, 2048),
-    ('Meshy_AI_majlis_lounge_seating_0812054315_image-to-3d-texture.glb',  'majlisset', 16000, 1024),
-    ('Meshy_AI_outdoor_carpet_rug_3d_0812054335_image-to-3d-texture.glb',  'carpet',    4000, 1024),
-    ('Meshy_AI_string_light_bunting__0812054217_image-to-3d-texture.glb',  'bunting',   1400, 1024),
-    ('Meshy_AI_waterside_shrubs_3d_0812054531_image-to-3d-texture.glb',    'watershrub', 9000, 1024),
-    ('Meshy_AI__0812054904_texture.glb',                                   'lagoon_a',  6000, 1024),
-    ('Meshy_AI__0812055014_texture.glb',                                   'lagoon_b',  24000, 1024),
-    # the masterplan set, from the two aerial renders. Budgets are set from how
-    # many of each the plan places: one canopy pavilion can afford 45 k, a palm
-    # that goes down three hundred and thirty times cannot afford a tenth of it.
-    ('Meshy_AI_golden_canopy_pavilio_0812060405_image-to-3d-texture.glb', 'canopypav', 45000, 2048),
-    ('Meshy_AI_palm_tree_masterplan__0812060509_image-to-3d-texture.glb', 'palm2',      8000, 1024),
-    ('Meshy_AI_light_rail_tram_3d_0812060436_image-to-3d-texture.glb',    'tram',      30000, 2048),
-    ('Meshy_AI_tram_stop_shelter_3d_0812060457_image-to-3d-texture.glb',  'tramstop',  12000, 1024),
-    ('Meshy_AI_arcade_shophouse_row__0812060413_image-to-3d-texture.glb', 'shophouse', 20000, 2048),
-    ('Meshy_AI_blue_roofed_building__0812060516_image-to-3d-texture.glb', 'bluehall',  30000, 2048),
-    ('Meshy_AI_residential_apartment_0812060442_image-to-3d-texture.glb', 'resblock',  16000, 2048),
-    ('Meshy_AI_roundabout_fountain_p_0812060423_image-to-3d-texture.glb', 'fountain',  20000, 1024),
-    ('Meshy_AI_roundabout_obelisk_mo_0812060524_image-to-3d-texture.glb', 'obelisk',   14000, 1024),
-    ('Meshy_AI_single_shade_sail_3d_0812060450_image-to-3d-texture.glb',  'sail1',      4000, 1024),
-    ('Meshy_AI_small_kiosk_booth_3d_0812060504_image-to-3d-texture.glb',  'kiosk',      6000, 1024),
-    ('Meshy_AI_street_bench_3d_0812060429_image-to-3d-texture.glb',       'bench2',     2200, 1024),
-]
+
+def glb_json(path):
+    """Read only a GLB's JSON chunk — the binary may be a hundred megabytes."""
+    with open(path, 'rb') as f:
+        f.read(12)
+        jl, _ = struct.unpack('<II', f.read(8))
+        return json.loads(f.read(jl))
 
 
-def read_glb(path):
-    f = open(path, 'rb')
-    struct.unpack('<III', f.read(12))
-    jl, _ = struct.unpack('<II', f.read(8))
-    doc = json.loads(f.read(jl))
-    bl, _ = struct.unpack('<II', f.read(8))
-    return doc, f.read(bl)
+def tri_count(doc):
+    n = 0
+    for m in doc.get('meshes', []):
+        for pr in m.get('primitives', []):
+            if 'indices' in pr:
+                n += doc['accessors'][pr['indices']]['count'] // 3
+            elif 'POSITION' in pr.get('attributes', {}):
+                n += doc['accessors'][pr['attributes']['POSITION']]['count'] // 3
+    return n
 
 
-def acc(doc, buf, i):
-    a = doc['accessors'][i]; bv = doc['bufferViews'][a['bufferView']]
-    nc = {'SCALAR': 1, 'VEC2': 2, 'VEC3': 3, 'VEC4': 4}[a['type']]
-    dt = {5120: np.int8, 5121: np.uint8, 5122: np.int16, 5123: np.uint16,
-          5125: np.uint32, 5126: np.float32}[a['componentType']]
-    off = bv.get('byteOffset', 0) + a.get('byteOffset', 0)
-    return np.frombuffer(buf, dtype=dt, count=a['count'] * nc, offset=off).reshape(a['count'], nc)
+def bounds(doc):
+    lo, hi = [1e9] * 3, [-1e9] * 3
+    for m in doc.get('meshes', []):
+        for pr in m.get('primitives', []):
+            a = doc['accessors'][pr['attributes']['POSITION']]
+            if 'min' not in a:
+                continue
+            for i in range(3):
+                lo[i] = min(lo[i], a['min'][i])
+                hi[i] = max(hi[i], a['max'][i])
+    return lo, hi
 
 
-def weld(p, i2, tol):
-    """Snap vertices to a tolerance grid and merge them.
-
-    A scanned shrub is a few thousand leaf shells that never touch, and QEM
-    cannot collapse an edge that does not exist. Welding on a grid gives the
-    shells shared vertices, after which the whole clump decimates as one."""
-    keys = np.round(p / tol).astype(np.int64)
-    _, first, inv = np.unique(keys, axis=0, return_index=True, return_inverse=True)
-    i3 = inv.reshape(-1)[i2]
-    ok = (i3[:, 0] != i3[:, 1]) & (i3[:, 1] != i3[:, 2]) & (i3[:, 0] != i3[:, 2])
-    return p[first].astype(np.float32), i3[ok].astype(np.uint32)
+def gt(*args):
+    r = subprocess.run(['gltf-transform'] + list(args), capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.stderr.write((r.stderr or r.stdout)[-1200:])
+        raise RuntimeError('gltf-transform ' + args[0] + ' failed')
 
 
-def build(key, budget, tex, doc, buf):
-    pr = doc['meshes'][0]['primitives'][0]
-    pos = acc(doc, buf, pr['attributes']['POSITION']).astype(np.float32)
-    uv = acc(doc, buf, pr['attributes']['TEXCOORD_0']).astype(np.float32) \
-        if 'TEXCOORD_0' in pr['attributes'] else np.zeros((len(pos), 2), np.float32)
-    nrm = acc(doc, buf, pr['attributes']['NORMAL']).astype(np.float32) \
-        if 'NORMAL' in pr['attributes'] else np.zeros_like(pos)
-    idx = acc(doc, buf, pr['indices']).astype(np.uint32).reshape(-1, 3)
-    lo, hi = pos.min(0), pos.max(0)
-    print('   %d tris, %.2f x %.2f x %.2f m' % (len(idx), *(hi - lo)))
-    p, i2 = pos, idx
-    # a mesh made of many disconnected shells has a floor it cannot decimate
-    # past, and the loop would grind against it forever. When a full pass buys
-    # less than 2%, weld and try again — a little coarser each round.
-    tol = 0.0
-    while len(i2) > budget:
-        before = len(i2)
-        red = min(0.94, max(0.05, 1.0 - budget / len(i2)))
-        p, i2 = fast_simplification.simplify(p, i2.astype(np.uint32), red)
-        i2 = i2.reshape(-1, 3)
-        if len(i2) > before * 0.98:
-            tol = 0.0015 if tol == 0.0 else tol * 2.4
-            if tol > 0.06:
-                print('   floor at %d tris' % len(i2))
-                break
-            n0 = len(i2)
-            p, i2 = weld(p, i2, tol)
-            print('   weld %.4f: %d -> %d tris' % (tol, n0, len(i2)))
-    _, near = cKDTree(pos).query(p, workers=-1)
-    uv2, nr2 = uv[near], nrm[near]
+WELD = {   # key -> (near tolerance, far tolerance) on the 2 m normalised box
+    'watershrub': (0.004, 0.030), 'palm2': (0.004, 0.026),
+    'lagoon_a': (0.003, 0.022), 'lagoon_b': (0.003, 0.022),
+    'extra': (0.003, 0.020), 'majlisset': (0.002, 0.016),
+    'trellis': (0.003, 0.020), 'pots': (0.002, 0.016),
+    'solar': (0.002, 0.014),
+}
 
-    mat0 = doc['materials'][0]
-    pbr0 = mat0.get('pbrMetallicRoughness', {})
-    slots = []
 
-    def slot(name, ref, size, q):
-        if not ref:
-            return
-        src = doc['textures'][ref['index']]['source']
-        bv = doc['bufferViews'][doc['images'][src]['bufferView']]
-        o0 = bv.get('byteOffset', 0)
-        im = Image.open(io.BytesIO(buf[o0:o0 + bv['byteLength']])).convert('RGB')
-        im = im.resize((size, size), Image.LANCZOS)
-        b = io.BytesIO(); im.save(b, 'WEBP', quality=q, method=6)
-        slots.append((name, b.getvalue()))
-    slot('base', pbr0.get('baseColorTexture'), tex, 92)
-    slot('mr', pbr0.get('metallicRoughnessTexture'), tex // 2, 88)
-    slot('normal', mat0.get('normalTexture'), tex // 2, 93)
+def reduce_to(src, dst, budget, tex, src_tris, tol=0.0):
+    """weld -> simplify -> resize -> webp -> meshopt, in that order.
 
-    bins, views, accs = bytearray(), [], []
-
-    def push(a, t=None):
-        off = len(bins); r = a.tobytes(); bins.extend(r)
-        while len(bins) % 4:
-            bins.append(0)
-        v = {'buffer': 0, 'byteOffset': off, 'byteLength': len(r)}
-        if t:
-            v['target'] = t
-        views.append(v); return len(views) - 1
-
-    vp = push(p.astype(np.float32), 34962); vn = push(nr2.astype(np.float32), 34962)
-    vu = push(uv2.astype(np.float32), 34962)
-    small = len(p) <= 65535
-    vi = push(i2.reshape(-1).astype(np.uint16 if small else np.uint32), 34963)
-    tv = [(nm, push(np.frombuffer(t, np.uint8))) for nm, t in slots]
-    accs = [
-        {'bufferView': vp, 'componentType': 5126, 'count': len(p), 'type': 'VEC3',
-         'min': p.min(0).tolist(), 'max': p.max(0).tolist()},
-        {'bufferView': vn, 'componentType': 5126, 'count': len(nr2), 'type': 'VEC3'},
-        {'bufferView': vu, 'componentType': 5126, 'count': len(uv2), 'type': 'VEC2'},
-        {'bufferView': vi, 'componentType': 5123 if small else 5125, 'count': i2.size, 'type': 'SCALAR'},
-    ]
-    ix = {nm: n for n, (nm, _) in enumerate(tv)}
-    M = {'name': key, 'doubleSided': True,
-         'pbrMetallicRoughness': {'metallicFactor': 0.0, 'roughnessFactor': 0.9}}
-    if 'base' in ix:
-        M['pbrMetallicRoughness']['baseColorTexture'] = {'index': ix['base']}
-    if 'mr' in ix:
-        M['pbrMetallicRoughness']['metallicRoughnessTexture'] = {'index': ix['mr']}
-        M['pbrMetallicRoughness'].pop('roughnessFactor', None)
-        M['pbrMetallicRoughness'].pop('metallicFactor', None)
-    if 'normal' in ix:
-        M['normalTexture'] = {'index': ix['normal']}
-    out = {'asset': {'version': '2.0', 'generator': 'gen_props.py'},
-           'scene': 0, 'scenes': [{'nodes': [0]}], 'nodes': [{'mesh': 0, 'name': 'LOD0'}],
-           'meshes': [{'primitives': [{'attributes': {'POSITION': 0, 'NORMAL': 1, 'TEXCOORD_0': 2},
-                                       'indices': 3, 'material': 0}]}],
-           'materials': [M],
-           'textures': [{'sampler': 0, 'source': n} for n in range(len(tv))],
-           'images': [{'mimeType': 'image/webp', 'bufferView': v} for _, v in tv],
-           'samplers': [{'magFilter': 9729, 'minFilter': 9987, 'wrapS': 10497, 'wrapT': 10497}],
-           'accessors': accs, 'bufferViews': views, 'buffers': [{'byteLength': len(bins)}]}
-    js = json.dumps(out, separators=(',', ':')).encode()
-    while len(js) % 4:
-        js += b' '
-    glb = (struct.pack('<III', 0x46546C67, 2, 12 + 8 + len(js) + 8 + len(bins))
-           + struct.pack('<II', len(js), 0x4E4F534A) + js
-           + struct.pack('<II', len(bins), 0x004E4942) + bytes(bins))
-    os.makedirs(OUT, exist_ok=True)
-    open(os.path.join(OUT, key + '.glb'), 'wb').write(glb)
-    return {'file': 'assets/props/%s.glb' % key, 'tris': int(len(i2)),
-            'w': float(hi[0] - lo[0]), 'height': float(hi[1] - lo[1]),
-            'depth': float(hi[2] - lo[2]), 'base': float(lo[1]),
-            'kb': len(glb) // 1024}
+    Order matters. Welding first is what gives the simplifier edges it is
+    allowed to collapse; resizing before compressing means the compressor is
+    not spending bits on texels about to be thrown away.
+    """
+    a, b = TMP + '/_a.glb', TMP + '/_b.glb'
+    if tol > 0:
+        # snap coincident vertices onto a grid first, or the simplifier has no
+        # edges it is allowed to collapse at all (see preweld.py)
+        n0, n1 = preweld(src, a, tol)
+        print('   preweld %.4f: %d -> %d tris' % (tol, n0, n1), flush=True)
+        src, a = a, TMP + '/_c.glb'
+        # the ratio is a fraction of what actually enters the simplifier. The
+        # coarse weld has already done most of the reduction, so measuring it
+        # against the original count applied it twice — the trellis's far level
+        # came out at ninety triangles from a four-thousand budget.
+        src_tris = max(1, n1)
+    gt('weld', src, a)
+    ratio = max(0.0, min(1.0, budget / max(1, src_tris)))
+    # the error bound is generous on purpose: at these ratios the ratio is the
+    # binding constraint, and a tight bound only makes the simplifier stop early
+    # Error unconstrained, ratio binding. At 0.02 meshoptimizer refuses to
+    #    collapse past what that bound allows, and on a mesh of thousands of
+    #    disconnected leaf shells that is barely at all: the waterside shrub
+    #    came back at 1.04 M triangles against a 40 k budget, and its "far"
+    #    level came back identical. The budgets are deliberate, so the ratio
+    #    is what should bind, not a bound tuned for a watertight solid.
+    gt('simplify', a, b, '--ratio', '%.6f' % ratio, '--error', '1')
+    gt('resize', b, a, '--width', str(tex), '--height', str(tex))
+    gt('webp', a, b, '--quality', '92')
+    # measured here, before compression: meshopt --level high applies
+    #    KHR_mesh_quantization, after which POSITION min/max are integers in
+    #    quantized space and the real scale has moved into the node transform.
+    #    Reading the bounds off the compressed file gave the tram a height of
+    #    10,416 "metres" and the router scaled it to nothing.
+    doc = glb_json(b)
+    lo, hi = bounds(doc)
+    gt('meshopt', b, dst, '--level', 'high')
+    return lo, hi, tri_count(doc)
 
 
 index = {}
 if os.path.exists('work/props.json'):
     index = json.load(open('work/props.json'))
-for fn, key, budget, tex in PROPS:
-    if key in index and os.path.exists(os.path.join(OUT, key + '.glb')):
-        print('==', key, '(cached)'); continue
-    print('==', key)
-    if fn in ZIDX:
-        ok = zfetch(fn, TMP)
-    else:
-        r = subprocess.run(['curl', '-sSL', '-o', TMP, REL + fn], capture_output=True)
-        ok = r.returncode == 0 and os.path.exists(TMP)
+only = sys.argv[1:] or None
+
+os.makedirs(OUT, exist_ok=True)
+os.makedirs(TMP, exist_ok=True)
+RAW = TMP + '/dl.glb'
+
+for fn, key, budget, tex, lod1 in PROPS:
+    if only and key not in only:
+        continue
+    if not only and index.get(key, {}).get('v') == 3 \
+            and os.path.exists(os.path.join(OUT, key + '.glb')):
+        print('==', key, '(cached)')
+        continue
+    print('==', key, flush=True)
+    ok = zfetch(fn, RAW) if fn in ZIDX else (
+        subprocess.run(['curl', '-sSL', '-o', RAW, REL + fn], capture_output=True).returncode == 0
+        and os.path.exists(RAW))
     if not ok:
         print('   fetch failed'); continue
     try:
-        doc, buf = read_glb(TMP)
-        index[key] = build(key, budget, tex, doc, buf)
-        print('   -> %d tris, %d KB' % (index[key]['tris'], index[key]['kb']))
-    except Exception as e:
-        import traceback; traceback.print_exc()
+        st = tri_count(glb_json(RAW))
+        print('   source %d tris' % st, flush=True)
+        dst = os.path.join(OUT, key + '.glb')
+        lo, hi, ntri = reduce_to(RAW, dst, budget, tex, st, WELD.get(key, (0, 0))[0])
+        rec = {'v': 3, 'file': 'assets/props/%s.glb' % key, 'tris': ntri,
+               'w': hi[0] - lo[0], 'height': hi[1] - lo[1], 'depth': hi[2] - lo[2],
+               'base': lo[1], 'kb': os.path.getsize(dst) // 1024, 'tex': tex,
+               'source': fn, 'src_tris': st}
+        if lod1:
+            d1 = os.path.join(OUT, key + '_lod1.glb')
+            _, _, n1 = reduce_to(RAW, d1, lod1, max(512, tex // 2), st, WELD.get(key, (0, 0))[1])
+            rec['lod1'] = {'file': 'assets/props/%s_lod1.glb' % key,
+                           'tris': n1, 'kb': os.path.getsize(d1) // 1024}
+        index[key] = rec
+        print('   -> %d tris, %d KB, %dpx%s' % (rec['tris'], rec['kb'], tex,
+              (', lod1 %d tris %d KB' % (rec['lod1']['tris'], rec['lod1']['kb'])) if lod1 else ''),
+              flush=True)
+    except Exception:
+        import traceback
+        traceback.print_exc()
     finally:
-        if os.path.exists(TMP):
-            os.remove(TMP)
+        for f in (RAW, TMP + '/_a.glb', TMP + '/_b.glb', TMP + '/_c.glb'):
+            if os.path.exists(f):
+                os.remove(f)
+
 json.dump(index, open('work/props.json', 'w'), indent=1)
-print('props: %d, %d KB total' % (len(index), sum(v['kb'] for v in index.values())))
+tot = sum(v['kb'] for v in index.values()) + sum(
+    v['lod1']['kb'] for v in index.values() if 'lod1' in v)
+print('props: %d, %.1f MB total' % (len(index), tot / 1024))

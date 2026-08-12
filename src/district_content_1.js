@@ -84,18 +84,31 @@ function routeProp(kit, key, targetH, opts) {
   const k = targetH / Math.max(0.01, P.height);
   const fit = new THREE.Matrix4().makeScale(k, k, k)
     .multiply(new THREE.Matrix4().makeTranslation(0, -(P.base || 0), 0));
-  const names = [];
-  P.parts.forEach((p, pi) => {
-    const nm = 'p:' + key + ':' + pi;
-    if (!INST_DEF[nm]) {
-      defInst(nm, p.geo, {
-        mat: makeModelMaterial(p.src, !!opts.foliage),
-        shadow: opts.shadow !== false, receive: true, cull: opts.cull !== false,
-      });
-    }
-    names.push(nm);
-  });
-  MODEL_ROUTE[kit] = { parts: [{ fit, names }], near: 1e9, jitter: opts.jitter !== false };
+  const level = (list, sfx) => {
+    const names = [];
+    list.forEach((p, pi) => {
+      const nm = 'p:' + key + sfx + ':' + pi;
+      if (!INST_DEF[nm]) {
+        defInst(nm, p.geo, {
+          mat: makeModelMaterial(p.src, !!opts.foliage),
+          shadow: opts.shadow !== false, receive: true, cull: opts.cull !== false,
+        });
+      }
+      names.push(nm);
+    });
+    return { fit, names };
+  };
+  /* Two levels where the intake produced one. `near` is the radius round the
+     walkable core inside which the full asset is used; outside it the far
+     level takes over, which is what lets a 240 k-triangle tram and a 40 k
+     shrub both exist in the same scene without either compromising. */
+  const parts = [level(P.parts, '')];
+  if (P.parts1 && P.parts1.length) parts.push(level(P.parts1, '_l1'));
+  MODEL_ROUTE[kit] = {
+    parts,
+    near: opts.near === undefined ? (parts.length > 1 ? 70 : 1e9) : opts.near,
+    jitter: opts.jitter !== false,
+  };
   return true;
 }
 

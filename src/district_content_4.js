@@ -941,7 +941,7 @@ function defineKit() {
     }
 
     // ---- shoulders, neck, head
-    L.push({ geo: SPH7, mtx: xf3(0, 1.40, 0, 0, 0, 0, 0.40, 0.17, 0.25), col: robe, surf: S.FABRIC, shade: 0.98 });
+    L.push({ geo: SPH7, mtx: xf3(0, 1.40, 0, 0, 0, 0, 0.245, 0.155, 0.145), col: robe, surf: S.FABRIC, shade: 0.98 });
     limb(L, 0, 1.42, 0, 0.09, 0.055, 0.062, skin, 0.84);
     L.push({ geo: SPH7, mtx: xf3(0, 1.60, 0.005, 0, 0, 0, 0.185, 0.235, 0.195), col: skin, surf: S.FABRIC, shade: 0.96 });
 
@@ -1061,20 +1061,20 @@ function defineKit() {
      The target is the real height in metres. Meshy normalises everything into
      the same two-metre box, so this is the only number that matters and the
      footprint follows from it. */
-  routeProp('bench', 'benchw', 0.86);
-  routeProp('binbank', 'bins', 1.15);
-  routeProp('potset', 'pots', 1.30);
-  routeProp('bike', 'bicycle', 1.00);
-  routeProp('evpoint', 'evpoint', 1.50);
-  routeProp('pvarray', 'solar', 0.42, { shadow: false });
-  routeProp('vinepanel', 'trellis', 2.60);
-  routeProp('hammock', 'hammock', 1.05);
-  routeProp('rugbig', 'carpet', 0.09, { shadow: false });
-  routeProp('bunting', 'bunting', 0.50, { shadow: false });
-  routeProp('wshrub', 'watershrub', 1.45);
-  routeProp('slimtree', 'lagoon_a', 6.20);
+  routeProp('bench', 'benchw', 0.86, { near: 26 });
+  routeProp('binbank', 'bins', 1.15, { near: 26 });
+  routeProp('potset', 'pots', 1.30, { near: 22 });
+  routeProp('bike', 'bicycle', 1.00, { near: 26 });
+  routeProp('evpoint', 'evpoint', 1.50, { near: 26 });
+  routeProp('pvarray', 'solar', 0.42, { shadow: false , near: 18 });
+  routeProp('vinepanel', 'trellis', 2.60, { near: 30 });
+  routeProp('hammock', 'hammock', 1.05, { near: 22 });
+  routeProp('rugbig', 'carpet', 0.09, { shadow: false , near: 26 });
+  routeProp('bunting', 'bunting', 0.50, { shadow: false , near: 34 });
+  routeProp('wshrub', 'watershrub', 1.45, { near: 40 });
+  routeProp('slimtree', 'lagoon_a', 6.20, { near: 70 });
   routeProp('jamaa', 'mosque', PLAN.jamaa.h, { jitter: false });
-  routeProp('arcadeblk', 'arcade', 11.0, { jitter: false });
+  routeProp('arcadeblk', 'arcade', 11.0, { jitter: false , near: 170 });
 
   /* ---- the masterplan set ----------------------------------------------
      Generated from the two site aerials rather than from a street-level
@@ -1084,12 +1084,12 @@ function defineKit() {
   routeProp('canopypav', 'canopypav', 15.0, { jitter: false });
   routeProp('tram', 'tram', 3.6, { jitter: false });
   routeProp('tramstop', 'tramstop', 3.4, { jitter: false });
-  routeProp('shophouse', 'shophouse', 12.0);
-  routeProp('bluehall', 'bluehall', 16.0, { jitter: false });
-  routeProp('resblock', 'resblock', 15.0);
+  routeProp('shophouse', 'shophouse', 12.0, { near: 150 });
+  routeProp('bluehall', 'bluehall', 16.0, { jitter: false , near: 260 });
+  routeProp('resblock', 'resblock', 15.0, { near: 150 });
   routeProp('fountain', 'fountain', 2.46, { jitter: false });
   routeProp('obelisk', 'obelisk', 12.0, { jitter: false });
-  routeProp('sail1', 'sail1', 5.0);
-  routeProp('kiosk', 'kiosk', 3.0);
+  routeProp('sail1', 'sail1', 5.0, { near: 60 });
+  routeProp('kiosk', 'kiosk', 3.0, { near: 90 });
   // palm2 and bench2 are generated but not routed: see DELTA.md
 }

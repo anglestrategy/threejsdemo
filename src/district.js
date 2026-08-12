@@ -298,14 +298,42 @@ async function loadProps() {
     if (!r.ok) return;
     index = await r.json();
   } catch (e) { return; }
-  const gl = new GLTFLoader();
+  const gl = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   await Promise.all(Object.keys(index).map(async (key) => {
     try {
       const g = await gl.loadAsync(index[key].file);
       const parts = [];
-      g.scene.traverse((o) => { if (o.isMesh) parts.push({ geo: o.geometry, src: o.material }); });
+      /* Bake the node transform into the geometry. Meshopt's high level
+         applies KHR_mesh_quantization, which leaves POSITION as integers and
+         moves the real scale into the node's TRS — so a router that takes
+         `o.geometry` and drops `o.matrixWorld` gets a tram sixty-five
+         thousand units wide. It is also simply correct for any authored
+         asset whose parts are not at the origin. */
+      g.scene.updateMatrixWorld(true);
+      g.scene.traverse((o) => {
+        if (!o.isMesh) return;
+        const geo = o.geometry.clone();
+        geo.applyMatrix4(o.matrixWorld);
+        parts.push({ geo, src: o.material });
+      });
       if (!parts.length) return;
-      PROPS[key] = Object.assign({ parts }, index[key]);
+      const rec = Object.assign({ parts }, index[key]);
+      // the far level, where the intake produced one
+      if (index[key].lod1) {
+        try {
+          const g1 = await gl.loadAsync(index[key].lod1.file);
+          const p1 = [];
+          g1.scene.updateMatrixWorld(true);
+          g1.scene.traverse((o) => {
+            if (!o.isMesh) return;
+            const geo = o.geometry.clone();
+            geo.applyMatrix4(o.matrixWorld);
+            p1.push({ geo, src: o.material });
+          });
+          if (p1.length) rec.parts1 = p1;
+        } catch (e) { console.warn('prop lod1 ' + key + ' failed', e); }
+      }
+      PROPS[key] = rec;
     } catch (e) { console.warn('prop ' + key + ' failed', e); }
   }));
   INSTCOUNT.props = Object.keys(PROPS).length;
@@ -314,7 +342,7 @@ async function loadProps() {
 const MODELPACK = /*@MODELS@*/;
 const MODELS = {};
 {
-  const gl = new GLTFLoader();
+  const gl = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   for (const key in MODELPACK) {
     const rec = MODELPACK[key];
     const bin = atob(rec.glb);
@@ -726,10 +754,16 @@ const SURF_GLSL = `
       float g2 = fb2(q * 26.0) * 0.6 + fb2(q * 90.0) * 0.4;
       grain = g2; cav = 0.8 + 0.2 * g2;
       return g2 * 0.5;
-    } else if (s < 10.5) {                           // FABRIC, woven
-      float w = 0.5 + 0.5 * sin(q.x * 210.0) * sin(q.y * 210.0);
-      grain = w; cav = 1.0;
-      return w * 0.35 + fb2(q * 8.0) * 0.4;
+    } else if (s < 10.5) {                           // FABRIC
+      /* A woven cloth at two metres is smooth. The weave of a thobe is
+         sub-millimetre; what you actually see at conversational distance is
+         the drape. This was a 3 cm chequer at full amplitude, which put
+         gingham on every figure, every awning and every cushion in the
+         district — the single loudest wrong note in the near field. */
+      float fold = fb2(q * 5.5) * 0.62 + fb2(q * 17.0) * 0.38;
+      float w = 0.5 + 0.5 * sin(q.x * 1300.0) * sin(q.y * 1300.0);
+      grain = 0.34 + 0.66 * fold; cav = 1.0;
+      return fold * 0.52 + w * 0.055;
     }
     grain = fb2(q * 4.0); cav = 1.0;                 // FOLIAGE
     return grain;

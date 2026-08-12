@@ -5,7 +5,7 @@ const b = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshad
 const p = await b.newPage({ viewport: { width: 900, height: 500 } });
 p.on('pageerror', e => console.log('ERR', e.message));
 await p.goto('http://localhost:8123/' + '?scene=city&shot=6&noveil=1', { waitUntil: 'load', timeout: 180000 });
-await p.waitForFunction('window.__ready === true', { timeout: 180000 });
+await p.waitForFunction('window.__ready === true', null, { timeout: 300000 });
 await p.waitForTimeout(4000);
 const r = await p.evaluate(() => {
   const out = [];

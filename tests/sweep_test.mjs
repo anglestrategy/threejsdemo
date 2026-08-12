@@ -3,8 +3,8 @@ import path from 'path'; import { fileURLToPath } from 'url';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const b = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 420, height: 260 } });
-await p.goto('http://localhost:8123/' + '?scene=city&noveil=1&walk=1', { waitUntil: 'load' });
-await p.waitForFunction('window.__ready === true', { timeout: 180000 });
+await p.goto('http://localhost:8123/' + '?scene=city&noveil=1&walk=1', { waitUntil: 'load', timeout: 300000 });
+await p.waitForFunction('window.__ready === true', null, { timeout: 300000 });
 const res = await p.evaluate(() => {
   const d = window.__scenes.city.debug;
   let tested = 0, stuck = 0, walkedWater = 0;

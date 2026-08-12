@@ -180,3 +180,62 @@ Local metres, origin at the canopy plaza, +Z north, +X east, sun 11° WSW.
    clusters around the pool edge and the column line.
 4. Cars on the boulevards.
 5. Shopfront interiors want figures and richer merchandise.
+
+## Asset inventory — client-supplied GLBs
+
+Fetched from the repository release `glb` (some as members of `glbs.zip`,
+pulled out with HTTP range requests rather than downloading 706 MB).
+All are client-generated from this project's own renders via Meshy/Tripo;
+the client owns them, so no third-party licence applies. Regenerate the
+whole set with `python3 gen_props.py`, one with `python3 gen_props.py <key>`,
+and this table with `python3 gen_inventory.py`.
+
+Intake per asset: `weld -> simplify -> resize -> webp q92 -> meshopt`,
+all via gltf-transform. The simplifier is meshoptimizer and is
+attribute-aware — it respects UV seams and never invents a texture
+coordinate. Budgets are set from what the asset is and how many of them
+the plan places, not from a file-size ceiling.
+
+| key | what it is | tris | LOD1 | texture | size | sited |
+|---|---|---|---|---|---|---|
+| `mosque` | jamaa with dome and minaret — the district landmark | 399,994 | — | 4096 px | 7.9 MB | yes |
+| `arcade` | two-storey arcaded colonnade block — street wall | 259,998 | 25996 | 4096 px | 7.0 MB | yes |
+| `watershrub` | waterside shrub clump | 251,544 | 3958 | 2048 px | 2.4 MB | yes |
+| `tram` | articulated light-rail vehicle | 240,000 | — | 4096 px | 4.9 MB | yes |
+| `bluehall` | blue-roofed hall with planted walls | 239,988 | 23998 | 4096 px | 10.5 MB | yes |
+| `canopypav` | golden canopy pavilion — over the tram stop | 219,996 | — | 4096 px | 9.8 MB | yes |
+| `shophouse` | arcaded shophouse row | 199,998 | 19998 | 4096 px | 11.1 MB | yes |
+| `palm2` | date palm | 194,344 | 5510 | 2048 px | 2.9 MB | no |
+| `people10` | ten standing figures | 190,709 | 62197 | 4096 px | 22.4 MB | no |
+| `lagoon_b` | lagoon-scene structure | 149,976 | 7862 | 2048 px | 3.5 MB | no |
+| `resblock` | residential apartment block | 149,964 | 18806 | 2048 px | 4.2 MB | yes |
+| `lagoon_a` | slender lagoon-scene tree | 148,564 | 4728 | 2048 px | 2.3 MB | yes |
+| `fountain` | roundabout fountain bowl | 119,996 | — | 2048 px | 1.8 MB | yes |
+| `majlisset` | majlis lounge seating | 119,992 | 5984 | 2048 px | 3.6 MB | no |
+| `extra` | lagoon-scene rock mass | 119,533 | 5762 | 2048 px | 3.5 MB | no |
+| `people5s` | five seated figures | 99,995 | 12199 | 4096 px | 4.4 MB | no |
+| `tramstop` | tram platform shelter | 89,998 | — | 2048 px | 2.3 MB | yes |
+| `trellis` | vine trellis panel | 89,298 | 3368 | 2048 px | 2.4 MB | yes |
+| `pots` | small potted plants | 68,892 | 2940 | 2048 px | 1.7 MB | yes |
+| `kiosk` | small kiosk booth | 60,000 | — | 2048 px | 1.5 MB | yes |
+| `obelisk` | roundabout obelisk monument | 59,998 | — | 2048 px | 1.8 MB | yes |
+| `bicycle` | parked bicycle | 44,998 | 6440 | 2048 px | 2.8 MB | yes |
+| `benchw` | wooden street bench | 28,000 | 3000 | 2048 px | 1.1 MB | yes |
+| `bins` | bank of three recycling bins | 26,000 | 3000 | 2048 px | 1.3 MB | yes |
+| `evpoint` | EV charging station | 24,000 | 2598 | 2048 px | 2.5 MB | yes |
+| `hammock` | rooftop hammock | 22,000 | 3216 | 2048 px | 2.3 MB | yes |
+| `sail1` | single shade sail | 20,000 | 2200 | 2048 px | 0.6 MB | yes |
+| `bench2` | street bench (variant) | 19,998 | 2400 | 2048 px | 0.7 MB | no |
+| `carpet` | outdoor carpet / rug | 12,000 | — | 2048 px | 3.1 MB | yes |
+| `bunting` | string-light bunting | 11,998 | 1600 | 1024 px | 0.5 MB | yes |
+| `solar` | rooftop photovoltaic array | 2,598 | 648 | 1024 px | 0.7 MB | yes |
+
+**31 assets, 127.4 MB served.**
+
+Generated but not sited, and why:
+
+- `palm2` — crown with no trunk; decimates to a low bush. The procedural date palm reads better and carries a real LOD chain.
+- `bench2` — thin frame; reads worse than benchw.
+- `majlisset` — shape did not survive reduction in the first intake — re-check against the new UV-correct pipeline.
+- `extra` — unclassified rock mass; no sited use yet.
+- `lagoon_b` — unclassified structure; no sited use yet.

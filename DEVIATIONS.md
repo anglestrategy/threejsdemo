@@ -80,3 +80,59 @@ is the one plant where the geometric version was always going to be the closest 
 frond *is* a rachis with leaflets on it. For people, the CC0 options are stylised low-poly
 character packs; dropping game-jam figures into a photographic street would cost more than the
 drums it replaced. The figures remain procedural and are logged as open item 3.
+
+## 8. WebGPURenderer not adopted
+
+**Spec (suggested):** use `THREE.WebGPURenderer` where available.
+
+**Built:** WebGL2 with `THREE.WebGLRenderer`.
+
+**Reason:** the whole look of this district lives in GLSL injected into
+`MeshStandardMaterial.onBeforeCompile` — the triplanar surface-relief law, the
+irradiance-probe field, the directional height-falloff fog, and the walk cycle
+that drives limbs off a fractional surface-class tag. WebGPURenderer does not
+run `onBeforeCompile`; it uses TSL/WGSL node materials, so adopting it means
+rewriting every one of those from scratch, not flipping a renderer. The gain
+would be draw-call submission cost, and this scene is not submission-bound —
+it is 10.9 M instanced triangles in ~130 draw calls. The constraint that
+actually binds is triangles and shadow-map fill, neither of which WebGPU
+changes. Revisit if the material law is ever ported to TSL.
+
+## 9. AgX tone mapping tested and rejected
+
+**Spec (suggested):** `AgXToneMapping` for cinematic highlight handling.
+
+**Built:** ACES Filmic, with `?tone=agx` kept as a live A/B switch.
+
+**Reason:** measured, not asserted — `shots/ab_aces.png` beside
+`shots/ab_agx.png` on the canopy hero. AgX is built for scenes whose highlights
+would otherwise clip to hue-shifted white. This scene's identity is a saturated
+gold canopy at the last of the sun, and AgX rolls exactly that off: the canopy
+goes beige, the palms lose their green, and the frame flattens. ACES keeps the
+gold. The switch stays so the call can be re-made if the grade ever changes.
+
+## 10. The single-file build is frozen, not maintained
+
+**Spec:** keep `living-map-v2.html` as a legacy fallback if cheap.
+
+**Built:** `build.py --single` still runs, but the served `dist/` build is the
+deliverable and the single-file path no longer receives the large assets — the
+31 generated GLBs are fetched by URL and cannot be base64'd into a page
+without making it a 200 MB parse. Anything that would have compromised the
+served build to keep the one-file build working has gone the served build's
+way, per the constraint change.
+
+## 11. VSM shadows tested and rejected
+
+**Spec (suggested):** `VSMShadowMap` for cheap soft shadow edges.
+
+**Built:** `PCFShadowMap`, with `?shadow=vsm` kept as a live A/B switch.
+
+**Reason:** measured — `shots/ab_vsm.png` beside `shots/ab_aces.png`. Variance
+shadow maps bleed light through thin geometry, and this scene is largely made
+of thin geometry: a date palm crown is three hundred bladed leaflets, and the
+canopy is a folded panel deck one centimetre thick. Under VSM the crowns lose
+their self-shadowing entirely and go flat, and the soffit loses the facet
+separation that is the point of folding it. The shadow frustum is already
+fitted per frame with texel- and grazing-angle-scaled bias, which is where the
+quality was actually coming from.

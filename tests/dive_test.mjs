@@ -6,8 +6,8 @@ const p = await b.newPage({ viewport: { width: 640, height: 360 } });
 const errs = [];
 p.on('pageerror', e => errs.push('PAGEERROR ' + (e.stack||e.message).slice(0,300)));
 p.on('console', m => { if (m.type()==='error') errs.push('ERR ' + m.text().slice(0,200)); });
-await p.goto('http://localhost:8123/', { waitUntil: 'load' });
-await p.waitForFunction('window.__ready === true', { timeout: 120000 });
+await p.goto('http://localhost:8123/', { waitUntil: 'load', timeout: 300000 });
+await p.waitForFunction('window.__ready === true', null, { timeout: 300000 });
 await p.waitForTimeout(1500);
 const snap = async (tag) => {
   const st = await p.evaluate(() => ({

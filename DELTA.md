@@ -371,3 +371,60 @@ underneath, alternating up and down along the rachis — that alternation is the
 whole silhouette of a date palm. Two levels, 4.3 k near and 800 far, switched
 on distance to the walkable core: better looking *and* cheaper than what it
 replaced, 1,215 k triangles down to 823 k.
+
+## Round 19 — the compression was destroying the assets
+
+The note was that the tram looked wrecked next to its source model, and that
+the whole experience had been degraded by budgets carried over from a
+constraint that no longer exists. Both were true, and the first one had a
+specific cause worth writing down.
+
+**The bug.** The first intake rolled its own decimator: `fast_simplification`
+for the triangles, then a cKDTree lookup giving every surviving vertex the UV
+of the nearest *original* vertex. Quadric simplification MOVES vertices to
+optimal positions, so after a heavy reduction almost no surviving vertex sits
+where an original one did — and every one of them took its texel from
+somewhere else on the sheet. The tram's window frames ended up smeared across
+its bodywork. It was never the triangle count and never the texture size:
+30 k triangles is plenty for a tram. The texture had been shuffled. All 29
+assets had it.
+
+**The fix.** Stop hand-rolling it. The intake is now
+`weld → simplify → resize → webp q92 → meshopt`, every step gltf-transform.
+Its simplifier is meshoptimizer, which is attribute-aware: it respects UV
+seams and never invents a texture coordinate. The tram at 240 k triangles and
+a 4k PBR set is now indistinguishable from the source, in a 5 MB file.
+
+Three further faults surfaced on the way, each of which had been silently
+wrong:
+
+| fault | symptom | cause |
+|---|---|---|
+| bounds read after compression | the tram scaled to nothing | `meshopt --level high` applies `KHR_mesh_quantization`; POSITION min/max become integers and the real scale moves into the node transform. Bounds are now measured before compression, and the loader bakes `matrixWorld` into the geometry — which was needed anyway for any asset whose parts are not at the origin. |
+| the simplifier could not reduce foliage | the waterside shrub returned 1.04 M triangles whether asked for 40 k or a million, and its far level came back identical to its near one | meshoptimizer can only collapse an edge that exists, and a photogrammetric shrub is hundreds of thousands of leaf shells that share no vertex. `preweld.py` snaps vertices onto a tolerance grid first — fine (3–4 mm) for the near level, where it merges only what the scanner split and costs no texture quality; coarse (2–3 cm) for the far level, where fusing neighbouring leaves smears the texture across the merge and is invisible at seventy metres. |
+| the ratio applied twice | the trellis's far level came out at 90 triangles from a 4,000 budget | the simplify ratio was a fraction of the *original* count, but the coarse preweld had already done most of the reduction. It is now a fraction of what actually enters the simplifier. |
+
+**And the budgets themselves were wrong** — set from the old size-constrained
+reflex rather than from what the asset is. 40 k of a photogrammetric shrub is
+mush no matter how correct the UVs are. They are now set by what the thing is
+and how many the plan places: 400 k for the one mosque, 260 k for the arcade
+block, 240 k for the tram, 250 k for a shrub you walk past, and 2.6 k for a
+solar panel the roofscape puts down 750 times. Every asset carries a real far
+level, and the switch radius is per prop — a bench earns its full mesh from
+twenty-six metres, a blue hall from two hundred and sixty.
+
+31 assets, 127 MB served, 18.0 M instanced triangles in 136 draw calls,
+scale audit green.
+
+**A harness bug found on the way.** `page.waitForFunction(fn, options)` —
+Playwright's second parameter is the *argument passed into the page function*,
+not the options bag. Every wait in the suite and in `shot.mjs` had silently
+been running at the 30 s default, which is where the intermittent "NEVER
+READY" came from. Fixed in all fifteen files.
+
+**Two renderer suggestions tested and rejected**, both by side-by-side rather
+than by assertion: AgX tone mapping flattens the gold canopy to beige and
+drains the palms (this scene's identity is saturated dusk gold, which is
+exactly what AgX rolls off), and VSM shadows bleed straight through the palm
+crowns and the folded canopy soffit. Both switches are kept live as
+`?tone=agx` and `?shadow=vsm`. See DEVIATIONS 8–11.

@@ -32,7 +32,7 @@ const url = (FILE ? 'file://' + path.join(ROOT, FILE) : BASE)
 const t0 = Date.now();
 await page.goto(url, { waitUntil: 'load', timeout: 300000 });
 try {
-  await page.waitForFunction('window.__ready === true', { timeout: 300000 });
+  await page.waitForFunction('window.__ready === true', null, { timeout: 300000 });
 } catch (e) { errors.push('NEVER READY'); }
 const bootMs = Date.now() - t0;
 await page.waitForTimeout(WAIT);
