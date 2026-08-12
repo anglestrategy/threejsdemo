@@ -94,9 +94,9 @@ Three vendoring traps, all fixed, all of which fail as bare 404s:
       split by hemisphere, and directional fog whose density falls off with
       altitude. The probe *bake* is plain JavaScript against the occluder
       boxes and is renderer-agnostic — it is not ported, it is reused.
-- [ ] **3 — the material.** The first step that can be judged rather than
-      reasoned about: wire 1 and 2 into a node material and put a screenshot
-      beside the WebGL2 build.
+- [~] **3 — the material.** `src/gpu/material.js`. Compiles, links and renders
+      with no page errors — and comes out **black**. See "Step 3: black
+      panels" below. This is where the port actually is.
 - [ ] 4 — CSM, then TRAA
 - [ ] 5 — SSGI, GTAO
 - [ ] 6 — walk cycle, water, planar reflection
@@ -105,3 +105,38 @@ Three vendoring traps, all fixed, all of which fail as bare 404s:
 **Everything through step 2 is syntax-checked and unverified in-scene.** Nothing
 is wired into a material yet, so none of it has rendered a pixel. That is stated
 plainly rather than implied, and step 3 is where it stops being true.
+
+## Step 3: black panels — an open, reproducible fault
+
+`dist/gpuprobe.html?forcegl=1&panels=1` stands eleven panels, one per surface
+class, in front of the tram. The stock glTF material on the tram renders
+correctly in the same frame; every panel using `makeCityMaterial` renders
+black. No page errors, no failed requests, the node graph compiles and links.
+
+**Ruled out.** The first hypothesis was that `reliefNormal` returned a
+tangent-space perturbation assigned straight to `normalNode` without the
+triplanar world frame the GLSL rebuilt with Tw/Bw. That was a real defect and
+is fixed — `triplanarFrame` is added and the perturbation is now returned in
+world space — but the panels are still black, so it was **not** the cause.
+
+**Still open, in the order worth testing.** Each is a one-line probe: replace
+the node with a constant and see if the panel lights.
+
+1. `vertexColor()` — the panels set a `color` attribute directly. If TSL's
+   accessor expects the material's `vertexColors` plumbing rather than a raw
+   attribute, `colorNode` multiplies by zero and everything downstream is
+   black. **Test:** `mat.colorNode = vec3(0.8)`.
+2. `attribute('aSurf', 'float')` — if the attribute does not resolve, the
+   class is garbage and `srfH` may fall through to a branch that returns 0.
+   **Test:** `const surfClass = float(4)`.
+3. `mat.outputNode` — `output` may be the pre-lighting fragment rather than
+   the lit result, in which case the fog mix is discarding the shading.
+   **Test:** delete `outputNode` entirely.
+4. `roughnessNode`/`normalNode` interaction — least likely, since a wrong
+   normal darkens rather than blackens.
+
+The bisect is cheap and mechanical; it was not run only because this session
+ran out of working context, not because it is hard. **Do 1 through 3 in order
+before touching anything else.**
+
+The WebGL2 build is untouched and remains the deliverable.

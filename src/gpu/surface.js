@@ -265,20 +265,42 @@ export const triplanarUV = Fn(([wp, wn]) => {
   return uv;
 });
 
+/* The triplanar tangent frame. The GLSL built Tw/Bw beside the uv and combined
+   the perturbation back into world space with them; dropping that step is what
+   made the first TSL panels render black — a tangent-space vector assigned
+   straight to `normalNode` is not a normal, and every face reads as facing
+   away from the light. */
+export const triplanarFrame = Fn(([wn]) => {
+  const a = abs(wn).toVar();
+  const t = vec3(1, 0, 0).toVar();
+  If(a.y.greaterThan(max(a.x, a.z)), () => {
+    t.assign(vec3(1, 0, 0));
+  }).ElseIf(a.x.greaterThan(a.z), () => {
+    t.assign(vec3(0, 0, 1));
+  }).Else(() => {
+    t.assign(vec3(1, 0, 0));
+  });
+  // Gram-Schmidt against the normal, as the original did
+  return t.sub(wn.mul(dot(wn, t))).normalize();
+});
+
 /* The relief normal, by central difference on the height field. `fade` is the
    distance term: the WebGL2 build faded relief out between 26 and 95 m, which
    left everything past the middle of a 200 m street as flat paint carrying a
    per-block albedo pattern. 70 to 300 m, and the samples were always taken
    either way. */
-export const reliefNormal = Fn(([uv, s, dist, amp]) => {
+export const reliefNormal = Fn(([uv, s, dist, amp, wn]) => {
   const e = float(0.006).add(dist.mul(0.00035)).toVar();
   const h0 = srfH(uv, s).toVar();
   const hx = srfH(uv.add(vec2(e, 0)), s).toVar();
   const hy = srfH(uv.add(vec2(0, e)), s).toVar();
   const fade = float(1).sub(smoothstep(70.0, 300.0, dist)).toVar();
   const k = amp.mul(fade).div(e).toVar();
-  return vec3(hx.x.sub(h0.x).mul(k).negate(),
-    hy.x.sub(h0.x).mul(k).negate(), 1.0).normalize();
+  const pn = vec3(hx.x.sub(h0.x).mul(k).negate(),
+    hy.x.sub(h0.x).mul(k).negate(), 1.0).normalize().toVar();
+  const T = triplanarFrame(wn).toVar();
+  const B = wn.cross(T).normalize().toVar();
+  return T.mul(pn.x).add(B.mul(pn.y)).add(wn.mul(pn.z)).normalize();
 });
 
 export const SURF = {
