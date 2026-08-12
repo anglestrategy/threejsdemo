@@ -1105,6 +1105,17 @@ function defineKit() {
   routeProp('townhouse2', 'lagoon_b', 13.0, { near: 60 });
   routeProp('majlisset', 'majlisset', 0.80, { near: 30 });
 
+  /* ---- street infrastructure -------------------------------------------
+     The layer that was still hand-built boxes after the buildings stopped
+     being. These three take over kit names the planting pass already places
+     by the hundred, so every lamppost, bollard and gully in the district is
+     replaced without touching one call site. */
+  routeProp('streetlight', 'lamppost', 5.00, { near: 40 });
+  routeProp('bollard', 'bollard2', 0.95, { near: 26 });
+  routeProp('drain', 'grate', 0.09, { near: 12, shadow: false });   // 532 of them, flush with the paving: almost all of these belong at the far level
+  routeProp('tsignal', 'tsignal', 4.30, { near: 60 });
+  routeProp('psignal', 'psignal', 3.10, { near: 50 });
+
   /* the furnished interior, split into its pieces. Anything over 2.4 m is
      part of the room rather than something standing in it. */
   FURNITURE = routeSceneParts('ghscene', 'fn', { maxH: 2.4 });

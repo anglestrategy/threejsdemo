@@ -46,9 +46,15 @@ ZIP = REL + 'glbs.zip'
 OUT = 'dist/assets/props'
 TMP = 'work/user'
 
+# more than one archive now: each index entry remembers which zip it came from
+ZIPS = {'work/zipindex.json': ZIP,
+        'work/zipindex2.json': REL + 'Archive.2.zip'}
 ZIDX = {}
-if os.path.exists('work/zipindex.json'):
-    ZIDX = {e['name']: e for e in json.load(open('work/zipindex.json'))}
+for idxf, url in ZIPS.items():
+    if os.path.exists(idxf):
+        for e in json.load(open(idxf)):
+            e['zip'] = url
+            ZIDX[e['name']] = e
 
 # (source file, key, triangle budget, texture px, second-LOD budget or 0)
 PROPS = [
@@ -95,6 +101,18 @@ PROPS = [
     #     in the build.
     ('goldenhourscene_nhp.glb',                                            'ghscene',   400000, 4096, 40000),
     ('model.26.glb',                                                       'diorama',   300000, 4096, 30000),
+    # --- street infrastructure. This is the layer that was still hand-built
+    #     boxes after the buildings stopped being: every lamppost, bollard and
+    #     gully in the district, and the signals it never had at all.
+    ('Meshy_AI_street_lamppost_3d_0812130902_image-to-3d-texture.glb',      'lamppost',   36000, 2048, 3600),
+    ('Meshy_AI_bollard_traffic_post__0812130956_image-to-3d-texture.glb',   'bollard2',   14000, 2048, 1600),
+    ('Meshy_AI_manhole_drain_grate_3_0812130756_image-to-3d-texture.glb',   'grate',      10000, 2048, 1100),
+    ('Meshy_AI_traffic_signal_pole_3_0812130857_image-to-3d-texture.glb',   'tsignal',    30000, 2048, 3000),
+    ('Meshy_AI_pedestrian_signal_pol_0812130836_image-to-3d-texture.glb',   'psignal',    24000, 2048, 2600),
+    ('Meshy_AI_curb_gutter_edge_3d_0812130913_image-to-3d-texture.glb',     'kerb',       14000, 2048, 1600),
+    ('Meshy_AI_sidewalk_paver_segmen_0812130848_image-to-3d-texture.glb',   'walkseg',    16000, 2048, 1800),
+    ('Meshy_AI_straight_road_segment_0812130817_image-to-3d-texture.glb',   'roadseg',    24000, 2048, 2600),
+    ('Meshy_AI_road_intersection_seg_0812130807_image-to-3d-texture.glb',   'roadx',      36000, 2048, 3600),
 ]
 
 
@@ -109,12 +127,13 @@ def zfetch(member, dest):
     e = ZIDX.get(member)
     if not e:
         return False
-    lh = rng(ZIP, e['lho'], e['lho'] + 29)
+    zurl = e.get('zip', ZIP)
+    lh = rng(zurl, e['lho'], e['lho'] + 29)
     if lh[:4] != b'PK\x03\x04':
         return False
     nl, el = struct.unpack('<HH', lh[26:30])
     off = e['lho'] + 30 + nl + el
-    raw = rng(ZIP, off, off + e['csize'] - 1)
+    raw = rng(zurl, off, off + e['csize'] - 1)
     if len(raw) < e['csize']:
         return False
     open(dest, 'wb').write(zlib.decompress(raw, -15) if e['method'] == 8 else raw)

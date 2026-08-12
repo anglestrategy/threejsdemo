@@ -639,3 +639,34 @@ scene is 28.8 M in 182 draw calls.
 of that frame is scanned — arched shopfronts, balconies, mouldings, real window
 reveals, bougainvillea over a tiled roof — and the right side is the old
 grammar. One frame, both, side by side.
+
+## Round 26 — the street itself
+
+Nine more assets arrived in a second archive (`Archive.2.zip`, read the same
+way — central directory by range request, members inflated one at a time).
+They are the layer that was still hand-built boxes after the buildings had
+stopped being: a lamppost, a bollard, a manhole grate, traffic and pedestrian
+signal poles, a kerb, and sidewalk/road/intersection segments.
+
+Three of them take over kit names the planting pass already places by the
+hundred, so **every lamppost, bollard and gully in the district was replaced
+without touching one call site** — which is the whole reason `routeProp`
+overrides by name rather than by placement.
+
+And the district now has **traffic signals**, which it never had at all:
+`buildPlanting` already computed where two vehicular roads cross in order to
+paint the zebra stripes, so a signal head goes on the near corner of each
+approach and a pedestrian signal beside the crossing it governs.
+
+One budget correction on the way: the manhole grate is placed 532 times, flush
+with the paving, and at 10 k triangles and a 24 m radius it was 4 M triangles
+of drain — more than the mosque, the tram and every scanned shophouse
+together. At a 12 m radius almost all of them sit at the far level where they
+belong.
+
+42 assets, 204 MB served, 34.1 M triangles in 189 draw calls, scale audit and
+walk cycle green.
+
+`walkseg` (the sidewalk paver segment) came out of the intake at 99,800
+triangles with an identical far level — the disconnected-shell case again. It
+needs a `preweld` tolerance before it is usable and is not routed yet.

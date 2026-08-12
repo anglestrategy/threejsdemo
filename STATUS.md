@@ -215,6 +215,7 @@ the plan places, not from a file-size ceiling.
 | `majlisset` | majlis lounge seating | 119,992 | 5984 | 2048 px | 3.6 MB | yes |
 | `extra` | three-storey vernacular building | 119,533 | 5762 | 2048 px | 3.5 MB | yes |
 | `people5s` | five seated figures | 99,995 | 12199 | 4096 px | 4.4 MB | yes |
+| `walkseg` | — | 99,800 | 99808 | 2048 px | 3.7 MB | no |
 | `tramstop` | tram platform shelter | 89,998 | — | 2048 px | 2.3 MB | yes |
 | `trellis` | vine trellis panel | 89,298 | 3368 | 2048 px | 2.4 MB | yes |
 | `pots` | small potted plants | 68,892 | 2940 | 2048 px | 1.7 MB | yes |
@@ -222,17 +223,25 @@ the plan places, not from a file-size ceiling.
 | `obelisk` | roundabout obelisk monument | 59,998 | — | 2048 px | 1.8 MB | yes |
 | `bicycle` | parked bicycle | 44,998 | 6440 | 2048 px | 2.8 MB | yes |
 | `palm2` | date palm | 37,548 | 5510 | 2048 px | 1.9 MB | yes |
+| `lamppost` | — | 35,998 | 3592 | 2048 px | 1.2 MB | yes |
+| `roadx` | — | 35,996 | 3600 | 2048 px | 3.5 MB | no |
+| `tsignal` | — | 29,996 | 3000 | 2048 px | 0.7 MB | yes |
 | `benchw` | wooden street bench | 28,000 | 3000 | 2048 px | 1.1 MB | yes |
 | `bins` | bank of three recycling bins | 26,000 | 3000 | 2048 px | 1.3 MB | yes |
 | `evpoint` | EV charging station | 24,000 | 2598 | 2048 px | 2.5 MB | yes |
+| `roadseg` | — | 23,998 | 2598 | 2048 px | 3.0 MB | no |
+| `psignal` | — | 23,996 | 2600 | 2048 px | 1.2 MB | yes |
 | `hammock` | rooftop hammock | 22,000 | 3216 | 2048 px | 2.3 MB | yes |
 | `sail1` | single shade sail | 20,000 | 2200 | 2048 px | 0.6 MB | yes |
 | `bench2` | street bench (variant) | 19,998 | 2400 | 2048 px | 0.7 MB | yes |
+| `bollard2` | — | 14,000 | 1598 | 2048 px | 2.5 MB | yes |
+| `kerb` | — | 13,998 | 1600 | 2048 px | 3.4 MB | no |
 | `carpet` | outdoor carpet / rug | 12,000 | — | 2048 px | 3.1 MB | yes |
 | `bunting` | string-light bunting | 11,998 | 1600 | 1024 px | 0.5 MB | yes |
+| `grate` | — | 9,998 | 1884 | 2048 px | 3.6 MB | yes |
 | `solar` | rooftop photovoltaic array | 2,598 | 648 | 1024 px | 0.7 MB | yes |
 
-**33 assets, 180.8 MB served.**
+**42 assets, 203.7 MB served.**
 
 Generated but not sited: none — every asset in the release is placed.
 

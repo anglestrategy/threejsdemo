@@ -66,6 +66,18 @@ function buildPlanting() {
       if (!cross) continue;
       for (const s of [-1, 1]) {
         const cxp = cross[0] + ux * (r2[4] / 2 + 4.2) * s, czp = cross[1] + uz * (r2[4] / 2 + 4.2) * s;
+        if (MODEL_ROUTE.tsignal) {
+          // one signal head on the near corner of each approach, and a
+          // pedestrian signal beside the crossing it governs
+          const sx2 = cxp + nx * (r[4] / 2 + 2.2), sz2 = czp + nz * (r[4] / 2 + 2.2);
+          if (!nearBuilding(sx2, sz2, 1.0)) {
+            inst('tsignal', xf(sx2, terrainY(sx2, sz2), sz2, Math.atan2(-ux * s, -uz * s)));
+            if (MODEL_ROUTE.psignal && chance(0.7)) {
+              const px2 = cxp - nx * (r[4] / 2 + 2.0), pz2 = czp - nz * (r[4] / 2 + 2.0);
+              inst('psignal', xf(px2, terrainY(px2, pz2), pz2, Math.atan2(nx, nz)));
+            }
+          }
+        }
         for (let k = 0; k < 6; k++) {
           const o = -r[4] / 2 + r[4] * (k + 0.5) / 6;
           stripe(ACC.ground, cxp + nx * o - ux * 0.6, czp + nz * o - uz * 0.6,
