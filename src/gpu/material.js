@@ -24,7 +24,7 @@
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
   Fn, float, vec3, vec4, attribute, positionWorld, normalWorld, cameraPosition,
-  length, floor, mix, clamp, uniform, output, vertexColor, max,
+  length, floor, mix, clamp, uniform, output, vertexColor, max, cameraViewMatrix,
 } from 'three/tsl';
 
 import { srfH, triplanarUV, reliefNormal } from './surface.js';
@@ -66,7 +66,10 @@ export function makeCityMaterial(opts = {}) {
   if (!opts.noNormal) {
     mat.normalNode = Fn(() => {
       const uv = uvOf().toVar();
-      return reliefNormal(uv, clsOf(), distOf(), uAmp, normalWorld);
+      const nw = reliefNormal(uv, clsOf(), distOf(), uAmp, normalWorld).toVar();
+      // world -> view: the law bends the normal in world space, which is what
+      // makes the triplanar frame work, but the material wants it in view
+      return nw.transformDirection(cameraViewMatrix).normalize();
     })();
   }
 
@@ -112,14 +115,16 @@ export function makeCityMaterial(opts = {}) {
      for the same reason the WebGL2 build injected at `fog_fragment`: it has
      to sit after everything else and it has to be skippable per material
      (the sky dome must not be fogged into itself). */
-  const fog = directionalFog({
-    cool: ATMOS.fogCool, warm: ATMOS.fogWarm, sun: ATMOS.sun,
-    density: ATMOS.fogDensity, scaleH: ATMOS.fogScaleH,
-  });
   if (!opts.noOutput) {
     mat.outputNode = Fn(() => {
+      // built inside the graph that consumes it, for the same reason the
+      // other nodes are
+      const fog = directionalFog({
+        cool: ATMOS.fogCool, warm: ATMOS.fogWarm, sun: ATMOS.sun,
+        density: ATMOS.fogDensity, scaleH: ATMOS.fogScaleH,
+      }).toVar();
       const c = output.toVar();
-      return vec4(mix(c.rgb, fog.rgb, fog.a), c.a);
+      return vec4(mix(c.rgb, fog.rgb, fog.w), c.a);
     })();
   }
 

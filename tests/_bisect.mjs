@@ -18,10 +18,8 @@ const { PNG } = (() => { try { return require('pngjs'); } catch { return {}; } }
 const CASES = [
   ['all off',      '&c=1&s=1&o=1&n=1&r=1'],
   ['+normal',      '&c=1&s=1&o=1&r=1'],
-  ['+rough',       '&c=1&s=1&o=1&n=1'],
   ['+output(fog)', '&c=1&s=1&n=1&r=1'],
-  ['+vertexColor', '&s=1&o=1&n=1&r=1'],
-  ['+realClass',   '&c=1&o=1&n=1&r=1'],
+  ['baseline',     ''],
 ];
 
 for (const [name, q] of CASES) {

@@ -234,3 +234,41 @@ action: build the fog inside the `outputNode` `Fn()`, and if that does not do
 it, apply fog through `scene.fogNode` instead of on the material.
 
 Neither is speculative any more — each has a named suspect and a one-line test.
+
+### Bisect attempt 4 — both guesses wrong; then read the source
+
+Two one-line fixes were tried and both failed:
+
+- `normalNode` transformed world -> view with `transformDirection(cameraViewMatrix)`: still 0.
+- the fog node rebuilt inside its own `outputNode` `Fn()`: still 0.
+
+That is four passes on step 3 that bounded the fault and built the tooling but
+did not move it, and the reason is worth naming: **I was guessing at TSL's
+contract instead of reading it.** Two hypotheses, both plausible, both wrong,
+both costing a full verify cycle.
+
+Reading `three.webgpu.js` answers it directly:
+
+    21712:  return this.normalNode ? vec3( this.normalNode ) : materialNormal;
+    16566:  * material.normalNode = normalMap( texture( normalTex ) );
+
+`normalNode` substitutes for `materialNormal` and the documented way to feed it
+is **`normalMap( … )`**, whose input is a **tangent-space** normal. So the very
+first version — `reliefNormal` returning a tangent-space perturbation — had the
+right space, and both "fixes" since (the hand-built triplanar world frame, then
+the view transform) moved it further from what the material wants.
+
+**Next action, evidence-based this time:** feed the tangent-space perturbation
+through `normalMap()` — `mat.normalNode = normalMap(pn)` where `pn` is what
+`reliefNormal` produced *before* the frame was applied. Keep `triplanarFrame`
+in `surface.js` (it is still needed by anything that wants the world normal,
+and it is correct), but do not apply it here.
+
+For `outputNode`, do the same before touching it: grep the build for how
+`outputNode` is consumed rather than guessing a third time.
+
+**Method note for this file, because it cost four passes:** when a node does
+not behave, read `three.webgpu.js` for how the library consumes that property
+*before* forming a hypothesis. The source is vendored at
+`/tmp/twg/package/build/three.webgpu.js` and re-extractable from the npm
+tarball; `grep -n "<property>" ` answers most of these in one command.
