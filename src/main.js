@@ -67,6 +67,11 @@ const QA = {
   norefl: QP.get('norefl') === '1',
   noshadow: QP.get('noshadow') === '1',
   nodof: QP.get('nodof') === '1',
+  /* ?ruler=1 stands a graduated two-metre pole and a 1.7 m figure at every
+     composed viewpoint. Scale is the one error you cannot see by looking —
+     a district that is uniformly 30% too big looks fine until something
+     known-size stands in it. Every reference shot from here on carries one. */
+  ruler: QP.get('ruler') === '1',
   /* ?shop=N stands the camera in front of the Nth fitted shop, facing in. The
      souq is two hundred bays long and eyeballing coordinates to find one that
      is actually glazed wastes a build every time. */

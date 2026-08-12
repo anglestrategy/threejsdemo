@@ -266,7 +266,7 @@ function buildGreen() {
     const bx2 = x + Math.cos(_dw.ang) * (_dw.dist - 0.45);
     const bz2 = z + Math.sin(_dw.ang) * (_dw.dist - 0.45);
     if (insideSolid(bx2, bz2, gy + 0.4)) continue;
-    const s = rr(1.5, 2.9);
+    const s = rr(0.85, 1.55);
     inst('bougain', xf3(bx2, dressY(bx2, bz2) + rr(0, 1.9), bz2, 0, rnd() * 6.28, 0, s, s * rr(0.7, 1.1), s),
       pick(BOUG));
     placed++;
@@ -372,8 +372,8 @@ function buildLife() {
   const mtop = terrainY(PLAN.majlis.x, PLAN.majlis.z) + 3 * 4.2 + 0.18;
   inst('sit_abaya', xf(MX - 0.6, mtop, MZ + 2.2, 0.1), 0xffffff);
   inst('sit_thobe', xf(MX + 3.4, mtop, MZ + 1.0, -1.3), 0xffffff);
-  inst('child', xf3(MX - 2.1, mtop, MZ + 1.5, 0, 0.4, 0, 0.62, 0.62, 0.62), 0xffd8c0);
-  inst('child', xf3(MX + 2.0, mtop, MZ - 1.4, 0, 2.6, 0, 0.60, 0.60, 0.60), 0xd8e0f0);
+  inst('child', xf3(MX - 2.1, mtop, MZ + 1.5, 0, 0.4, 0, 1.04, 1.04, 1.04), 0xffd8c0);
+  inst('child', xf3(MX + 2.0, mtop, MZ - 1.4, 0, 2.6, 0, 0.98, 0.98, 0.98), 0xd8e0f0);
   inst('thobe', xf3(MX - 5.0, mtop, MZ - 0.6, 0, 1.9, 0, 1, 1, 1), 0xf6f2e8);
 
   // birds
@@ -905,6 +905,43 @@ function buildFabricProps() {
   INSTCOUNT.fabprops = res + shop + hall + sails;
 }
 
+/* =============================================================== RULER ==
+   ?ruler=1 stands a graduated two-metre pole and a 1.7 m figure at every
+   composed viewpoint, plus a one-metre chequer on the ground.
+
+   Scale is the one error you cannot see by looking. A district that is
+   uniformly thirty per cent too big looks completely convincing until
+   something of known size stands in it, and then nothing else in the frame
+   is believable again. Every reference shot from here on carries one, and
+   any measurement claim in DELTA.md has to be made against it rather than
+   against an eye.                                                         */
+const RULER_AT = [
+  [0, 0], [4, 60], [TRAM.plat.x, TRAM.z - 6], [4, 200], [4, 300],
+  [-214, 20], [-224, 230], [150, 235], [-88, -70], [21, -44], [-311, 0],
+];
+
+function buildRuler() {
+  if (!QA.ruler) return;
+  CURCHUNK = 'ruler';
+  const a = ACC.fine;
+  for (const p of RULER_AT) {
+    const gy = groundAt(p[0], p[1]);
+    // the pole: four half-metre bands, red and white, topped at exactly 2 m
+    for (let b = 0; b < 4; b++) {
+      a.add(G_BOXT, xf(p[0], gy + b * 0.5, p[1], 0, 0.075, 0.5, 0.075),
+        b % 2 ? 0xf4f0e6 : 0xc03626, S.CONCRETE, 1.25);
+    }
+    a.add(G_BOXT, xf(p[0], gy + 2.0, p[1], 0, 0.30, 0.035, 0.30), 0x18324e, S.METAL, 1.3);
+    // a one-metre chequer at its foot, so horizontal scale is readable too
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+      a.add(G_BOXT, xf(p[0] + (i - 0.5) * 0.5, gy + 0.012, p[1] + 1.0 + (j - 0.5) * 0.5, 0, 0.5, 0.02, 0.5),
+        (i + j) % 2 ? 0xf4f0e6 : 0x18324e, S.CONCRETE, 1.2);
+    }
+    // and a person, because a figure is the ruler everyone reads instinctively
+    inst('thobe', xf(p[0] + 0.9, gy, p[1], Math.PI * 0.85));
+  }
+}
+
 /* =========================================================== BUILD ORDER */
 function* buildSteps() {
   yield 'env'; buildEnvironment();
@@ -930,6 +967,7 @@ function* buildSteps() {
   yield 'probes'; bakeProbes();
   yield 'dressing'; { const d = nearDressing(); INSTCOUNT.dressing = d.placed; INSTCOUNT.litter = d.scraps; }
   yield 'life'; buildLife();
+  yield 'ruler'; buildRuler();
   yield 'merge'; finalise();
 }
 

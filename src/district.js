@@ -703,7 +703,7 @@ const SURF_GLSL = `
       return t * 0.25;
     } else if (s < 7.5) {                            // PAVING, irregular flags
       vec2 warp = vec2(fb3(q * 0.28), fb3(q * 0.28 + 19.0)) - 0.5;
-      vec2 p2 = q * 2.05 + warp * 1.30;
+      vec2 p2 = q * 4.05 + warp * 0.85;
       vec2 ci = floor(p2), cf = fract(p2);
       float best = 9.0, second = 9.0; vec2 bid = vec2(0.0);
       for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
@@ -713,7 +713,7 @@ const SURF_GLSL = `
         if (d < best) { second = best; best = d; bid = ci + g; }
         else if (d < second) second = d;
       }
-      float edge = smoothstep(0.0, 0.055, second - best);
+      float edge = smoothstep(0.0, 0.038, second - best);
       float slab = h21(bid * 1.13);
       grain = slab; cav = edge;
       // every flag is laid a little high or low, and its face is worn
@@ -1950,7 +1950,33 @@ return {
       look(dx, dy);
       for (let i = 0; i < (steps || 30); i++) navUpdate(1 / 60);
       return { yaw: NAV.yaw, pitch: NAV.pitch, tYaw: NAV.tYaw, tPitch: NAV.tPitch };
-    }, waterAt: (x, z) => WATERBODIES.some(b => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) },
+    }, waterAt: (x, z) => WATERBODIES.some(b => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1),
+    /* Every instanced object's real world size, in metres, measured off the
+       instance matrices rather than off the source geometry — a kit part is
+       only ever the size the call site scaled it to. Scale errors are
+       invisible by eye and obvious in this table, which is the whole reason
+       it exists: `node tests/scale_audit.mjs` reads it and diffs it against
+       the sizes the reference renders imply. */
+    sizes() {
+      const out = {};
+      const bb = new THREE.Box3(), b2 = new THREE.Box3(), m = new THREE.Matrix4();
+      cityRoot.traverse((o) => {
+        if (!o.isInstancedMesh || !o.count) return;
+        o.geometry.computeBoundingBox();
+        bb.copy(o.geometry.boundingBox);
+        const rows = [];
+        const n = Math.min(o.count, 32);
+        for (let i = 0; i < n; i++) {
+          o.getMatrixAt(Math.floor((i + 0.5) * o.count / n), m);
+          b2.copy(bb).applyMatrix4(m);
+          rows.push([b2.max.y - b2.min.y, b2.max.x - b2.min.x, b2.max.z - b2.min.z]);
+        }
+        rows.sort((p, q) => p[0] - q[0]);
+        const md = rows[rows.length >> 1];
+        out[o.name] = { n: o.count, h: +md[0].toFixed(2), w: +md[1].toFixed(2), d: +md[2].toFixed(2) };
+      });
+      return out;
+    } },
   get diving() { return DIVE.phase !== 'off'; },
   pose: navPose,
   get built() { return BUILT; },

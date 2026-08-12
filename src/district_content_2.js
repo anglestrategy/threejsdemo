@@ -282,7 +282,7 @@ function officeBand(S4, y, fh, len, nb, bw, ang, nx, nz, ux, uz, fl, floors, bas
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) * len / n + (rnd() - 0.5) * 0.10;
       const q = at(t, -0.05);
-      const dep = 0.42 + rnd() * 0.30;
+      const dep = 0.20 + rnd() * 0.14;
       inst('louvre', xf3(q[0], y + 0.10, q[1], 0, ang - Math.PI / 2, 0, 0.17, fh - 0.30, dep),
         pick([K.timber, K.timberLt, 0x9a6a3c, 0x7d5730]));
     }
@@ -363,7 +363,7 @@ function roofscape(cx, cz, w, d, top, o) {
     if (chance(0.6)) {
       for (let i = 0; i < 3; i++) {
         inst('bougain', xf3(px + rr(-pw * 0.4, pw * 0.4), top + 2.1, pz + (chance(0.5) ? -1 : 1) * pd / 2, 0,
-          rnd() * 6.28, 0, rr(1.4, 2.2), rr(0.8, 1.3), rr(1.4, 2.2)), pick([0xc0327a, 0xd8447e, 0xa8286b]));
+          rnd() * 6.28, 0, rr(0.80, 1.25), rr(0.55, 0.85), rr(0.80, 1.25)), pick([0xc0327a, 0xd8447e, 0xa8286b]));
       }
     }
     if (chance(0.55)) {

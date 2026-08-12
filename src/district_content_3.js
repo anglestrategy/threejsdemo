@@ -12,14 +12,14 @@ function buildCanopy() {
   const y = CP.h;
   const cx = (CP.x0 + CP.x1) / 2, cz = (CP.z0 + CP.z1) / 2;
   const W = CP.x1 - CP.x0, D = CP.z1 - CP.z0;
-  const GRID = 8.0;                                   // panel module
+  const GRID = 4.8;                                   // panel module
   const nx = Math.round(W / GRID), nz = Math.round(D / GRID);
   const sx = W / nx, sz = D / nz;
 
   // the voids: two courtyards cut out of the deck
   const VOIDS = [
-    { x0: CP.x0 + sx * 2.0, x1: CP.x0 + sx * 5.0, z0: CP.z0 + sz * 4.0, z1: CP.z0 + sz * 9.0 },
-    { x0: CP.x0 + sx * 8.0, x1: CP.x0 + sx * 11.0, z0: CP.z0 + sz * 2.0, z1: CP.z0 + sz * 7.0 },
+    { x0: CP.x0 + 16, x1: CP.x0 + 40, z0: CP.z0 + 32, z1: CP.z0 + 72 },
+    { x0: CP.x0 + 64, x1: CP.x0 + 88, z0: CP.z0 + 16, z1: CP.z0 + 56 },
   ];
   const inVoid = (px, pz) => VOIDS.some(v => px > v.x0 && px < v.x1 && pz > v.z0 && pz < v.z1);
 
@@ -92,14 +92,14 @@ function buildCanopy() {
         const mx = p.x + sx * 0.5;
         if (!inVoid(mx, p.z)) {
           const q = P(i + 1, j);
-          strut(f, p.x, p.y - 0.50, p.z, q.x, q.y - 0.50, q.z, 0.13, 0x9c8340);
+          strut(f, p.x, p.y - 0.50, p.z, q.x, q.y - 0.50, q.z, 0.085, 0x9c8340);
         }
       }
       if (j < nz) {
         const mz = p.z + sz * 0.5;
         if (!inVoid(p.x, mz)) {
           const q = P(i, j + 1);
-          strut(f, p.x, p.y - 0.50, p.z, q.x, q.y - 0.50, q.z, 0.13, 0x9c8340);
+          strut(f, p.x, p.y - 0.50, p.z, q.x, q.y - 0.50, q.z, 0.085, 0x9c8340);
         }
       }
     }
@@ -107,20 +107,20 @@ function buildCanopy() {
 
   /* ---- columns: one slender tapered shaft per four modules, opening into a
      three-armed capital that reaches the deck — the render's trees of steel */
-  const COLSTEP = 4;
+  const COLSTEP = 7;
   for (let j = 1; j < nz; j += COLSTEP) {
     for (let i = 1; i < nx; i += COLSTEP) {
       const p = P(i, j);
       if (inVoid(p.x, p.z)) continue;
       const gy = terrainY(p.x, p.z) + 0.18;
       const capY = p.y - 3.4;
-      f.add(taper(0.52, 1), xf(p.x, gy, p.z, rnd() * 0.4, 0.72, capY - gy, 0.72), 0xb59a52, S.METAL, 0.92);
+      f.add(taper(0.52, 1), xf(p.x, gy, p.z, rnd() * 0.4, 0.58, capY - gy, 0.58), 0xb59a52, S.METAL, 0.92);
       for (let k = 0; k < 3; k++) {
         const ang = k / 3 * 6.283 + 0.5;
         strut(f, p.x, capY - 0.2, p.z,
-          p.x + Math.sin(ang) * sx * 0.55, p.y - 0.62, p.z + Math.cos(ang) * sz * 0.55, 0.17, 0xb59a52);
+          p.x + Math.sin(ang) * sx * 1.9, p.y - 0.62, p.z + Math.cos(ang) * sz * 1.9, 0.115, 0xb59a52);
       }
-      ACC.arch.add(G_CYLT, xf(p.x, gy - 0.08, p.z, 0, 1.5, 0.42, 1.5), 0x9d8845, S.METAL, 0.84);
+      ACC.arch.add(G_CYLT, xf(p.x, gy - 0.08, p.z, 0, 1.15, 0.34, 1.15), 0x9d8845, S.METAL, 0.84);
       inst('uplight', xf(p.x, gy + 0.34, p.z), 0xffca85);
       PRACTICALS.push({ x: p.x, y: gy + 2.4, z: p.z, c: 0xffbe78, i: 6.5, r: 26 });
       // a ring bench round every third column: the plaza's social furniture
@@ -138,10 +138,12 @@ function buildCanopy() {
   platform(CP.x0 - 4, CP.z0 - 4, CP.x1 + 4, CP.z1 + 4, terrainY(cx, cz) + 0.18);
   /* NOTHING IS BARE: a 200 m plaza needs rows of palms, planting beds, café
      clusters and lit bollards, or the canopy is a car park with a roof. */
-  for (let j = 0; j < nz; j++) {
-    for (let i = 0; i < nx; i++) {
-      const px = CP.x0 + (i + 0.5) * sx + rr(-1.6, 1.6);
-      const pz = CP.z0 + (j + 0.5) * sz + rr(-1.6, 1.6);
+  const dnx = Math.max(1, Math.round(W / 8.0)), dnz = Math.max(1, Math.round(D / 8.0));
+  const dsx = W / dnx, dsz = D / dnz;
+  for (let j = 0; j < dnz; j++) {
+    for (let i = 0; i < dnx; i++) {
+      const px = CP.x0 + (i + 0.5) * dsx + rr(-1.6, 1.6);
+      const pz = CP.z0 + (j + 0.5) * dsz + rr(-1.6, 1.6);
       if (inVoid(px, pz)) continue;
       if (Math.abs(px - PLAN.water.x) < 5.5) continue;
       const gy = terrainY(px, pz) + 0.18;
@@ -498,7 +500,10 @@ function buildCourtyard() {
   }
 
   // ---- the gold sculpture: a coiled fluted form
-  goldSculpture(cx - 2, gy - 0.1, cz, 5.4);
+  {
+    const CPo = PLAN.courtPool;
+    goldSculpture((CPo.x0 + CPo.x1) / 2, gy - 0.28, (CPo.z0 + CPo.z1) / 2, 2.6);
+  }
 
   // ---- furniture: wire chairs, round tables, furled umbrellas, olives
   for (let i = 0; i < 15; i++) {

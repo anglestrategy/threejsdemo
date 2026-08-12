@@ -325,3 +325,49 @@ colliders the block pass has already registered, against the water bodies and
 against every road centreline, so a prop only lands in a gap that was genuinely
 empty — which also means the seed decides where they go and the world stays
 identical between reloads.
+
+## Round 18 — scale calibration
+
+The note was that the world reads two to three times too big. Most of it did
+not, and the only way to know which parts did was to stop looking and start
+measuring — so this round is mostly a tool.
+
+`?ruler=1` stands a graduated two-metre pole, a one-metre chequer and a 1.7 m
+figure at eleven composed viewpoints. `CITY.debug.sizes()` reports the real
+world-space size of every instanced object, measured off its instance matrices
+rather than off its source geometry, because a kit part is only ever the size
+its call site scaled it to. `tests/scale_audit.mjs` reads that table, diffs it
+against the sizes the renders imply, and fails the build on a category error.
+
+What the measurement actually found, against what the eye had claimed:
+
+| element | eye said | measured | verdict |
+|---|---|---|---|
+| people | 2.3–2.5 m, far too big | **1.74 m** thobe, 1.73 abaya | the eye was wrong; people were always right |
+| paving flags | ~1.0 m | 1.0–1.3 m | **real** — the Worley warp was merging cells, so the frequency implied 0.49 m and the surface delivered twice that. Now 0.5–0.6 m. |
+| storey height | — | 3.55 m / 3.9 office | correct, untouched |
+| canopy module | — | 8.0 m | **real** — the render's lattice is 4–5 m. Now 4.8, with 85 mm chords instead of 130 and columns at 33 m instead of 32. The voids and the plaza dressing were both expressed in panel modules and had to be decoupled first, or the finer grid would have shrunk the courtyards to 14 m and tripled the planting. |
+| gold sculpture | — | 5.4 m, on the paving | **real** — the render's is about 2.5 m and stands *in* the pool. Both fixed. |
+| child figure | — | 0.69 m | **real** — scaled 0.64 in the kit and 0.62 again at the placement. Now 1.16 m. |
+| bougainvillea | — | 6.4 m across | **real** — a wall climber, not a tree. Now 2.6 m. |
+| roof shrub | — | 2.9 m across | **real** — now 1.2 m. |
+| timber louvre fin | — | 0.71 m deep | **real** — the reference's screens are battens. Now 0.20–0.34 m. |
+| majlis cushion | — | 0.66 m | **real** — 0.53 m with its backrest. |
+| date palm | — | 11.4 m | correct: the renders' palms are mature and tall. The *expectation* was wrong, not the world, and the test was corrected rather than the palm. |
+
+Two of the twelve rows were the measurement being wrong rather than the model.
+Recording those is the point of keeping the table: without it the next round
+would have "fixed" the people and broken them.
+
+**And the palm itself.** 450 of them go into the district — three times more
+than any other object — so it is the one piece of kit geometry worth building
+properly. The old one was ten fronds of stacked boxes in which every leaflet
+was a 28 mm-thick cuboid, which is why from six metres it read as a plastic
+toy. The new one is a tapered eight-sided trunk whose rings alternate radius
+and twist half a facet (the diamond leaf-base scarring, at no triangle cost),
+a crown of thirty fronds on the golden angle so no two ever line up, and
+bladed leaflets emitted twice with opposite winding so they exist from
+underneath, alternating up and down along the rachis — that alternation is the
+whole silhouette of a date palm. Two levels, 4.3 k near and 800 far, switched
+on distance to the walkable core: better looking *and* cheaper than what it
+replaced, 1,215 k triangles down to 823 k.

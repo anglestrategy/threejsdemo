@@ -99,53 +99,163 @@ function kitCyl(list, x, y, z, r, h, col, surf, shade) {
   list.push({ geo: G_CYLT, mtx: xf(x, y, z, 0, r * 2, h, r * 2), col, surf, shade });
 }
 
-function defineKit() {
-  /* ---- palm: a ringed trunk and eleven drooping fronds --------------- */
-  {
-    const L = [];
-    const H = 7.0;
-    for (let i = 0; i < 11; i++) {
-      const t = i / 11;
-      const r = 0.30 * (1 - t * 0.42);
-      kitBox(L, Math.sin(t * 6) * 0.10 * t, H * t, Math.cos(t * 5) * 0.10 * t, r * 2, H / 11 * 1.06, r * 2,
-        i % 2 ? K.trunk : 0x7a6748, S.TIMBER, 0.80 + 0.2 * t, t * 0.7);
+/* ====================================================== THE DATE PALM ====
+   Four hundred and fifty of these go into the district — more than any other
+   object in it by a factor of three — so it is the one piece of kit geometry
+   worth building properly, and the only one worth paying a distance switch on.
+
+   The old one was ten fronds of stacked boxes: 2,712 triangles of which every
+   leaflet was a 28 mm-thick cuboid, which is why from six metres it read as a
+   plastic toy. This is the same plant built the way it actually grows —
+
+     trunk    a tapered eight-sided tube whose rings alternate radius and twist
+              half a facet, which is the diamond leaf-base scarring without
+              one triangle spent on modelling a scar;
+     crown    fronds on the golden angle, so no two ever line up, with age
+              running from the short upright ones at the centre to the long
+              sagging ones at the skirt;
+     leaflet  a bladed quad, emitted twice with opposite winding so it is
+              there from underneath, alternating up and down along the rachis
+              — that alternation is the whole silhouette of a date palm.
+
+   Built at two levels: 3.7 k near, 620 far, switched on distance to the
+   walkable core. It is both better looking and cheaper than what it replaces. */
+function palmGeo(detail) {
+  const P = [], CO = [], SU = [];
+  const _pc = new THREE.Color();
+  const put = (v, col, surf, shade) => {
+    P.push(v[0], v[1], v[2]);
+    _pc.set(col);
+    CO.push(_pc.r * shade, _pc.g * shade, _pc.b * shade);
+    SU.push(surf);
+  };
+  const tri = (a, b, c, col, sf, sh) => { put(a, col, sf, sh); put(b, col, sf, sh); put(c, col, sf, sh); };
+  const quad = (a, b, c, d, col, sf, sh) => { tri(a, b, c, col, sf, sh); tri(a, c, d, col, sf, sh); };
+  // foliage has to exist from below as well as above, and the city material is
+  // single-sided, so a leaflet is emitted twice with the winding reversed
+  const quad2 = (a, b, c, d, col, sf, sh) => {
+    quad(a, b, c, d, col, sf, sh);
+    quad(d, c, b, a, col, sf, sh * 0.80);
+  };
+
+  /* ---- trunk ---------------------------------------------------------- */
+  const H = 7.2;
+  const RINGS = detail ? 13 : 7, SIDES = detail ? 8 : 6;
+  const lean = (t) => [Math.sin(t * 1.6) * 0.17, Math.cos(t * 2.1 + 1.0) * 0.13];
+  const ringP = (t, i, twist) => {
+    const a = (i / SIDES) * 6.2831853 + twist;
+    // every second ring stands a little proud: the leaf-base scar course
+    const r = 0.31 * (1 - 0.36 * t) * (1 + (twist > 0 ? 0.085 : -0.055));
+    const l = lean(t);
+    return [l[0] + Math.cos(a) * r, t * H, l[1] + Math.sin(a) * r];
+  };
+  for (let k = 0; k < RINGS; k++) {
+    const t0 = k / RINGS, t1 = (k + 1) / RINGS;
+    const w0 = (k % 2) * (Math.PI / SIDES), w1 = ((k + 1) % 2) * (Math.PI / SIDES);
+    const sh = 0.72 + 0.26 * t0 + (k % 2 ? 0.07 : -0.05);
+    for (let i = 0; i < SIDES; i++) {
+      quad(ringP(t0, i, w0), ringP(t0, i + 1, w0), ringP(t1, i + 1, w1), ringP(t1, i, w1),
+        k % 2 ? K.trunk : 0x7a6748, S.TIMBER, sh);
     }
-    const NF = 10;
-    for (let f = 0; f < NF; f++) {
-      const ang = f / NF * 6.283 + 0.2;
-      const droop = 0.45 + (f % 3) * 0.16;
-      const len = 3.5 + (f % 4) * 0.42;
-      const SEG = 7;
-      const fcol = f % 3 === 0 ? K.palm : (f % 3 === 1 ? 0x4c6a33 : 0x35502a);
-      for (let s = 0; s < SEG; s++) {
-        const u = (s + 0.5) / SEG;
-        const rad = len * u;
-        const yy = H + 0.25 + Math.sin(u * 1.5) * 1.15 - droop * u * u * 3.0;
-        const wdt = 0.60 * Math.sin(Math.min(1, u * 1.6) * 3.14) + 0.09;
-        // the rachis
-        L.push({
-          geo: G_BOXT,
-          mtx: xf3(Math.sin(ang) * rad, yy, Math.cos(ang) * rad, 0, ang, 0.35 - u * 0.9, 0.075, 0.045, len / SEG * 1.15),
-          col: fcol, surf: S.FOLIAGE, shade: 0.70 + 0.34 * u,
-        });
-        // and the leaflets either side of it, angled down
-        for (const sd of [-1, 1]) {
-          L.push({
-            geo: G_BOXT,
-            mtx: xf3(Math.sin(ang) * rad + Math.cos(ang) * sd * wdt * 0.5, yy - wdt * 0.22,
-              Math.cos(ang) * rad - Math.sin(ang) * sd * wdt * 0.5,
-              sd * 0.55, ang, 0.35 - u * 0.9, wdt, 0.028, len / SEG * 1.05),
-            col: fcol, surf: S.FOLIAGE, shade: (0.62 + 0.40 * u) * (sd > 0 ? 1.08 : 0.86),
-          });
-        }
+  }
+
+  /* ---- crown ---------------------------------------------------------- */
+  const NF = detail ? 30 : 13;
+  const SEG = detail ? 7 : 3;
+  const NL = detail ? 13 : 5;
+  const FCOL = [K.palm, 0x4c6a33, 0x35502a, 0x476438];
+  for (let f = 0; f < NF; f++) {
+    const u0 = f / (NF - 1);
+    const az = f * 2.3999632;                 // the golden angle
+    const el = 1.16 - 1.62 * u0;              // upright at the centre, drooping at the skirt
+    const len = 3.15 + 1.75 * u0;
+    const dr = 0.30 + 0.74 * u0;              // and sagging harder the older it is
+    const col = FCOL[f % 4];
+    const ca = Math.cos(az), sa = Math.sin(az);
+    const sx = -sa, sz = ca;                  // the horizontal perpendicular
+    const at = (u) => {
+      const rad = len * u * Math.cos(el);
+      return [ca * rad, H - 0.12 + len * u * Math.sin(el) - dr * u * u * len * 0.42, sa * rad];
+    };
+    // the rachis, as a flat blade following the arc
+    for (let s = 0; s < SEG; s++) {
+      const p0 = at(s / SEG), p1 = at((s + 1) / SEG);
+      const w0 = 0.055 * (1 - 0.7 * (s / SEG)), w1 = 0.055 * (1 - 0.7 * ((s + 1) / SEG));
+      quad2([p0[0] - sx * w0, p0[1], p0[2] - sz * w0], [p0[0] + sx * w0, p0[1], p0[2] + sz * w0],
+        [p1[0] + sx * w1, p1[1], p1[2] + sz * w1], [p1[0] - sx * w1, p1[1], p1[2] - sz * w1],
+        col, S.FOLIAGE, 0.66 + 0.30 * (s / SEG));
+    }
+    // and the leaflets, alternating up and down as they run out along it
+    for (let i = 0; i < NL; i++) {
+      const u = 0.14 + 0.84 * (i / (NL - 1));
+      const p = at(u), pn = at(Math.min(1, u + 0.06));
+      let tx = pn[0] - p[0], ty = pn[1] - p[1], tz = pn[2] - p[2];
+      const tl = Math.hypot(tx, ty, tz) || 1; tx /= tl; ty /= tl; tz /= tl;
+      // near the base the leaflets are short spines; the length peaks past halfway
+      const L = (1.06 * Math.sin(Math.min(1, u * 1.30) * 3.14159) + 0.13) * (0.85 + 0.3 * u0);
+      for (const sd of [-1, 1]) {
+        const alt = (i % 2 ? 1 : -1) * sd;
+        const th = 0.50 + alt * 0.26;
+        let dx = sd * sx * Math.cos(th) + tx * 0.38;
+        let dy = Math.sin(th) * 0.42 - 0.30;
+        let dz = sd * sz * Math.cos(th) + tz * 0.38;
+        const dl = Math.hypot(dx, dy, dz) || 1; dx /= dl; dy /= dl; dz /= dl;
+        const rw = 0.082, tw = 0.026;          // one blade stands for a group of leaflets
+        quad2(
+          [p[0] - tx * rw, p[1] - ty * rw, p[2] - tz * rw],
+          [p[0] + tx * rw, p[1] + ty * rw, p[2] + tz * rw],
+          [p[0] + dx * L + tx * tw, p[1] + dy * L + ty * tw, p[2] + dz * L + tz * tw],
+          [p[0] + dx * L - tx * tw, p[1] + dy * L - ty * tw, p[2] + dz * L - tz * tw],
+          col, S.FOLIAGE, (0.58 + 0.44 * u) * (alt > 0 ? 1.10 : 0.84));
       }
     }
-    // the dead frond skirt under the crown, and a fruit cluster
-    for (let f = 0; f < 5; f++) {
-      const ang = f / 5 * 6.283;
-      L.push({ geo: G_BOXT, mtx: xf3(Math.sin(ang) * 0.55, H - 0.35, Math.cos(ang) * 0.55, 0, ang, 1.15, 0.5, 0.06, 1.1), col: 0x7d6b45, surf: S.FOLIAGE, shade: 0.6 });
+  }
+
+  /* ---- the dead skirt, and the fruit ---------------------------------- */
+  if (detail) {
+    for (let f = 0; f < 7; f++) {
+      const az = f * 2.3999632 + 1.1, ca = Math.cos(az), sa = Math.sin(az);
+      const len = 1.35;
+      for (let s = 0; s < 3; s++) {
+        const g = (u) => [ca * len * u * 0.55, H - 0.42 - len * u * 0.92, sa * len * u * 0.55];
+        const p0 = g(s / 3), p1 = g((s + 1) / 3), w = 0.16 * (1 - s * 0.22);
+        quad2([p0[0] - sa * w, p0[1], p0[2] + ca * w], [p0[0] + sa * w, p0[1], p0[2] - ca * w],
+          [p1[0] + sa * w, p1[1], p1[2] - ca * w], [p1[0] - sa * w, p1[1], p1[2] + ca * w],
+          0x7d6b45, S.FOLIAGE, 0.54 + s * 0.08);
+      }
     }
-    defInst('palm', combine(L));
+    for (let b = 0; b < 3; b++) {
+      const az = b * 2.0944 + 0.7, ca = Math.cos(az), sa = Math.sin(az);
+      for (let s = 0; s < 5; s++) {
+        const t = s / 5, r = 0.30 + t * 0.44, y = H + 0.02 - t * 0.95;
+        const w = 0.20 * (1 - t * 0.35);
+        quad2([ca * r - sa * w, y + 0.16, sa * r + ca * w], [ca * r + sa * w, y + 0.16, sa * r - ca * w],
+          [ca * (r + 0.16) + sa * w, y - 0.16, sa * (r + 0.16) - ca * w],
+          [ca * (r + 0.16) - sa * w, y - 0.16, sa * (r + 0.16) + ca * w],
+          s < 2 ? 0x8a6a34 : 0xb07a30, S.FOLIAGE, 0.72 + t * 0.3);
+      }
+    }
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
+  g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(CO), 3));
+  g.setAttribute('aSurf', new THREE.BufferAttribute(new Float32Array(SU), 1));
+  g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array((P.length / 3) * 2), 2));
+  g.computeVertexNormals();
+  return g;
+}
+
+function defineKit() {
+  /* ---- palm ----------------------------------------------------------- */
+  {
+    defInst('palm_l0', palmGeo(1));
+    defInst('palm_l1', palmGeo(0));
+    const I = new THREE.Matrix4();
+    MODEL_ROUTE.palm = {
+      parts: [{ fit: I, names: ['palm_l0'] }, { fit: I, names: ['palm_l1'] }],
+      near: 48, jitter: true,
+    };
   }
 
   /* ---- broad shade tree (the ficus/olive canopies framing madinah2) -- */
@@ -221,9 +331,9 @@ function defineKit() {
     const R = [];
     for (let i = 0; i < 4; i++) {
       const ang = i / 4 * 6.283;
-      const rad = 0.32 + (i % 2) * 0.22;
+      const rad = 0.19 + (i % 2) * 0.13;
       R.push({
-        geo: G_SPHL, mtx: xf3(Math.sin(ang) * rad, 0.30 + (i % 3) * 0.16, Math.cos(ang) * rad, 0, 0, 0, 0.86, 0.62, 0.86),
+        geo: G_SPHL, mtx: xf3(Math.sin(ang) * rad, 0.20 + (i % 3) * 0.11, Math.cos(ang) * rad, 0, 0, 0, 0.52, 0.40, 0.52),
         col: i % 2 ? K.leaf : K.leafDk, surf: S.FOLIAGE, shade: 0.70 + 0.06 * i,
       });
     }
@@ -506,8 +616,8 @@ function defineKit() {
   }
   { // majlis pieces
     const L = [];
-    kitBox(L, 0, 0, 0, 1.05, 0.24, 0.95, 0xffffff, S.FABRIC, 1.0);
-    kitBox(L, 0, 0.24, -0.32, 1.0, 0.42, 0.28, 0xffffff, S.FABRIC, 0.92);
+    kitBox(L, 0, 0, 0, 0.92, 0.19, 0.84, 0xffffff, S.FABRIC, 1.0);
+    kitBox(L, 0, 0.19, -0.29, 0.88, 0.34, 0.24, 0xffffff, S.FABRIC, 0.92);
     defInst('cushion', combine(L));
   }
   { const L = []; kitCyl(L, 0, 0, 0, 0.19, 0.95, 0xffffff, S.FABRIC, 0.95); defInst('bolster', combine(L)); }
