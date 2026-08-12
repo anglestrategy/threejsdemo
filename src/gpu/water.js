@@ -95,9 +95,15 @@ export function makeWaterMaterial(opts = {}) {
   /* Basic, not Standard. The water computes its own specular, its own
      reflection and its own fog — running it through the physical model as
      well would light it twice and put a second sun on it. */
-  const mat = new MeshBasicNodeMaterial({
-    transparent: true, depthWrite: false, side: DoubleSide, fog: false,
-  });
+  /* Exactly the flags the WebGL2 material carries and no more: `transparent`,
+     and everything else left at three's defaults. Adding `depthWrite: false`
+     and `DoubleSide` — which seemed harmless — put the souq's water sheet over
+     the paving it is supposed to sit below, and the whole spine rendered as a
+     canal. A transparent surface that does not write depth is drawn over
+     anything that has not already written depth in front of it, which in a
+     district where the water is authored as full-width sheets clipped by the
+     ground is most of the street. */
+  const mat = new MeshBasicNodeMaterial({ transparent: true, fog: false });
 
   mat.colorNode = Fn(() => {
     const wp = positionWorld.toVar();

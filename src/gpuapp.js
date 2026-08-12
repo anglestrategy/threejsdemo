@@ -100,7 +100,11 @@ say('renderer: ' + (IS_GPU ? 'WebGPU' : 'WebGL2 fallback'));
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(1);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+/* the district's own exposure. `setCityGrade(1)` in the WebGL2 build drops
+   it to 0.88 on entering the city and the whole grade is judged at that
+   number; leaving it at 1.0 here makes every side-by-side an exposure
+   comparison before it is anything else. */
+renderer.toneMappingExposure = 0.88;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -281,6 +285,16 @@ renderer.setAnimationLoop(() => {
   CITY.update(dt, t);
   for (const m of GPU_MATS) m.userData.u.uTime.value = t;
   lit.update();
+  /* The planar reflection, run before the post stack's own scene pass so the
+     water samples this frame's mirror rather than last frame's. The district's
+     `renderReflection` is renderer-agnostic — a mirrored camera, Lengyel's
+     oblique near plane folded into the projection so the near plane IS the
+     water surface, and a half-resolution target — and every call it makes
+     (getRenderTarget / setRenderTarget / clear / render / shadowMap
+     .autoUpdate) exists on WebGPURenderer. `WebGLRenderTarget` is re-exported
+     by three.webgpu.js and extends RenderTarget, so even the target class
+     carries over. Nothing to port; only to call. */
+  if (!QA.norefl) CITY.reflect();
   if (post) post.render(); else renderer.render(cityScene3, cam);
   window.__frames++;
   if (++f === READY_AT) window.__ready = true;

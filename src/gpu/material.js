@@ -24,8 +24,9 @@
 import { Color, Vector2 } from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-  Fn, float, vec3, vec4, attribute, positionWorld, normalWorld, cameraPosition,
-  cameraViewMatrix, length, floor, mix, clamp, uniform, vertexColor, max,
+  Fn, float, vec3, vec4, attribute, positionWorld, positionLocal, normalWorld,
+  cameraPosition, cameraViewMatrix, instanceIndex, length, floor, fract, mix,
+  clamp, uniform, vertexColor, max, abs, sin, cos, If, select, dot,
 } from 'three/tsl';
 
 import {
@@ -51,6 +52,7 @@ export function makeCityMaterial(opts = {}) {
   });
 
   const uAmp = uniform(float(opts.reliefAmp === undefined ? 0.055 : opts.reliefAmp));
+  const uWind = uniform(new Vector2(0.85, 0.32));
 
   /* These are factories, not variables, and that distinction is the whole
      bug this file had. A TSL `.toVar()` belongs to the node function that
@@ -63,6 +65,74 @@ export function makeCityMaterial(opts = {}) {
   const clsOf = () => (opts.fixedClass ? float(4) : floor(attribute('aSurf', 'float')));
   const uvOf = () => triplanarUV(positionWorld, normalWorld);
   const distOf = () => length(positionWorld.sub(cameraPosition));
+
+  /* ---- THE WORLD MOVES -------------------------------------------------
+     The vertex half of the law, and the half that makes the district a place
+     rather than a model of one: a hundred people walking and every palm crown
+     and awning leaning in the same wind, with no skeleton, no bone matrix and
+     no second attribute.
+
+     Both effects read `aSurf`, which carries two things at once. Its integer
+     part is the surface class, which the fragment half floors. Its FRACTIONAL
+     part is a limb tag: .1 and .2 are the legs, .3 and .4 the arms. Each limb
+     swings about its own pivot in the instance's local frame. That trick is
+     why a crowd costs one draw call and one float per vertex, and it survives
+     the port exactly as it was.
+
+     One deliberate change. The GLSL seeded the gait phase from
+     `instanceMatrix[3].xyz` — the walker's own position — and TSL has no
+     `instanceMatrix` accessor. `instanceIndex` is the substitute, and it is
+     the better seed anyway: a position-derived phase re-phases a walker AS
+     THEY WALK, so a stride can stretch or snap mid-step. Per-instance and
+     constant is what a gait actually is. Recorded rather than slipped in. */
+  if (!opts.noMotion) {
+    mat.positionNode = Fn(() => {
+      const p = positionLocal.toVar();
+      const aS = attribute('aSurf', 'float').toVar();
+      const ph = hash1(float(instanceIndex).mul(0.6180339887)).toVar();
+
+      const limbTag = fract(aS.add(0.001)).toVar();
+      If(limbTag.greaterThan(0.05), () => {
+        const sw = sin(uTime().mul(4.15).add(ph.mul(6.2831853))).toVar();
+        const swang = float(0).toVar();
+        const piv = float(0).toVar();
+        If(limbTag.lessThan(0.15), () => {
+          swang.assign(sw.mul(0.52)); piv.assign(0.92);        // near leg
+        }).ElseIf(limbTag.lessThan(0.25), () => {
+          swang.assign(sw.mul(-0.52)); piv.assign(0.92);       // far leg, opposed
+        }).ElseIf(limbTag.lessThan(0.35), () => {
+          swang.assign(sw.mul(-0.40)); piv.assign(1.40);       // arm, opposed to its leg
+        }).Else(() => {
+          swang.assign(sw.mul(0.40)); piv.assign(1.40);
+        });
+        // rotation in the sagittal plane, about the hip or the shoulder
+        const cw = cos(swang).toVar();
+        const s2 = sin(swang).toVar();
+        const q = vec3(p.x, p.y.sub(piv), p.z).toVar();
+        p.z.assign(q.z.mul(cw).sub(q.y.mul(s2)));
+        p.y.assign(q.z.mul(s2).add(q.y.mul(cw)).add(piv));
+      });
+
+      /* Anything tagged fabric (10) or foliage (11) leans with the wind, with
+         the amplitude rising from the object's own base — so a palm crown
+         swings and its trunk does not, and an awning bellies while its posts
+         stand still. Fabric gets nearly three times the amplitude of leaves:
+         a stretched shade sail moves more than a frond does. */
+      If(aS.greaterThan(9.5), () => {
+        const lift = max(p.y, 0.0).toVar();
+        const amp = select(aS.greaterThan(10.5), float(0.055), float(0.020)).mul(lift).toVar();
+        const g = sin(uTime().mul(1.35).add(ph.mul(62.8))).mul(0.6)
+          .add(sin(uTime().mul(2.9).add(ph.mul(31.4))).mul(0.4)).toVar();
+        const gust = float(0.65).add(sin(uTime().mul(0.31).add(ph.mul(12.0))).mul(0.35)).toVar();
+        const k = g.mul(gust).toVar();
+        p.x.addAssign(uWind.x.mul(amp).mul(k));
+        p.z.addAssign(uWind.y.mul(amp).mul(k));
+        p.y.subAssign(abs(g).mul(amp).mul(0.22));
+      });
+
+      return p;
+    })();
+  }
 
   /* ---- normal ---------------------------------------------------------- */
   // world-space, framed by the triplanar tangent basis — see surface.js
@@ -177,7 +247,7 @@ export function makeCityMaterial(opts = {}) {
   mat.userData.u = {
     uAmp,
     uTime: uTime(),
-    uWind: uniform(new Vector2(0.85, 0.32)),
+    uWind,
     uRoomAdd,
     ...probeU,
   };
@@ -213,3 +283,7 @@ export function cityFogNode() {
     density: ATMOS.fogDensity, scaleH: ATMOS.fogScaleH,
   });
 }
+
+/* the same one-liner hash the GLSL used, over the instance index rather than
+   the instance's translation — see the note on the walk cycle above */
+const hash1 = Fn(([p]) => fract(sin(p.mul(12.9898)).mul(43758.5453)));
