@@ -242,3 +242,19 @@ cost compatibility for a file that must open from `file://` anywhere.
 | 3 | A robe has no legs to swing. | Its skirt is split into two overlapping panels tagged as legs, so the hem opens and closes as the legs pass each other — which is what a thobe actually does when someone walks in it. |
 | 4 | Everyone was in a thobe or an abaya. Downtown Al Khobar is not a uniform. | Five walking types now: thobe with ghutra and igal, abaya with hijab, two western-dress variants with trousers and visible shoes, and children. Roughly a third, a third, a quarter, the rest. |
 | 5 | True black lost the whole figure at dusk. | The abaya is a very dark warm grey with a blue rim off the sky, not black. |
+
+---
+
+## Round 14 — why nobody could see into any of them
+
+Round 12 fitted out eleven hundred rooms and not one of them was ever visible.
+Two things were in the way, and both had been there from the beginning.
+
+| # | delta | what changed |
+|---|---|---|
+| 1 | **The shopfront glass was a mirror.** `metalness 0.30, roughness 0.05, envMapIntensity 0.75` — at dusk that returns a flat sheet of sky and nothing behind it can be seen at all, whatever is in there. Every "lit box" and every "flat pale panel" in the last three rounds was the sky, reflected. | A real shop window in the evening is the opposite: the room is brighter than the street, so transmission wins and the reflection is a faint veil. Metalness 0.02, environment 0.13, opacity 0.085. |
+| 2 | **The building was solid.** `block()` built "the solid core: you never see through the openings into daylight" as one box at a 0.62 m inset running the full height — so every fitted room was constructed three metres inside a solid mass. | The ground floor is hollowed to the depth of a shop. `elevation` fills that gap back in on any side that turns out not to have a shopfront, stopping short of the corners — a slab run to the full length of a blank end wall buries every shop at both ends of the street face. |
+| 3 | **The interior material never had its uniforms bound.** `cityMat` and `cityIntMat` returned the same `customProgramCacheKey`, so three shared one compiled program between them — and a shared program means the second material's `onBeforeCompile` never runs, so its uniform objects are never bound and it silently uses the first material's. The room light had been switched off since the hour it was written. | The cache key carries the variant. |
+| 4 | A room 1.2 m wide and 3.1 m deep is a corridor, and a room deeper than half its block meets the shop on the other side. | Depth now follows both: `min(depth, w × 1.35)` and never more than the block can give. |
+| 5 | A shopkeeper stacks crates beside the glass, never across it. | The dressing pass rejects any prop that would stand in a glazed bay. |
+| 6 | None of this was measurable, which is why it survived three rounds of looking at screenshots. | `tests/shop_visibility.mjs` stands where a person would in front of a sample of fitted rooms, rays past the mullion, and reports what stops the ray and how far past the glass it got. `?shop=N` puts the camera in front of the Nth fitted shop so a trade can be inspected without hunting for coordinates. **69% of fitted rooms now read past the glass**, against none before. |

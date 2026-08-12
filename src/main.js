@@ -67,6 +67,11 @@ const QA = {
   norefl: QP.get('norefl') === '1',
   noshadow: QP.get('noshadow') === '1',
   nodof: QP.get('nodof') === '1',
+  /* ?shop=N stands the camera in front of the Nth fitted shop, facing in. The
+     souq is two hundred bays long and eyeballing coordinates to find one that
+     is actually glazed wastes a build every time. */
+  shop: QP.has('shop') ? parseInt(QP.get('shop'), 10) : -1,
+  shopd: QP.has('shopd') ? parseFloat(QP.get('shopd')) : 3.6,
 };
 const SEED = QA.seed;
 const T0 = performance.now(); const TM = {}; const mark = (k) => { TM[k] = Math.round(performance.now() - T0); };
@@ -2312,6 +2317,7 @@ const hud = (function () {
 })();
 window.__hud = hud;
 window.__scenes = SCENES;
+window.__three = THREE;
 ui.cityBack.addEventListener('click', () => { if (SCENES.city) SCENES.city.exit(); });
 ui.cityToggle.addEventListener('click', () => {
   if (SCENES.city) SCENES.city.setMode(SCENES.city.nav.mode === 'fly' ? 'walk' : 'fly');
@@ -2405,6 +2411,19 @@ let qaFree = false;
     }
     hideIntro(); markIdle();
     return;
+  }
+  if (QA.shop >= 0 && SCENES.city) {
+    SCENES.city.enter({ instant: true });
+    const all = SCENES.city.shops().filter((s) => s.fitted);
+    const s = all[QA.shop % Math.max(1, all.length)];
+    if (s) {
+      const sn = Math.sin(s.ang), cs = Math.cos(s.ang);
+      SCENES.city.enter({ instant: true, pose: {
+        pos: [s.x - sn * QA.shopd, s.y + 1.55, s.z - cs * QA.shopd],
+        yaw: s.ang * 180 / Math.PI, pitch: 2, mode: 'walk' } });
+      console.log('shop ' + (QA.shop % all.length) + '/' + all.length + ' ' + s.trade);
+    }
+    hideIntro(); markIdle(); return;
   }
   if (QA.shot) { goShot(QA.shot, true); hideIntro(); markIdle(); return; }
   if (QA.scene === 'city' && SCENES.city) { SCENES.city.enter({ instant: true }); hideIntro(); markIdle(); }

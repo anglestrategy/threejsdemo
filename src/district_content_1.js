@@ -660,6 +660,7 @@ function archHead(a, cx, y, cz, ang, w, rise, th, colour, surf, shade) {
    and whatever its trade lights — a pastry case, a gold cabinet, an oven — as
    emissive geometry, plus one practical registered at the opening so the room
    still throws light onto the pavement.                                     */
+const SHOP_DEPTH = 3.35;   // the ground floor is hollowed this deep for shops
 const TRADES = [
   'cafe', 'restaurant', 'textile', 'grocer', 'gold', 'bakery',
   'perfume', 'books', 'barber', 'pharmacy', 'cafe', 'textile', 'restaurant',
@@ -696,7 +697,9 @@ function shopInterior(cx, y, cz, ang, w, h, depth, warm) {
   const fitted = nearest <= 30 * 30;
   const tint = TRADE_LIGHT[trade] || warm || 0xffd6a0;
   const halfW = w / 2;
-  const D = depth;
+  /* A room 1.2 m wide and 3.1 m deep is a corridor: from the street you see
+     nothing but its two side walls converging. Depth follows width. */
+  const D = Math.max(1.5, Math.min(depth, w * 1.35));
 
   // ---- glazing: nearly clear, because the room behind it is the point
   let p = at(0, 0.05);
@@ -864,7 +867,7 @@ function shopInterior(cx, y, cz, ang, w, h, depth, warm) {
   }
 
   // the light that leaves the shop and lands on the paving
-  SHOPS.push({ trade, x: cx, y, z: cz, ang, w, h });
+  SHOPS.push({ trade, fitted, x: cx, y, z: cz, ang, w, h, d: D });
   const gp = at(0, -1.35);
   inst('pool', xf3(gp[0], y - 0.10, gp[1], 0, 0, 0, w * 2.2, 1, w * 2.2), tint);
   /* the practical belongs *inside* the room, where the ceiling is. Sitting it

@@ -79,10 +79,16 @@ const glassMat = new THREE.MeshStandardMaterial({
   envMapIntensity: 1.5,
 });
 // shopfront glazing is nearly clear: you are meant to see the lit room
+/* Shopfront glass, and the reason the interiors were invisible for three
+   rounds. At metalness 0.30, roughness 0.05 and an environment intensity of
+   0.75, this was a near-mirror: at dusk it returned a flat sheet of sky and
+   nothing behind it could be seen at all, whatever was in there. A real shop
+   window in the evening is the opposite — the room is brighter than the street,
+   so transmission wins and the reflection is a faint veil over the top. */
 const shopGlassMat = new THREE.MeshStandardMaterial({
-  vertexColors: true, transparent: true, opacity: 0.13, roughness: 0.05,
-  metalness: 0.30, color: 0xffffff, side: THREE.DoubleSide, depthWrite: false,
-  envMapIntensity: 0.75,
+  vertexColors: true, transparent: true, opacity: 0.085, roughness: 0.14,
+  metalness: 0.02, color: 0xffffff, side: THREE.DoubleSide, depthWrite: false,
+  envMapIntensity: 0.13,
 });
 
 /* ---------------------------------------------------------- kit geometry */

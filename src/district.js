@@ -611,7 +611,7 @@ const SURF_GLSL = `
   }
 `;
 
-function makeCityMaterial() {
+function makeCityMaterial(cacheKey) {
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.86, metalness: 0.0, envMapIntensity: 1.0,
   });
@@ -829,7 +829,15 @@ function makeCityMaterial() {
       }
       irradiance += uRoomAdd;`);
   };
-  mat.customProgramCacheKey = () => 'citysurf';
+  /* The cache key has to differ per variant. Two materials with the same key
+     and the same parameter profile share one compiled program, and a shared
+     program means the second material's `onBeforeCompile` never runs — so its
+     uniform objects are never bound and it silently uses the first material's.
+     That is how the interior room light spent three rounds switched off. */
+  mat.customProgramCacheKey = () => 'citysurf' + (cacheKey || '');
+  // keep the compiled source so the walk-cycle gate can assert on it
+  const _obc = mat.onBeforeCompile;
+  mat.onBeforeCompile = (sh, rn) => { _obc(sh, rn); mat.userData.__vs = sh.vertexShader; };
   PROBE_MATS.push(mat);
   return mat;
 }
@@ -1108,7 +1116,7 @@ const INSTCOUNT = {};
 const cityMat = makeCityMaterial();
 /* the same law, with the ceiling switched on. Everything inside a shop uses
    this: the shell, the fittings, the stock and the shopkeeper. */
-const cityIntMat = makeCityMaterial();
+const cityIntMat = makeCityMaterial('room');
 cityIntMat.userData.u.uRoomAdd.value.setRGB(1.05, 0.86, 0.62);
 cityIntMat.side = THREE.DoubleSide;
 const DISPOSE = [];

@@ -82,10 +82,20 @@ function block(x0, z0, x1, z1, o) {
   occluder(cx, cz, w / 2, d / 2, top);
   if (o.collide !== false) collider(cx, cz, w / 2, d / 2, 0, top);
 
-  // ---- the solid core: you never see through the openings into daylight
+  /* ---- the solid core: you never see through the openings into daylight.
+     Except at ground level, where the shops are. The core used to run the full
+     height at a 0.62 m inset, which meant every fitted room — floor, ceiling,
+     counter, stock and shopkeeper — was built three metres inside a solid box
+     and could not be seen at all, from any angle, ever. The ground floor is now
+     hollowed to the depth of a shop, and `elevation` fills that gap back in on
+     any side that turns out not to have a shopfront on it. */
   const inset = detail > 0 ? 0.62 : 0.0;
-  a.add(G_BOXT, xf(cx, gy - 0.4, cz, 0, Math.max(1, w - inset * 2), floors * fh + 0.4, Math.max(1, d - inset * 2)),
-    baseCol, surfBody, shade * 0.68);
+  const gh0 = style === 'office' ? fh * 1.5 : fh;
+  const hollow = detail > 0 ? Math.min(SHOP_DEPTH, Math.min(w, d) / 2 - 0.2) : inset;
+  a.add(G_BOXT, xf(cx, gy + gh0, cz, 0, Math.max(1, w - inset * 2), Math.max(0.1, floors * fh - gh0),
+    Math.max(1, d - inset * 2)), baseCol, surfBody, shade * 0.68);
+  a.add(G_BOXT, xf(cx, gy - 0.4, cz, 0, Math.max(0.8, w - hollow * 2), gh0 + 0.4,
+    Math.max(0.8, d - hollow * 2)), baseCol, surfBody, shade * 0.68);
 
   // ---- plinth course
   a.add(G_BOXT, xf(cx, gy - 0.30, cz, 0, w + 0.34, 0.62, d + 0.34), fam === 'brick' ? K.brickDk : K.sandDk, surfBase, shade * 0.80);
@@ -102,7 +112,11 @@ function block(x0, z0, x1, z1, o) {
     const pub = sides[si];
     const len = Math.hypot(S4.x1 - S4.x0, S4.z1 - S4.z0);
     const lvl = detail === 0 ? 0 : (pub >= 1 ? detail : Math.max(0, detail - 1));
-    elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o);
+    /* how deep a shop can be on this side before it meets the shop on the far
+       side of the same block. On a thin infill block the two rooms otherwise
+       overlap and one shop's back wall stands in the other one's window. */
+    const avail = (S4.ax === 1 ? d : w) / 2 - 0.35;
+    elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail);
   }
 
   // ---- parapet all round
@@ -122,7 +136,7 @@ function block(x0, z0, x1, z1, o) {
 }
 
 /* --------------------------------------------------------- one elevation */
-function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o) {
+function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail) {
   const a = ACC.arch, f = ACC.fine;
   const ux = (S4.x1 - S4.x0) / len, uz = (S4.z1 - S4.z0) / len;
   const ang = Math.atan2(S4.x1 - S4.x0, S4.z1 - S4.z0);
@@ -136,6 +150,21 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
   // ---- ground floor
   const shopfront = (style === 'souq' && pub >= 1) || (style === 'brick' && pub >= 2) || (style === 'office' && pub >= 1);
   const gh = style === 'office' ? fh * 1.5 : fh;
+  /* the block hollowed its whole ground floor to make room for shops. A side
+     that has none has to put the mass back, or its windows look into a void. */
+  if (!shopfront || lvl < 2) {
+    /* but it has to stop short of the corners: the sides at right angles to
+       this one have their own shops in that same three metres, and a slab run
+       to the full length of a blank end wall buries every shop at both ends of
+       the street face. On a shallow block the two end slabs then meet in the
+       middle, which is correct — there are no shops there either. */
+    const bl = len - SHOP_DEPTH * 2;
+    if (bl > 0.5) {
+      const mid = at(len / 2, SHOP_DEPTH / 2 + 0.1);
+      a.add(G_BOXT, xf(mid[0], gy - 0.2, mid[1], ang, bl, gh + 0.2, SHOP_DEPTH),
+        baseCol, surfBody, shade * 0.66);
+    }
+  }
   for (let b = 0; b < nb; b++) {
     const t = (b + 0.5) * bw;
     const p = at(t, 0);
@@ -150,7 +179,8 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
       a.add(G_BOXT, xf(at(b * bw + pierW / 2, -rd / 2)[0], gy, at(b * bw + pierW / 2, -rd / 2)[1], ang, pierW, gh, rd), baseCol, surfBase, shade * 0.86);
       archHead(a, p[0] - nx * rd * 0.5, gy + oh * 0.62, p[1] - nz * rd * 0.5, ang, ow, 1.05, rd, baseCol, surfBase, shade * 0.9);
       a.add(G_BOXT, xf(p[0] - nx * rd * 0.5, gy + oh * 0.62 + 1.05, p[1] - nz * rd * 0.5, ang, ow, Math.max(0.1, gh - oh * 0.62 - 1.05), rd), baseCol, surfBody, shade * 0.88);
-      shopInterior(p[0] - nx * (rd * 0.55), gy + 0.12, p[1] - nz * (rd * 0.55), ang + Math.PI / 2, ow * 0.94, oh * 0.94, 3.1,
+      shopInterior(p[0] - nx * (rd * 0.55), gy + 0.12, p[1] - nz * (rd * 0.55), ang + Math.PI / 2, ow * 0.94, oh * 0.94,
+        Math.max(1.5, Math.min(SHOP_DEPTH - 0.25, (avail === undefined ? 3.1 : avail))),
         pick([0xffd39a, 0xffc887, 0xffe0bb, 0xf6b877]));
       // signage bracket above every third shop
       if (b % 3 === 1) {

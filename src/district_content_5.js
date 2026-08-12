@@ -568,6 +568,19 @@ function nearDressing() {
 
       const found = wallNear(x, z, gy, 3.9);
       if (found && rnd() < 0.86) {
+        // ... but not across a shop window. A shopkeeper stacks crates beside
+        // the glass, never in front of it, and a rail of cloth parked over a
+        // fitted room hides the one thing worth looking at.
+        let onGlass = false;
+        for (let k = 0; k < SHOPS.length; k++) {
+          const sh = SHOPS[k];
+          const dx = x - sh.x, dz = z - sh.z;
+          if (dx * dx + dz * dz > 25) continue;
+          const across = dx * Math.cos(sh.ang) - dz * Math.sin(sh.ang);
+          const into = dx * Math.sin(sh.ang) + dz * Math.cos(sh.ang);
+          if (into < 0.2 && into > -2.6 && Math.abs(across) < sh.w * 0.62) { onGlass = true; break; }
+        }
+        if (onGlass) continue;
         // slide the prop in to arm's reach of the frontage it belongs to
         const bx = Math.cos(_dw.ang), bz = Math.sin(_dw.ang);
         const off = _dw.dist - rr(0.45, 0.85);
