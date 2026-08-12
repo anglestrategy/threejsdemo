@@ -14,8 +14,15 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { PNG } = (() => { try { return require('pngjs'); } catch { return {}; } })();
 
-const CASES = [['baseline', ''], ['4 noNormal', '&n=1'], ['5 noRough', '&r=1'],
-  ['6 plain', '&plain=1'], ['all off', '&c=1&s=1&o=1&n=1&r=1']];
+/* from the state that works, switch ONE node back on at a time */
+const CASES = [
+  ['all off',      '&c=1&s=1&o=1&n=1&r=1'],
+  ['+normal',      '&c=1&s=1&o=1&r=1'],
+  ['+rough',       '&c=1&s=1&o=1&n=1'],
+  ['+output(fog)', '&c=1&s=1&n=1&r=1'],
+  ['+vertexColor', '&s=1&o=1&n=1&r=1'],
+  ['+realClass',   '&c=1&o=1&n=1&r=1'],
+];
 
 for (const [name, q] of CASES) {
   const tag = 'bisect_' + name.split(' ')[0];

@@ -196,3 +196,41 @@ is the most likely reason every graph that touches them collapses.
 **Next action, and it is a small one:** move those four declarations inside the
 `Fn()` bodies that use them — each graph computes its own — and re-run
 `node tests/_bisect.mjs`. If `baseline` reads non-zero, step 3 is done.
+
+### Bisect attempt 3 — isolated. Two faults, and the surface law is not one.
+
+The shared-`.toVar()` hypothesis from attempt 2 was **wrong**. The vars were
+localised into each `Fn()` body — which is better code and stays — and
+`baseline` still read 0. Recorded as disproved so it does not get re-tried.
+
+Switching one node back on at a time from the state that works:
+
+| case | sample | verdict |
+|---|---|---|
+| all off | 17 | — |
+| **+ normalNode** | **0** | **broken** |
+| + roughnessNode | 17 | fine |
+| **+ outputNode (fog)** | **0** | **broken** |
+| + vertexColor() | 17 | fine |
+| + real `aSurf` attribute | 17 | fine |
+
+**What this clears.** `srfH` is fine — both roughness and colour call it and
+both light. The triplanar uv is fine. `attribute('aSurf')` resolves. The whole
+surface law, which was the biggest and most feared piece of the port, works.
+
+**Fault 1 — `normalNode`.** `reliefNormal` returns a **world-space** normal
+(that was deliberate: the GLSL bent it in world space and the earlier fix added
+the triplanar frame to keep it that way). three's node material almost certainly
+wants `normalNode` in **view space**. Next action: transform it —
+`.transformDirection(cameraViewMatrix)` — or assign the world-space value to
+`normalWorld`'s slot instead. One line, then re-run the bisect.
+
+**Fault 2 — `outputNode`.** The fog mix. Two candidates, in order: `output` may
+not be the lit fragment at that point in the graph, in which case the mix
+discards the shading; or `directionalFog()` is still called at function scope
+and returns a node consumed inside an `Fn()` — the same hoisting shape that was
+just ruled out for the others, but it has not been ruled out *here*. Next
+action: build the fog inside the `outputNode` `Fn()`, and if that does not do
+it, apply fog through `scene.fogNode` instead of on the material.
+
+Neither is speculative any more — each has a named suspect and a one-line test.

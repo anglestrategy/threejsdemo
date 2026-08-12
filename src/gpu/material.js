@@ -49,36 +49,48 @@ export function makeCityMaterial(opts = {}) {
 
   const uAmp = uniform(float(opts.reliefAmp === undefined ? 0.055 : opts.reliefAmp));
 
-  /* the class travels per-vertex; floor() drops the walk-cycle limb tag that
-     shares the same attribute */
-  const surfClass = (opts.fixedClass ? float(4)
-    : floor(attribute('aSurf', 'float'))).toVar();
-  const uv = triplanarUV(positionWorld, normalWorld).toVar();
-  const dist = length(positionWorld.sub(cameraPosition)).toVar();
-  const h = srfH(uv, surfClass).toVar();      // (height, cavity, grain)
+  /* These are factories, not variables, and that distinction is the whole
+     bug this file had. A TSL `.toVar()` belongs to the node function that
+     consumes it — hoisting one to function scope and feeding it into several
+     independent graphs is not a GLSL local, and every graph that touched a
+     shared one collapsed to black. Each graph below now builds its own.
+
+     The class travels per-vertex; floor() drops the walk-cycle limb tag that
+     shares the same attribute. */
+  const clsOf = () => (opts.fixedClass ? float(4) : floor(attribute('aSurf', 'float')));
+  const uvOf = () => triplanarUV(positionWorld, normalWorld);
+  const distOf = () => length(positionWorld.sub(cameraPosition));
 
   /* ---- normal ---------------------------------------------------------- */
   // world-space, framed by the triplanar tangent basis — see surface.js
-  if (!opts.noNormal) mat.normalNode = reliefNormal(uv, surfClass, dist, uAmp, normalWorld);
+  if (!opts.noNormal) {
+    mat.normalNode = Fn(() => {
+      const uv = uvOf().toVar();
+      return reliefNormal(uv, clsOf(), distOf(), uAmp, normalWorld);
+    })();
+  }
 
   /* ---- albedo ----------------------------------------------------------
      Two terms, both from the height field: the recesses go darker because
      less light reaches them, and each block carries its own tone so a wall
      is coursed stone rather than one colour behind a joint pattern. */
   mat.colorNode = Fn(() => {
+    const h = srfH(uvOf(), clsOf()).toVar();     // (height, cavity, grain)
     const base = (opts.flatColor ? vec3(0.78) : vertexColor()).toVar();
-    const cav = h.y.toVar();
-    const grain = h.z.toVar();
-    const shaded = base.mul(mix(float(0.62), float(1.0), cav)).toVar();
-    return shaded.mul(mix(float(0.90), float(1.10), grain));
+    const shaded = base.mul(mix(float(0.62), float(1.0), h.y)).toVar();
+    return shaded.mul(mix(float(0.90), float(1.10), h.z));
   })();
 
   /* ---- roughness -------------------------------------------------------
      Up in the recesses. Without this the joints read wet, which is the
      single most common tell of relief faked with a normal map alone. */
-  if (!opts.noRough) mat.roughnessNode = Fn(() =>
-    clamp(float(0.86).add(float(1).sub(h.y).mul(0.12))
-      .sub(h.z.mul(0.06)), 0.25, 1.0))();
+  if (!opts.noRough) {
+    mat.roughnessNode = Fn(() => {
+      const h = srfH(uvOf(), clsOf()).toVar();
+      return clamp(float(0.86).add(float(1).sub(h.y).mul(0.12))
+        .sub(h.z.mul(0.06)), 0.25, 1.0);
+    })();
+  }
 
   /* ---- indirect: the probe field --------------------------------------- */
   if (opts.probes) {
