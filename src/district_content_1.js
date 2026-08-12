@@ -112,6 +112,49 @@ function routeProp(kit, key, targetH, opts) {
   return true;
 }
 
+/* Split a multi-figure scan into individually placeable people.
+
+   The two people assets are FBX conversions: ten (and five) separate figures,
+   each on its own node, Z-up, scattered over hundreds of units of the
+   original scene. Routed whole they would place all ten together in the
+   arrangement someone happened to leave them in. So each part is taken on its
+   own, stood on end if its long axis is Z, re-centred with its feet at the
+   origin, and scaled to a real height — after which it is an ordinary kit
+   name the dressing pass can place one at a time.
+
+   These are static, so they take the standing and seated roles and the
+   procedural figures keep the walking ones, which is the division the work
+   was already set up for.                                                  */
+function routePersonParts(key, prefix, targetH) {
+  const P = PROPS[key];
+  if (!P || !P.parts.length) return [];
+  const kits = [];
+  P.parts.forEach((p, pi) => {
+    const g = p.geo.clone();
+    g.computeBoundingBox();
+    let bb = g.boundingBox;
+    if ((bb.max.z - bb.min.z) > (bb.max.y - bb.min.y) * 1.3) {
+      g.rotateX(-Math.PI / 2);
+      g.computeBoundingBox();
+      bb = g.boundingBox;
+    }
+    const h = bb.max.y - bb.min.y;
+    if (h < 1e-4) return;
+    g.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+    const k = targetH / h;
+    g.scale(k, k, k);
+    const nm = 'g:' + prefix + pi;
+    if (!INST_DEF[nm]) {
+      defInst(nm, g, { mat: makeModelMaterial(p.src, false), shadow: true, receive: true });
+    }
+    MODEL_ROUTE[prefix + pi] = {
+      parts: [{ fit: new THREE.Matrix4(), names: [nm] }], near: 1e9, jitter: true,
+    };
+    kits.push(prefix + pi);
+  });
+  return kits;
+}
+
 function modelLOD(r, x, z) {
   if (r.parts.length < 2) return 0;
   let best = 1e9;

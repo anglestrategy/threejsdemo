@@ -206,14 +206,14 @@ the plan places, not from a file-size ceiling.
 | `canopypav` | golden canopy pavilion — over the tram stop | 219,996 | — | 4096 px | 9.8 MB | yes |
 | `shophouse` | arcaded shophouse row | 199,998 | 19998 | 4096 px | 11.1 MB | yes |
 | `palm2` | date palm | 194,344 | 5510 | 2048 px | 2.9 MB | no |
-| `people10` | ten standing figures | 190,709 | 62197 | 4096 px | 22.4 MB | no |
+| `people10` | ten standing figures | 190,709 | 62197 | 4096 px | 22.4 MB | yes |
 | `lagoon_b` | lagoon-scene structure | 149,976 | 7862 | 2048 px | 3.5 MB | no |
 | `resblock` | residential apartment block | 149,964 | 18806 | 2048 px | 4.2 MB | yes |
 | `lagoon_a` | slender lagoon-scene tree | 148,564 | 4728 | 2048 px | 2.3 MB | yes |
 | `fountain` | roundabout fountain bowl | 119,996 | — | 2048 px | 1.8 MB | yes |
 | `majlisset` | majlis lounge seating | 119,992 | 5984 | 2048 px | 3.6 MB | no |
 | `extra` | lagoon-scene rock mass | 119,533 | 5762 | 2048 px | 3.5 MB | no |
-| `people5s` | five seated figures | 99,995 | 12199 | 4096 px | 4.4 MB | no |
+| `people5s` | five seated figures | 99,995 | 12199 | 4096 px | 4.4 MB | yes |
 | `tramstop` | tram platform shelter | 89,998 | — | 2048 px | 2.3 MB | yes |
 | `trellis` | vine trellis panel | 89,298 | 3368 | 2048 px | 2.4 MB | yes |
 | `pots` | small potted plants | 68,892 | 2940 | 2048 px | 1.7 MB | yes |

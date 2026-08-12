@@ -246,6 +246,8 @@ function palmGeo(detail) {
   return g;
 }
 
+let STANDERS = [], SITTERS = [];
+
 function defineKit() {
   /* ---- palm ----------------------------------------------------------- */
   {
@@ -1091,5 +1093,13 @@ function defineKit() {
   routeProp('obelisk', 'obelisk', 12.0, { jitter: false });
   routeProp('sail1', 'sail1', 5.0, { near: 60 });
   routeProp('kiosk', 'kiosk', 3.0, { near: 90 });
+
+  /* ---- the scanned people ---------------------------------------------
+     Ten standing figures and five seated ones, each split out of its scene
+     and given its own kit name. They are static, so they take the standing
+     and seated roles; the procedural figures keep the walkers, which is the
+     division the walk cycle was built for. */
+  STANDERS = routePersonParts('people10', 'gp', 1.72);
+  SITTERS = routePersonParts('people5s', 'gs', 1.28);
   // palm2 and bench2 are generated but not routed: see DELTA.md
 }

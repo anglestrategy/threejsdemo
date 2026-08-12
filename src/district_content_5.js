@@ -905,6 +905,64 @@ function buildFabricProps() {
   INSTCOUNT.fabprops = res + shop + hall + sails;
 }
 
+/* ======================================================= SCANNED PEOPLE ==
+   A street is not made of pedestrians in transit. Most of the people in any
+   photograph of one are standing still — talking in twos, waiting, looking at
+   a window, sitting down. The procedural figures walk, which is what they were
+   built for; these are the ones that stop.
+
+   Placed the way the dressing pass places everything else: sampled round the
+   composed viewpoints, rejected inside solids and water, and turned to face
+   each other where they land in pairs, because two people standing parallel
+   read as a bus queue and two people turned in read as a conversation.     */
+function buildScannedPeople() {
+  if (QA.nolife || !STANDERS.length) return 0;
+  CURCHUNK = 'people';
+  let n = 0;
+  for (const s of DRESS_SPOTS) {
+    const want = Math.round(s.r * s.r * 0.010 * s.d);
+    for (let i = 0; i < want; i++) {
+      const a = rnd() * 6.2831853, rr2 = Math.sqrt(rnd()) * s.r;
+      const x = s.x + Math.cos(a) * rr2, z = s.z + Math.sin(a) * rr2;
+      const gy = dressY(x, z);
+      if (gy < -6 || insideSolid(x, z, gy + 0.9)) continue;
+      if (WATERBODIES.some((b) => x > b.x0 - 1 && x < b.x1 + 1 && z > b.z0 - 1 && z < b.z1 + 1)) continue;
+      const face = rnd() * 6.2831853;
+      inst(pick(STANDERS), xf(x, gy, z, face));
+      n++;
+      // roughly a third of them are with someone
+      if (chance(0.34)) {
+        const d = rr(0.85, 1.35);
+        const px = x + Math.sin(face) * d, pz = z + Math.cos(face) * d;
+        if (!insideSolid(px, pz, gy + 0.9)) {
+          inst(pick(STANDERS), xf(px, dressY(px, pz), pz, face + Math.PI + rr(-0.35, 0.35)));
+          n++;
+        }
+      }
+    }
+  }
+  /* and the seated ones, on the benches that already exist — the bench kit
+     records nothing, so they are placed on the same rhythm the benches were */
+  if (SITTERS.length) {
+    const T = PLAN.tensile, J = PLAN.jamaa;
+    const SEATS = [];
+    for (let z = T.z0 + 18; z <= J.z - 40; z += 12.5) { SEATS.push([J.x - 1.3, z, 0]); SEATS.push([J.x + 1.3, z, Math.PI]); }
+    for (let z = PLAN.souq.z0 - 10; z < PLAN.souq.z1; z += rr(16, 28)) {
+      const sd = chance(0.5) ? 1 : -1;
+      SEATS.push([PLAN.spineX + sd * 5.4, z, sd > 0 ? 0 : Math.PI]);
+    }
+    for (const q of SEATS) {
+      if (!chance(0.45)) continue;
+      const gy = dressY(q[0], q[1]);
+      if (gy < -6) continue;
+      inst(pick(SITTERS), xf(q[0] + rr(-0.3, 0.3), gy + 0.42, q[1] + rr(-0.3, 0.3), q[2] + rr(-0.25, 0.25)));
+      n++;
+    }
+  }
+  INSTCOUNT.scannedPeople = n;
+  return n;
+}
+
 /* =============================================================== RULER ==
    ?ruler=1 stands a graduated two-metre pole and a 1.7 m figure at every
    composed viewpoint, plus a one-metre chequer on the ground.
@@ -967,6 +1025,7 @@ function* buildSteps() {
   yield 'probes'; bakeProbes();
   yield 'dressing'; { const d = nearDressing(); INSTCOUNT.dressing = d.placed; INSTCOUNT.litter = d.scraps; }
   yield 'life'; buildLife();
+  yield 'people'; buildScannedPeople();
   yield 'ruler'; buildRuler();
   yield 'merge'; finalise();
 }

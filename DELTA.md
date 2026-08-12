@@ -428,3 +428,32 @@ drains the palms (this scene's identity is saturated dusk gold, which is
 exactly what AgX rolls off), and VSM shadows bleed straight through the palm
 crowns and the folded canopy soffit. Both switches are kept live as
 `?tone=agx` and `?shadow=vsm`. See DEVIATIONS 8–11.
+
+## Round 20 — real people
+
+Ten standing figures and five seated ones arrived in the release. Both are FBX
+conversions: each is not one model but a scene of separate figures, Z-up,
+scattered over hundreds of units of whatever the original file was. Routed
+whole they would have placed all ten together in the arrangement someone
+happened to leave them in.
+
+`routePersonParts` takes each part on its own, stands it on end if its long
+axis is Z, re-centres it with its feet at the origin and scales it to a real
+height — after which it is an ordinary kit name the dressing pass can place one
+at a time. Ten standers at 1.72 m and five sitters at 1.28 m.
+
+They are static, so they take the roles the procedural figures were never good
+at: **standing**, in ones and — a third of the time — in pairs turned to face
+each other, because two people standing parallel read as a bus queue and two
+turned in read as a conversation. The procedural figures keep the walkers,
+which is what the fractional-limb-tag walk cycle was built for. Seated figures
+go on the benches, sampled on the same rhythm the benches themselves were laid.
+
+Scale audit green across 153 instanced meshes; 20.8 M triangles.
+
+**Noted, not fixed:** the standing set is office workers in Western business
+dress. For a business district in Al Khobar that is defensible and the
+procedural thobes and abayas still outnumber them, but a set generated as
+*thobe and abaya, standing, isolated* would be the single highest-value thing
+to add next — the renders live on their people and these are the only ones in
+the build that are photographic.
