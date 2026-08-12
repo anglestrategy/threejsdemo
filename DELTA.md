@@ -562,3 +562,36 @@ the better answer for a scene with this much sub-pixel detail, and remains
 unbuilt: it cannot be validated without a GPU, and shipping an unvalidated
 temporal filter into a scene full of animated water and moving people is how
 you get ghosting nobody can reproduce. Logged as the open item it is.
+
+## Round 24 — why it reads as blocks
+
+Two real texture faults, and then the actual answer.
+
+**Travertine panels were 2.3 × 1.15 m** — bigger than a door, laid in a hard
+unbroken grid over every travertine and office elevation in the district. A
+large-format travertine cladding panel is 900 × 450. That grid, on the most
+common façade material in the plan, was a large part of the read. Now 0.90 ×
+0.45 with the course broken every other row and a per-panel tone, so it is
+coursed stone rather than fbm behind a lattice. (Checked the others while
+there: ashlar at 0.225 m courses and brick at 235 × 82 mm were already right.)
+
+**Relief died at 95 m.** `rel` faded the normal perturbation out between 26 and
+95 metres, so in a street whose far end is two hundred metres away everything
+past the middle distance was flat paint carrying a per-block albedo pattern —
+blocks with nothing on them. Now 70 to 300 m, which costs nothing: the three
+height samples were always being taken.
+
+**But the remaining blockiness is geometric, not textural, and no surface law
+will fix it.** The elevation grammar assembles every façade from `G_BOXT` —
+two dozen box-adds per elevation — with 0.9 m-deep floor slab bands, stepped
+crenellated parapets, box corbels and box brackets. The architecture *is*
+boxes, and at this point that is the ceiling on the look.
+
+The way out is not a better box. It is that there are now six scanned
+buildings in the kit — `arcade`, `shophouse`, `resblock`, `bluehall`,
+`townhouse`, `townhouse2` — and the procedural grammar should be retreating
+in front of them rather than being patched. `buildFabricProps` already places
+them into gaps; the next step is to invert that, letting the scans take the
+public frontages and leaving the procedural grammar for the backs and the
+outer fabric where nobody stands. That is a structural change, not a tuning
+pass, and it is the honest next round.

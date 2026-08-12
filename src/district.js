@@ -720,14 +720,24 @@ const SURF_GLSL = `
       grain = gr; cav = groove;
       return groove * (0.6 + 0.4 * gr) * 0.5 + h11(board * 5.1) * 0.12 * groove;
     } else if (s < 4.5) {                            // TRAVERTINE
-      float sw = 2.3, sh = 1.15;
-      float jx = fract(q.x / sw), jy = fract(q.y / sh);
+      /* Cladding panels, not megaliths. These were 2.3 x 1.15 m — bigger
+         than a door, laid in a hard grid over every travertine and office
+         elevation in the district, which is exactly and entirely why the
+         fabric read as stacked blocks. A large-format travertine panel is
+         900 x 450, and the course breaks every other row so the joints do
+         not line up into a lattice. */
+      float sh = 0.45;
+      float row = floor(q.y / sh);
+      float sw = 0.90;
+      float sft = mod(row, 2.0) * 0.5 * sw + h11(row * 4.7) * 0.18;
+      float jx = fract((q.x + sft) / sw), jy = fract(q.y / sh);
       float e = min(min(jx, 1.0 - jx) * sw, min(jy, 1.0 - jy) * sh);
-      float joint = smoothstep(0.0, 0.010, e);
-      float band = fb2(vec2(q.x * 0.9, q.y * 9.0));
+      float joint = smoothstep(0.0, 0.006, e);
+      float band = fb2(vec2(q.x * 2.2, q.y * 16.0));
+      float slab = h21(vec2(floor((q.x + sft) / sw), row) * 1.61);
       float pit = smoothstep(0.62, 0.92, fb2(q * 26.0));   // the travertine pores
-      grain = band; cav = joint * (1.0 - pit * 0.7);
-      return joint * (0.72 + 0.28 * band) * 0.42 - pit * 0.22;
+      grain = 0.35 * band + 0.65 * slab; cav = joint * (1.0 - pit * 0.7);
+      return joint * (0.62 + 0.38 * slab) * 0.40 - pit * 0.22;
     } else if (s < 5.5) {                            // CONCRETE / white render
       float t = fb2(q * 4.2) * 0.6 + fb2(q * 19.0) * 0.4;
       grain = t; cav = 0.7 + 0.3 * t;
@@ -913,7 +923,7 @@ function makeCityMaterial(cacheKey) {
         float hx = srfH(uvw + vec2(e, 0.0), s, cavx, gx);
         float hy = srfH(uvw + vec2(0.0, e), s, cavy, gy);
         // relief fades with distance so it never aliases into noise
-        float rel = (1.0 - smoothstep(26.0, 95.0, dist)) * (s > 10.5 ? 0.0 : 1.0);
+        float rel = (1.0 - smoothstep(70.0, 300.0, dist)) * (s > 10.5 ? 0.0 : 1.0);
         float amp = 0.055 * rel;
         vec3 pn = normalize(vec3(-(hx - h0) / e * amp, -(hy - h0) / e * amp, 1.0));
 
