@@ -201,6 +201,72 @@ function segCross(r1, r2) {
 /* ------------------------------------------------------ IDENTITY SIGNAGE
    The destination's line, in Arabic and English, as illuminated plaza
    lettering — the same lockup as the map's title, built as geometry.     */
+/* ================================================== GREEN AND COLOUR ==
+   The district was one note of sand. Every reference for this place is stone
+   *and* deep green *and* one strong flowering colour — bougainvillea over a
+   wall, a hedge line holding a terrace, a lawn panel in a plaza. Without them
+   an aerial of it reads as a model of a town rather than a town.
+
+   All of it is instanced and all of it is placed against what is already
+   there: hedges along kerb lines and terrace edges, lawns in the open panels
+   of the plazas, bougainvillea on the walls it would actually climb.       */
+function buildGreen() {
+  CURCHUNK = 'green';
+  const LAWN = [0x4a6b34, 0x53743a, 0x415f2d, 0x5b7c40];
+  const bed = (x0, z0, x1, z1, y) => {
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    inst('lawn', xf(cx, (y === undefined ? terrainY(cx, cz) : y) + 0.055, cz, 0,
+      x1 - x0, 1, z1 - z0), pick(LAWN));
+  };
+
+  // ---- lawn panels and hedges in the big public rooms
+  const CP = PLAN.canopy;
+  for (let i = 0; i < 7; i++) {
+    const bx = rr(CP.x0 + 14, CP.x1 - 30), bz = rr(CP.z0 + 12, CP.z1 - 26);
+    const bw = rr(11, 24), bd = rr(9, 18);
+    if (insideSolid(bx + bw / 2, bz + bd / 2, 0.6)) continue;
+    bed(bx, bz, bx + bw, bz + bd);
+    for (let e = 0; e < Math.round(bw); e += 1.0) {
+      inst('hedge', xf(bx + e + 0.5, terrainY(bx + e, bz) + 0.05, bz, 0, 1.0, 0.8, 1.0), 0xffffff);
+      inst('hedge', xf(bx + e + 0.5, terrainY(bx + e, bz + bd) + 0.05, bz + bd, 0, 1.0, 0.8, 1.0), 0xffffff);
+    }
+    for (let k = 0; k < 5; k++) {
+      const px = rr(bx + 1, bx + bw - 1), pz = rr(bz + 1, bz + bd - 1);
+      inst('shrub', xf3(px, terrainY(px, pz) + 0.06, pz, 0, rnd() * 6.28, 0, 1, 1, 1), pick([K.leaf, K.leafDk]));
+    }
+  }
+  // the colonnade court and the sail court get a planted apron
+  for (const R of [PLAN.court, PLAN.tensile]) {
+    for (let i = 0; i < 5; i++) {
+      const bx = rr(R.x0 + 6, R.x1 - 22), bz = rr(R.z0 + 6, R.z1 - 18);
+      if (insideSolid(bx + 8, bz + 6, 0.6)) continue;
+      bed(bx, bz, bx + rr(12, 20), bz + rr(9, 15));
+    }
+  }
+
+  /* ---- bougainvillea, on the walls it would actually climb: the outward
+     face of every collider that fronts a public space, at a spacing that
+     breathes. The colour picks are the three that grow here. */
+  const BOUG = [0xc0327a, 0xd8447e, 0xa8286b, 0xe0668f, 0xd86a3c];
+  let placed = 0;
+  for (let i = 0; i < 4200 && placed < 460; i++) {
+    const x = rr(PLAN.bounds.x0 * 0.72, PLAN.bounds.x1 * 0.72);
+    const z = rr(PLAN.bounds.z0 * 0.72, PLAN.bounds.z1 * 0.82);
+    const gy = groundAt(x, z);
+    if (gy < -6 || insideSolid(x, z, gy + 0.4)) continue;
+    if (!wallNear(x, z, gy, 2.6)) continue;
+    const bx2 = x + Math.cos(_dw.ang) * (_dw.dist - 0.45);
+    const bz2 = z + Math.sin(_dw.ang) * (_dw.dist - 0.45);
+    if (insideSolid(bx2, bz2, gy + 0.4)) continue;
+    const s = rr(1.5, 2.9);
+    inst('bougain', xf3(bx2, dressY(bx2, bz2) + rr(0, 1.9), bz2, 0, rnd() * 6.28, 0, s, s * rr(0.7, 1.1), s),
+      pick(BOUG));
+    placed++;
+    if (chance(0.5)) inst('hedge', xf(bx2, dressY(bx2, bz2), bz2, _dw.ang + Math.PI / 2, rr(1.4, 3.4), 1, 1), 0xffffff);
+  }
+  INSTCOUNT.bougain = placed;
+}
+
 function buildIdentity() {
   CURCHUNK = 'canopy';
   const cx = 4, cz = PLAN.canopy.z0 - 22, gy = terrainY(cx, cz);
@@ -390,10 +456,12 @@ function* buildSteps() {
   yield 'blocks-a'; buildBlocks();
   yield 'canopy'; buildCanopy();
   yield 'towers'; buildTowers();
+  yield 'skyline'; buildSkyline();
   yield 'majlis'; buildMajlis();
   yield 'court'; buildCourtyard();
   yield 'tensile'; buildTensile();
   yield 'planting'; buildPlanting();
+  yield 'green'; buildGreen();
   yield 'identity'; buildIdentity();
   yield 'probes'; bakeProbes();
   yield 'dressing'; { const d = nearDressing(); INSTCOUNT.dressing = d.placed; INSTCOUNT.litter = d.scraps; }

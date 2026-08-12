@@ -258,3 +258,25 @@ Two things were in the way, and both had been there from the beginning.
 | 4 | A room 1.2 m wide and 3.1 m deep is a corridor, and a room deeper than half its block meets the shop on the other side. | Depth now follows both: `min(depth, w × 1.35)` and never more than the block can give. |
 | 5 | A shopkeeper stacks crates beside the glass, never across it. | The dressing pass rejects any prop that would stand in a glazed bay. |
 | 6 | None of this was measurable, which is why it survived three rounds of looking at screenshots. | `tests/shop_visibility.mjs` stands where a person would in front of a sample of fitted rooms, rays past the mullion, and reports what stops the ray and how far past the glass it got. `?shop=N` puts the camera in front of the Nth fitted shop so a trade can be inspected without hunting for coordinates. **69% of fitted rooms now read past the glass**, against none before. |
+
+---
+
+## Round 15 — the aerial
+
+The note was that from the air it looked depressing and bland, and it did. Four
+reasons, all of them fixable, none of them about triangle count.
+
+| # | delta | what changed |
+|---|---|---|
+| 1 | **One fog colour paints the whole horizon the same beige.** Distance is not one colour: looking west into the last of the sun it is warm, looking anywhere else at this hour it is deep blue. A single `FogExp2` colour cannot do that, so everything past two hundred metres turned to the same haze and the district read as a model under a dust sheet. | Fog is now directional — `mix(cool, warm, pow(dot(viewDir, sun), 1.8))` — injected into every district material and the water. The sky's horizon does the same thing, warm only where the sun went down. Density dropped from 0.00058 to 0.00034, because the haze was doing work the sky should do. |
+| 2 | **Nothing between the last block and the sky.** | A skyline: towers from 1.1 to 2.25 km out, clustered toward the coast the way the real Al Khobar is, with setbacks, crowns, masts and aircraft lights. Their value sits close to the fog they are seen through — a distant city is almost entirely aerial perspective, and painted any darker it reads as black cardboard, which is exactly what the first attempt looked like. The sky dome went from 1.4 km to 3.3 km and the camera's far plane with it. |
+| 3 | **From two hundred metres up you do not see a street, a shopfront or a person — you see roofs.** Every roof was a bare tan slab with a grey box on it. | The roofscape now carries the aerial: planted terraces with a real green plate, pergolas (the most legible thing on a roof from the air — a striped dark rectangle), photovoltaic arrays in deep blue, bougainvillea over the pergola frames, and a table and chairs where someone would sit. Green roofs went from 45% to 78% of blocks. |
+| 4 | **One note of sand.** Every reference for this place is stone *and* deep green *and* one strong flowering colour. | `buildGreen`: lawn panels and hedge lines in the public rooms, and 460 bougainvillea placed on the walls they would actually climb, found the same way the dressing pass finds a frontage. |
+
+**On generated 3D models.** A 1.9 M-triangle Tripo GLB of one of the renders
+came back as a single welded blob — one mesh, one material, the lighting baked
+into the albedo — a diorama of the district rather than a building. It reads
+well and it is the right reference for form, but it cannot be walked into, lit
+by this scene's sun, or collided with. The useful ask from those tools is a
+*component*: a dome, a minaret, a wind tower, a mashrabiya panel, an arcade
+bay. `gen_userglb.py` takes any such GLB, decimates it and repacks it.

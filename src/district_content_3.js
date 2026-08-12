@@ -666,3 +666,73 @@ function buildTensile() {
     inst('uplight', xf(mx + 1.2, g0 + 0.3, mz), 0xd8b0ff);
   }
 }
+
+
+/* ==================================================== THE CITY BEYOND ==
+   The district sits in Al Khobar, not in an empty quarter, and from the air
+   the thing that made it read as a model on a table was the horizon: nothing
+   between the last block and the sky but flat sand.
+
+   So a skyline. A ring of towers a kilometre and more out, clustered toward
+   the coast the way the real city is, all of it silhouette — no windows worth
+   resolving at that distance, just mass, a scatter of lit floors and the odd
+   mast. The fog does the rest of the work: at 1,500 m it is half fog already,
+   which is exactly what a city looks like across a bay at dusk.          */
+function buildSkyline() {
+  CURCHUNK = 'skyline';
+  const a = new Acc(), e = new Acc();
+  const R0 = 1080, R1 = 2250;
+  /* A distant city is not a black cutout. At a kilometre and a half it is
+     almost entirely aerial perspective — sky bounced off haze — so its
+     value sits close to the fog it is seen through, and only its silhouette
+     and a scatter of lit floors separate it from the sky. */
+  const COL = [0x8ea2c4, 0x9aabca, 0x8496bc, 0xa2b1cd, 0x7f92b6];
+  let n = 0;
+  for (let i = 0; i < 620; i++) {
+    const ang = rnd() * 6.2831853;
+    // denser toward the north-east, where the corniche and the causeway are
+    const toCoast = Math.max(0, Math.cos(ang - 0.75));
+    if (rnd() > 0.16 + 0.84 * toCoast * toCoast) continue;
+    const r = R0 + Math.pow(rnd(), 0.62) * (R1 - R0);
+    const x = Math.sin(ang) * r, z = Math.cos(ang) * r;
+    // keep clear of the district's own ring road
+    if (Math.abs(x) < PLAN.ring + 90 && Math.abs(z - 220) < PLAN.ring + 90) continue;
+    const near = 1 - (r - R0) / (R1 - R0);
+    const tall = Math.pow(rnd(), 2.6);
+    const h = (22 + tall * 165) * (0.6 + 0.6 * near);
+    const w = 13 + rnd() * 30, dd = 13 + rnd() * 30;
+    const gy = terrainY(x, z);
+    const col = pick(COL);
+    a.add(G_BOXT, xf(x, gy, z, rnd() * 6.28, w, h, dd), col, S.CONCRETE, 0.92 + 0.16 * near);
+    // a setback and a crown on the taller ones
+    if (tall > 0.42) {
+      a.add(G_BOXT, xf(x, gy + h, z, 0, w * 0.68, h * 0.22, dd * 0.68), col, S.CONCRETE, 1.0);
+      if (tall > 0.72) {
+        a.add(G_BOXT, xf(x, gy + h * 1.22, z, 0, 1.6, h * 0.20, 1.6), 0x9aa8c6, S.METAL, 0.9);
+        e.add(G_BOXT, xf(x, gy + h * 1.40, z, 0, 3.2, 3.2, 3.2), 0xff5a4a, 0, 1);   // aircraft light
+      }
+    }
+    // a few lit floors, banded, never every window
+    const bands = Math.max(1, Math.round(h / 26));
+    for (let b = 0; b < bands; b++) {
+      if (!chance(0.34)) continue;
+      const by = gy + h * (b + 0.5) / bands;
+      e.add(G_BOXT, xf(x, by, z, 0, w * 1.005, h / bands * rr(0.10, 0.28), dd * 1.005),
+        pick([0xc9a878, 0xcbb694, 0xa9b8d4, 0xc7a273]), 0, 1);
+    }
+    n++;
+  }
+  if (a.n) {
+    const g = a.geometry();
+    const m = new THREE.Mesh(g, cityMat);
+    m.castShadow = false; m.receiveShadow = false; m.frustumCulled = true;
+    cityRoot.add(m); DISPOSE.push(g);
+  }
+  if (e.n) {
+    const g = e.geometry();
+    const m = new THREE.Mesh(g, emisSoftMat);
+    m.castShadow = false; m.receiveShadow = false;
+    cityRoot.add(m); DISPOSE.push(g);
+  }
+  INSTCOUNT.skyline = n;
+}

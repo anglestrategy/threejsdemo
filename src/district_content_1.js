@@ -432,7 +432,7 @@ const waterMat = new THREE.ShaderMaterial({
     uTime: { value: 0 }, uSun: { value: CSUN.clone() },
     uDeep: { value: C(K.waterDk) }, uShal: { value: C(0x2f8f92) },
     uSky: { value: C(0x7c8fc4) }, uWarm: { value: C(0xffc98a) },
-    uFogColor: { value: C(0xc2a495) }, uFogD: { value: CITY_FOG },
+    uFogColor: { value: C(0x62789f) }, uFogWarm: { value: C(0xe6bd92) }, uFogD: { value: CITY_FOG },
     uRefl: { value: null }, uReflMtx: { value: new THREE.Matrix4() },
     uReflOn: { value: 0 }, uReflY: { value: 0 },
   },
@@ -450,7 +450,7 @@ const waterMat = new THREE.ShaderMaterial({
   fragmentShader: `
     precision highp float;
     varying vec3 vW; varying vec2 vF; varying float vD; varying vec4 vRP;
-    uniform float uTime,uFogD,uReflOn,uReflY; uniform vec3 uSun,uDeep,uShal,uSky,uWarm,uFogColor;
+    uniform float uTime,uFogD,uReflOn,uReflY; uniform vec3 uSun,uDeep,uShal,uSky,uWarm,uFogColor,uFogWarm;
     uniform sampler2D uRefl;
     float h21(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
     float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
@@ -502,7 +502,8 @@ const waterMat = new THREE.ShaderMaterial({
       col += vec3(0.9,0.98,1.0) * pow(max(c-0.62,0.0), 2.0) * 1.1;
       float d = length(cameraPosition - vW);
       float fog = 1.0 - exp(-uFogD*uFogD*d*d);
-      col = mix(col, uFogColor, fog);
+      vec3 fd = normalize(vW - cameraPosition);
+      col = mix(col, mix(uFogColor, uFogWarm, pow(max(dot(fd, normalize(uSun)), 0.0), 1.8)), fog);
       gl_FragColor = vec4(col, 0.90 + 0.10*fres);
     }`,
 });

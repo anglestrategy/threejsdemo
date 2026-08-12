@@ -11,7 +11,8 @@ import sys
 
 MODS = json.load(open('src/vendor_mods.json'))
 LOADER = open('work/GLTFLoader_patched.js').read()
-MODELS = json.load(open('work/models.json'))
+import sys
+MODELS = json.load(open(sys.argv[1] if len(sys.argv) > 1 else 'work/models.json'))
 
 
 def uri(b64):

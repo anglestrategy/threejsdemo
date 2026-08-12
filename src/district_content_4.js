@@ -229,6 +229,46 @@ function defineKit() {
     }
     defInst('roofbush', combine(R));
   }
+  /* ---- flowering mass ------------------------------------------------ *
+     Every reference for this place has bougainvillea in it — over a wall, up a
+     pergola, spilling off a terrace — and it is the only strong colour in an
+     otherwise stone-and-green palette. Without it the whole district reads as
+     one note of sand.                                                       */
+  {
+    const L = [];
+    for (let i = 0; i < 13; i++) {
+      const ang = i / 13 * 6.2831853 * 1.7;
+      const rad = 0.34 + (i % 4) * 0.20;
+      const yy = 0.18 + (i % 5) * 0.17;
+      L.push({ geo: G_SPH, mtx: xf3(Math.sin(ang) * rad, yy, Math.cos(ang) * rad, 0, 0, 0,
+        0.52 + (i % 3) * 0.16, 0.40, 0.52 + (i % 3) * 0.16),
+        col: i % 3 === 0 ? 0x3f5a33 : (i % 3 === 1 ? 0x4d6b3c : 0x36502c), surf: S.FOLIAGE, shade: 0.72 + 0.04 * i });
+    }
+    // the bracts sit on the outside of the mass, never inside it
+    for (let i = 0; i < 22; i++) {
+      const ang = i / 22 * 6.2831853 * 2.3;
+      const rad = 0.62 + (i % 3) * 0.14;
+      L.push({ geo: G_SPH, mtx: xf3(Math.sin(ang) * rad, 0.16 + (i % 6) * 0.15, Math.cos(ang) * rad, 0, 0, 0,
+        0.26 + (i % 3) * 0.09, 0.19, 0.26 + (i % 3) * 0.09),
+        col: 0xffffff, surf: S.FOLIAGE, shade: 0.92 + 0.05 * (i % 3) });
+    }
+    defInst('bougain', combine(L));
+  }
+  { // a clipped hedge run, one metre of it
+    const L = [];
+    for (let i = 0; i < 4; i++) {
+      L.push({ geo: G_SPH, mtx: xf3(-0.34 + i * 0.23, 0.30, ((i % 2) - 0.5) * 0.05, 0, 0, 0, 0.42, 0.62, 0.66),
+        col: i % 2 ? 0x3d5a34 : 0x33512c, surf: S.FOLIAGE, shade: 0.76 + 0.06 * (i % 3) });
+    }
+    L.push({ geo: G_BOXT, mtx: xf3(0, 0.02, 0, 0, 0, 0, 1.0, 0.06, 0.7), col: 0x2c3a22, surf: S.FOLIAGE, shade: 0.6 });
+    defInst('hedge', combine(L), { shadow: false });
+  }
+  { // a lawn / planted panel: a flat plate, tinted per bed
+    const L = [];
+    L.push({ geo: G_BOXT, mtx: xf3(0, 0, 0, 0, 0, 0, 1.0, 0.05, 1.0), col: 0xffffff, surf: S.FOLIAGE, shade: 1.0 });
+    defInst('lawn', combine(L), { shadow: false });
+  }
+
   /* ---- yucca / desert palm in a pot --------------------------------- */
   {
     const L = [];

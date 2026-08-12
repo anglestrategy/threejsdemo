@@ -624,6 +624,8 @@ function makeCityMaterial(cacheKey) {
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
     uProbeInt: { value: 1.05 },
+    uFogWarm: { value: new THREE.Color(0xe6bd92) }, uFogCool: { value: new THREE.Color(0x62789f) },
+    uSunW: { value: CSUN.clone() },
     /* A room the sun never enters is lit by its own ceiling, and no pooled
        point light can do that for two hundred shops at once. So an interior
        variant of this material carries a constant warm irradiance — the
@@ -705,7 +707,7 @@ function makeCityMaterial(cacheKey) {
       uniform sampler3D uProbeSky, uProbeGnd;
       uniform vec3 uProbeOrg, uProbeStp, uProbeDim;
       uniform float uProbeOn, uProbeInt;
-      uniform vec3 uRoomAdd;
+      uniform vec3 uRoomAdd, uFogWarm, uFogCool, uSunW;
       vec3 gProbeSky, gProbeGnd;\n` + SURF_GLSL +
       sh.fragmentShader
         .replace('void main() {', 'void main() {\n gRough = roughness; gMetal = metalness;')
@@ -827,7 +829,19 @@ function makeCityMaterial(cacheKey) {
         float upW = clamp(dot(normal, wN) * 0.5 + 0.5, 0.0, 1.0);
         irradiance += mix(gProbeGnd, gProbeSky, upW) * uProbeInt;
       }
-      irradiance += uRoomAdd;`);
+      irradiance += uRoomAdd;`)
+        .replace('#include <fog_fragment>', `
+      #ifdef USE_FOG
+        /* Distance is not one colour. Looking west into the last of the sun it
+           is warm; looking anywhere else at this hour it is deep blue. A single
+           fog colour paints the whole horizon the same beige, which is most of
+           what made the aerial read as haze instead of as evening. */
+        vec3 fdir = normalize(vWP - cameraPosition);
+        float fsun = pow(max(dot(fdir, normalize(uSunW)), 0.0), 1.8);
+        vec3 fcol = mix(uFogCool, uFogWarm, fsun);
+        float fogF = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, fcol, clamp(fogF, 0.0, 1.0));
+      #endif`);
   };
   /* The cache key has to differ per variant. Two materials with the same key
      and the same parameter profile share one compiled program, and a shared
@@ -866,6 +880,8 @@ function makeModelMaterial(src, foliage) {
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
     uProbeInt: { value: 1.05 },
+    uFogWarm: { value: new THREE.Color(0xe6bd92) }, uFogCool: { value: new THREE.Color(0x62789f) },
+    uSunW: { value: CSUN.clone() },
   };
   mat.onBeforeCompile = (sh) => {
     for (const k in mat.userData.u) sh.uniforms[k] = mat.userData.u[k];
@@ -894,8 +910,17 @@ function makeModelMaterial(src, foliage) {
     sh.fragmentShader = `varying vec3 vMWP;
       uniform sampler3D uProbeSky, uProbeGnd;
       uniform vec3 uProbeOrg, uProbeStp, uProbeDim;
+      uniform vec3 uFogWarm, uFogCool, uSunW;
       uniform float uProbeOn, uProbeInt;\n` +
-      sh.fragmentShader.replace('#include <lights_fragment_begin>', `#include <lights_fragment_begin>
+      sh.fragmentShader
+        .replace('#include <fog_fragment>', `
+      #ifdef USE_FOG
+        vec3 fdir = normalize(vMWP - cameraPosition);
+        float fsun = pow(max(dot(fdir, normalize(uSunW)), 0.0), 1.8);
+        float fogF = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, mix(uFogCool, uFogWarm, fsun), clamp(fogF, 0.0, 1.0));
+      #endif`)
+        .replace('#include <lights_fragment_begin>', `#include <lights_fragment_begin>
       if (uProbeOn > 0.5) {
         vec3 pc = (vMWP - uProbeOrg) / uProbeStp;
         pc = vec3(pc.x, pc.z, pc.y);
@@ -915,10 +940,10 @@ function makeModelMaterial(src, foliage) {
 /* ======================================================== SCENE & LIGHTS == */
 const cityScene = new THREE.Scene();
 cityScene.background = null;
-const CITY_FOG = 0.00058;
-cityScene.fog = new THREE.FogExp2(0xc2a495, CITY_FOG);
+const CITY_FOG = 0.00034;
+cityScene.fog = new THREE.FogExp2(0x5d729c, CITY_FOG);
 
-const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.08, 1900);
+const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.11, 3400);
 
 /* 20 degrees WSW, not 12. With shadows finally switched on, a twelve-degree
    sun puts three hundred metres of building between the light and every point
@@ -1032,12 +1057,13 @@ const citySkyMat = new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: {
     uSun: { value: CSUN.clone() }, uTime: { value: 0 },
-    uZen: { value: C(0x101a3a) }, uMid: { value: C(0x3d456e) },
-    uHorizon: { value: C(0xc2a495) }, uGlow: { value: C(0xffd2a0) },
+    uZen: { value: C(0x091a44) }, uMid: { value: C(0x1e3c74) },
+    uHorizon: { value: C(0x7286a8) }, uGlow: { value: C(0xffc98a) },
+    uWarmHz: { value: C(0xd9a878) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
-    varying vec3 vD; uniform vec3 uSun,uZen,uMid,uHorizon,uGlow; uniform float uTime;
+    varying vec3 vD; uniform vec3 uSun,uZen,uMid,uHorizon,uGlow,uWarmHz; uniform float uTime;
     float h21(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
     float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
       return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y); }
@@ -1047,8 +1073,11 @@ const citySkyMat = new THREE.ShaderMaterial({
       float up = clamp(d.y, -0.2, 1.0);
       vec3 c = mix(uMid, uZen, pow(clamp(up,0.0,1.0), 0.62));
       float hz = pow(1.0 - clamp(up,0.0,1.0), 5.0);
-      c = mix(c, uHorizon, hz * 0.92);
       float sd = max(dot(d, normalize(uSun)), 0.0);
+      /* the horizon is warm where the sun went down and blue everywhere else.
+         One horizon colour makes a flat band all the way round and is most of
+         what reads as haze rather than as evening. */
+      c = mix(c, mix(uHorizon, uWarmHz, pow(sd, 1.15)), hz * 0.94);
       c += uGlow * pow(sd, 5.0) * 0.55 * (0.35 + 0.65 * hz);
       c += uGlow * pow(sd, 24.0) * 0.7;
       // high cirrus taking the last of the sun
@@ -1063,7 +1092,7 @@ const citySkyMat = new THREE.ShaderMaterial({
       gl_FragColor = vec4(c, 1.0);
     }`,
 });
-const citySky = new THREE.Mesh(new THREE.SphereGeometry(1400, 36, 24), citySkyMat);
+const citySky = new THREE.Mesh(new THREE.SphereGeometry(3300, 40, 26), citySkyMat);
 citySky.frustumCulled = false;
 cityScene.add(citySky);
 

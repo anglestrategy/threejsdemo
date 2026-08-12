@@ -333,15 +333,65 @@ function balcony(x, y, z, ang, nx, nz, w, style, baseCol, shade) {
    Nothing is bare, including the fifth elevation: plant screens, tanks in
    vernacular housings, condenser blocks behind mashrabiya, and green roofs
    exactly as the aerial render shows them.                                */
+/* From two hundred metres up you do not see a street, a shopfront or a person.
+   You see roofs — and a district whose roofs are bare tan slabs with a grey
+   box on each reads as a model of a town however good the streets are. So the
+   roofscape carries the aerial: planted terraces that read as green mass,
+   pergolas that read as striped dark rectangles, photovoltaic arrays that read
+   as deep blue, and on the better blocks somewhere to sit. */
 function roofscape(cx, cz, w, d, top, o) {
   const a = ACC.arch;
   const n = Math.max(1, Math.round(w * d / 260));
-  const green = o.green === undefined ? chance(0.45) : o.green;
+  const green = o.green === undefined ? chance(0.78) : o.green;
+  const area = w * d;
+
+  // ---- a pergola: the most legible thing on a roof from the air
+  if (area > 130 && chance(0.5)) {
+    const pw = Math.min(w * 0.42, 9 + rnd() * 7), pd = Math.min(d * 0.42, 5 + rnd() * 5);
+    const px = cx + (rnd() - 0.5) * (w - pw) * 0.7, pz = cz + (rnd() - 0.5) * (d - pd) * 0.7;
+    const pc = pick([0x59422a, 0x6b5133, 0x4a3826]);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      a.add(G_BOXT, xf(px + sx * pw / 2, top, pz + sz * pd / 2, 0, 0.16, 2.5, 0.16), pc, S.TIMBER, 0.8);
+    }
+    for (const sz of [-1, 1]) a.add(G_BOXT, xf(px, top + 2.42, pz + sz * pd / 2, 0, pw + 0.3, 0.16, 0.18), pc, S.TIMBER, 0.95);
+    const nb = Math.max(4, Math.round(pw / 0.42));
+    for (let i = 0; i < nb; i++) {
+      a.add(G_BOXT, xf(px - pw / 2 + pw * (i + 0.5) / nb, top + 2.58, pz, 0, 0.09, 0.11, pd + 0.5), pc, S.TIMBER, 1.05);
+    }
+    if (chance(0.6)) {
+      for (let i = 0; i < 3; i++) {
+        inst('bougain', xf3(px + rr(-pw * 0.4, pw * 0.4), top + 2.1, pz + (chance(0.5) ? -1 : 1) * pd / 2, 0,
+          rnd() * 6.28, 0, rr(1.4, 2.2), rr(0.8, 1.3), rr(1.4, 2.2)), pick([0xc0327a, 0xd8447e, 0xa8286b]));
+      }
+    }
+    if (chance(0.55)) {
+      inst('table', xf(px, top, pz, rnd() * 6.28, 0.9, 0.9, 0.9), 0xe8e3d6);
+      for (let c2 = 0; c2 < 3; c2++) {
+        const a2 = rnd() * 6.28;
+        inst('chair', xf(px + Math.sin(a2) * 0.9, top, pz + Math.cos(a2) * 0.9, a2 + Math.PI, 0.9, 0.9, 0.9), 0xefeade);
+      }
+    }
+  }
+
+  // ---- photovoltaics: rows of tilted panels, the strongest value on a roof
+  if (area > 200 && chance(0.42)) {
+    const rows = 2 + Math.floor(rnd() * 3);
+    const ax = cx + (rnd() - 0.5) * w * 0.3, az = cz + (rnd() - 0.5) * d * 0.3;
+    const rw = Math.min(w * 0.5, 10);
+    for (let r2 = 0; r2 < rows; r2++) {
+      const rz = az - rows * 0.9 + r2 * 1.8;
+      a.add(G_BOXT, xf(ax, top + 0.30, rz, 0, rw, 0.06, 1.15), 0x1b2740, S.METAL, 0.72, undefined, -0.42);
+      for (const sx of [-1, 1]) a.add(G_BOXT, xf(ax + sx * rw * 0.45, top, rz, 0, 0.07, 0.34, 0.07), 0x7d7668, S.METAL, 0.8);
+    }
+  }
+
   if (green) {
     // planted roof: a raised bed with a low kerb and massed shrubs
-    const bw = w * (0.34 + rnd() * 0.3), bd = d * (0.34 + rnd() * 0.3);
+    const bw = w * (0.38 + rnd() * 0.34), bd = d * (0.38 + rnd() * 0.34);
     const bx = cx + (rnd() - 0.5) * (w - bw) * 0.6, bz = cz + (rnd() - 0.5) * (d - bd) * 0.6;
     a.add(G_BOXT, xf(bx, top, bz, 0, bw, 0.34, bd), 0xbdb2a0, S.CONCRETE, 0.95);
+    inst('lawn', xf(bx, top + 0.34, bz, 0, bw * 0.94, 1, bd * 0.94),
+      pick([0x4a6b34, 0x53743a, 0x415f2d, 0x3d5c30]));
     const cnt = Math.max(4, Math.round(bw * bd / 5.5));
     for (let i = 0; i < cnt; i++) {
       const px = bx + (rnd() - 0.5) * (bw - 0.9), pz = bz + (rnd() - 0.5) * (bd - 0.9);
