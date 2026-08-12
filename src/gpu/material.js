@@ -24,7 +24,7 @@
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
   Fn, float, vec3, vec4, attribute, positionWorld, normalWorld, cameraPosition,
-  length, floor, mix, clamp, uniform, output, vertexColor, max, cameraViewMatrix,
+  length, floor, mix, clamp, uniform, vertexColor, max, normalMap,
 } from 'three/tsl';
 
 import { srfH, triplanarUV, reliefNormal } from './surface.js';
@@ -64,13 +64,12 @@ export function makeCityMaterial(opts = {}) {
   /* ---- normal ---------------------------------------------------------- */
   // world-space, framed by the triplanar tangent basis — see surface.js
   if (!opts.noNormal) {
-    mat.normalNode = Fn(() => {
-      const uv = uvOf().toVar();
-      const nw = reliefNormal(uv, clsOf(), distOf(), uAmp, normalWorld).toVar();
-      // world -> view: the law bends the normal in world space, which is what
-      // makes the triplanar frame work, but the material wants it in view
-      return nw.transformDirection(cameraViewMatrix).normalize();
-    })();
+    /* three.webgpu.js:21712 consumes normalNode in place of materialNormal,
+       and its documented feed (16566) is normalMap(...), whose input is a
+       TANGENT-SPACE normal. The first version had the right space; the
+       triplanar world frame and the view transform both moved away from it. */
+    mat.normalNode = normalMap(Fn(() =>
+      reliefNormal(uvOf(), clsOf(), distOf(), uAmp))());
   }
 
   /* ---- albedo ----------------------------------------------------------
@@ -115,18 +114,12 @@ export function makeCityMaterial(opts = {}) {
      for the same reason the WebGL2 build injected at `fog_fragment`: it has
      to sit after everything else and it has to be skippable per material
      (the sky dome must not be fogged into itself). */
-  if (!opts.noOutput) {
-    mat.outputNode = Fn(() => {
-      // built inside the graph that consumes it, for the same reason the
-      // other nodes are
-      const fog = directionalFog({
-        cool: ATMOS.fogCool, warm: ATMOS.fogWarm, sun: ATMOS.sun,
-        density: ATMOS.fogDensity, scaleH: ATMOS.fogScaleH,
-      }).toVar();
-      const c = output.toVar();
-      return vec4(mix(c.rgb, fog.rgb, fog.w), c.a);
-    })();
-  }
+  /* Fog does NOT go here. three.webgpu.js sets
+       const isCustomOutput = this.outputNode !== null;
+       if ( isCustomOutput ) resultNode = this.outputNode;
+     — `outputNode` REPLACES the whole result rather than receiving the lit
+     fragment, so mixing fog into it discarded every bit of shading. It belongs
+     on the scene: `scene.fogNode = cityFogNode()`. */
 
   mat.userData.u = { uAmp };
   return mat;
@@ -142,4 +135,14 @@ export function makeInteriorMaterial(opts = {}) {
   const mat = makeCityMaterial({ ...opts, roomAdd: opts.roomAdd || [1.05, 0.86, 0.62] });
   mat.side = 2;   // DoubleSide
   return mat;
+}
+
+
+/* The fog, as a scene-level node. Applied here rather than on the material for
+   the reason recorded above: a material's outputNode replaces its result. */
+export function cityFogNode() {
+  return directionalFog({
+    cool: ATMOS.fogCool, warm: ATMOS.fogWarm, sun: ATMOS.sun,
+    density: ATMOS.fogDensity, scaleH: ATMOS.fogScaleH,
+  });
 }

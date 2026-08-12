@@ -289,7 +289,7 @@ export const triplanarFrame = Fn(([wn]) => {
    left everything past the middle of a 200 m street as flat paint carrying a
    per-block albedo pattern. 70 to 300 m, and the samples were always taken
    either way. */
-export const reliefNormal = Fn(([uv, s, dist, amp, wn]) => {
+export const reliefNormal = Fn(([uv, s, dist, amp]) => {
   const e = float(0.006).add(dist.mul(0.00035)).toVar();
   const h0 = srfH(uv, s).toVar();
   const hx = srfH(uv.add(vec2(e, 0)), s).toVar();
@@ -298,6 +298,13 @@ export const reliefNormal = Fn(([uv, s, dist, amp, wn]) => {
   const k = amp.mul(fade).div(e).toVar();
   const pn = vec3(hx.x.sub(h0.x).mul(k).negate(),
     hy.x.sub(h0.x).mul(k).negate(), 1.0).normalize().toVar();
+  return pn;
+});
+
+/* the same perturbation put back into world space with the triplanar frame,
+   for consumers that want a world normal rather than a tangent-space one */
+export const reliefNormalWorld = Fn(([uv, s, dist, amp, wn]) => {
+  const pn = reliefNormal(uv, s, dist, amp).toVar();
   const T = triplanarFrame(wn).toVar();
   const B = wn.cross(T).normalize().toVar();
   return T.mul(pn.x).add(B.mul(pn.y)).add(wn.mul(pn.z)).normalize();

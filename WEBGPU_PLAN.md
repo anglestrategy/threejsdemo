@@ -272,3 +272,37 @@ not behave, read `three.webgpu.js` for how the library consumes that property
 *before* forming a hypothesis. The source is vendored at
 `/tmp/twg/package/build/three.webgpu.js` and re-extractable from the npm
 tarball; `grep -n "<property>" ` answers most of these in one command.
+
+### Bisect attempt 5 — fault 2 fixed from the source; fault 1 narrowed again
+
+Reading the build instead of guessing paid immediately.
+
+**Fault 2 — FIXED.** `three.webgpu.js`:
+
+    const isCustomOutput = this.outputNode !== null;
+    if ( isCustomOutput ) resultNode = this.outputNode;
+
+`outputNode` **replaces** the material's whole result; it does not receive the
+lit fragment. Mixing fog into it discarded every bit of shading, which is
+exactly the black. Fog is off the material entirely and is now a scene-level
+node — `scene.fogNode = cityFogNode()`. `+output(fog)` went 0 -> 17.
+
+**Fault 1 — still 0, and narrowed.** `normalNode` now goes through
+`normalMap(...)` fed a tangent-space perturbation, which is what 21712/16566
+say it wants, and `reliefNormal` was split so it returns that space again
+(`reliefNormalWorld` keeps the framed world version for other consumers). Still
+black.
+
+Remaining suspect, and it is a good one: **`normalMap()` needs a tangent
+frame**, and the probe panels are `BoxGeometry` with no tangents computed. In
+the WebGL2 build this never came up because the GLSL built its own frame from
+the triplanar branch and never asked the geometry for one.
+
+Next actions, in order:
+1. `g.computeTangents()` on the probe panels (needs index + uv + normal — the
+   panels are `toNonIndexed()`, so index them first) and re-run.
+2. If that lights them, the district's own geometry needs the same, which is a
+   real decision rather than a detail: the merged accumulators do not carry
+   tangents today. Either compute them at merge time, or keep the world-space
+   path (`reliefNormalWorld`) and find the node property that accepts a world
+   normal — grep first.
