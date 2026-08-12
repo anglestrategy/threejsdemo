@@ -136,3 +136,51 @@ their self-shadowing entirely and go flat, and the soffit loses the facet
 separation that is the point of folding it. The shadow frustum is already
 fitted per frame with texel- and grazing-angle-scaled bias, which is where the
 quality was actually coming from.
+
+## 12. WebGPU: two things this container cannot sign off
+
+**Spec:** the WebGPU/TSL build is to be verified the same way everything else
+in this project has been — headless, screenshotted, gated.
+
+**Built:** verified headless on the **WebGL2 backend** of `WebGPURenderer`,
+where TSL compiles to GLSL and the whole node graph runs. Two things do not
+run there and are therefore unverified by anything but a human at a real GPU:
+
+1. **`CSMShadowNode`** — WebGPU-only by construction. It builds one `shadow()`
+   node per cascade and blends them in TSL, which has no WebGL equivalent.
+   `src/gpu/lighting.js` takes a single shadow camera fitted to the near 35 m
+   on the fallback path. That is *supposed* to be worse: the fallback exists so
+   the gates still produce a frame, not so the two look the same. Fitting the
+   fallback to the full `maxFar` instead would have given 160 mm texels and no
+   small-scale shadow at all, which would have made the gate quietly stop
+   testing the thing it is there to test.
+
+2. **`SSGINode`** — WebGPU-only in practice. Its render target is
+   `UnsignedInt101111Type` (RG11B10F), and three only checks for the
+   `rg11b10ufloat-renderable` feature when the backend *is* WebGPU. On the
+   WebGL2 fallback the target is created regardless, this driver cannot render
+   to that format, and the node returns a flat `vec3(1,0,0)`: the entire frame
+   comes out red with the geometry faintly legible through it, which reads like
+   a colour-space bug and is not one. It is gated on the backend rather than
+   worked around — a workaround means a lower-precision target, and precision
+   is the point of a GI buffer. `?ssgi=1` forces it on.
+
+**Why the container cannot do better.** Two separate blockers, and the first is
+now fixed:
+
+- r185's reusable `GPUTextureViewDescriptor` sets `swizzle = 'rgba'` and hands
+  the object straight to `createView()`. Chromium 141's Dawn validates every
+  own property and rejects a string where it wants a `GPUTextureComponentSwizzle`,
+  which killed every WebGPU frame. `gen_vendor_gpu.py` now strips that property
+  at vendor time — it is written in two places, read nowhere, `'rgba'` is the
+  identity, and three never requests the feature that would give it meaning, so
+  removing it changes nothing on hardware that works.
+- With that cleared the backend initialises and reports `renderer: WebGPU`, and
+  then the device is lost — *"A valid external Instance reference no longer
+  exists"* — under every flag combination tried (`--in-process-gpu`,
+  `--no-sandbox`, `--single-process`, `--disable-gpu-sandbox`). That is
+  swiftshader's WebGPU adapter in this Chromium, not three and not this build.
+
+`shot.mjs --webgpu` selects the flags that at least produce an adapter, so the
+moment the container's Chromium can hold a device, every existing gate works
+unchanged.

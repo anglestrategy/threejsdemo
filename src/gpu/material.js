@@ -21,6 +21,7 @@
    the figures animate without a skeleton, and it survives the port intact.
    ========================================================================== */
 
+import { Color } from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
   Fn, float, vec3, vec4, attribute, positionWorld, normalWorld, cameraPosition,
@@ -112,19 +113,43 @@ export function makeCityMaterial(opts = {}) {
     })();
   }
 
-  /* ---- indirect: the probe field --------------------------------------- */
+  /* ---- indirect: the probe field, and the shop ceilings ------------------
+
+     Both of these are IRRADIANCE — light arriving at the surface — and the
+     WebGL2 build added them into indirect diffuse, where the lighting model
+     multiplies by the albedo and by the Lambert 1/pi before anything sees
+     them. `emissiveNode` has neither factor: it is added straight to the
+     outgoing radiance. Porting the same numbers across unchanged made every
+     shopfront a white slab an order of magnitude past the sun, and it looked
+     like a bloom problem for a while because bloom is what spread it.
+
+     So the numbers stay (they are measured, and the two builds have to agree)
+     and the conversion is done here: irradiance x albedo / pi is the outgoing
+     radiance of a Lambertian surface under it, which is exactly what the
+     WebGL2 path computed and what `emissiveNode` has to be handed. */
+  const INV_PI = 1 / Math.PI;
+  const albedoOf = () => Fn(() => {
+    const h = srfH(uvOf(), clsOf()).toVar();
+    const base = (opts.flatColor ? vec3(0.78) : vertexColor()).toVar();
+    return base.mul(mix(float(0.62), float(1.0), h.y))
+      .mul(mix(float(0.90), float(1.10), h.z));
+  })();
+
+  let irradiance = null;
   if (opts.probes) {
     const p = opts.probes;
-    const probe = probeIrradiance(p.skyTex, p.gndTex, p.P);
+    irradiance = probeIrradiance(p.skyTex, p.gndTex, p.P)
+      .mul(ATMOS.environmentIntensity);
     mat.aoNode = null;
-    mat.emissiveNode = probe.mul(ATMOS.environmentIntensity);
   }
   /* a shop interior is lit by its own ceiling, not by the sky: one added
      term, and the reason the fitted rooms read through the glass at dusk */
   if (opts.roomAdd) {
-    const add = uniform(vec3(...opts.roomAdd));
-    const prev = mat.emissiveNode;
-    mat.emissiveNode = prev ? prev.add(add) : add;
+    const add = uniform(new Color(...opts.roomAdd));
+    irradiance = irradiance ? irradiance.add(add) : add;
+  }
+  if (irradiance) {
+    mat.emissiveNode = irradiance.mul(albedoOf()).mul(INV_PI);
   }
 
   /* ---- fog -------------------------------------------------------------

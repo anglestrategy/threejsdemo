@@ -16,10 +16,22 @@ const WAIT = +opt('wait', 4000);
 const FILE = opt('file', '');
 const BASE = opt('base', 'http://localhost:8123/');
 
+/* `--webgpu` swaps the GL flags for the set that actually exposes an adapter
+   here. The default `--use-gl=angle --use-angle=swiftshader` gives WebGL2 and
+   NO `navigator.gpu` adapter at all, which is why the WebGPU backend looked
+   unavailable in this container and the whole port was being verified on the
+   WebGL2 fallback — with TRAA, SSGI, GTAO and CSM, the entire reason for the
+   move, unverifiable. `--use-webgpu-adapter=swiftshader` with Vulkan enabled
+   returns an adapter. Slow, but it renders and it is the real backend. */
+const WEBGPU = args.includes('--webgpu');
 const browser = await chromium.launch({
   executablePath: process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
-    '--disable-lcd-text', '--force-color-profile=srgb', '--font-render-hinting=none'],
+  args: (WEBGPU
+    ? ['--enable-unsafe-webgpu', '--enable-unsafe-swiftshader',
+      '--use-webgpu-adapter=swiftshader', '--enable-features=Vulkan']
+    : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
+    .concat(['--disable-lcd-text', '--force-color-profile=srgb',
+      '--font-render-hinting=none']),
 });
 const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
 const errors = [];

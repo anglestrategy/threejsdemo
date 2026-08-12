@@ -11,8 +11,8 @@
 <script type="importmap">{"imports": {"three": "./gpuvendor/three.js", "three/tsl": "./gpuvendor/three__tsl.js", "three/webgpu": "./gpuvendor/three.js", "addons/TRAANode.js": "./gpuvendor/addons__TRAANode.js", "addons/SSGINode.js": "./gpuvendor/addons__SSGINode.js", "addons/GTAONode.js": "./gpuvendor/addons__GTAONode.js", "addons/BloomNode.js": "./gpuvendor/addons__BloomNode.js", "addons/GLTFLoader.js": "./gpuvendor/addons__GLTFLoader.js", "addons/OrbitControls.js": "./gpuvendor/addons__OrbitControls.js", "addons/CSS2DRenderer.js": "./gpuvendor/addons__CSS2DRenderer.js", "addons/meshopt_decoder.js": "./gpuvendor/addons__meshopt_decoder.js", "three/addons/tsl/display/TRAANode.js": "./gpuvendor/addons__TRAANode.js", "three/addons/tsl/display/SSGINode.js": "./gpuvendor/addons__SSGINode.js", "three/addons/tsl/display/GTAONode.js": "./gpuvendor/addons__GTAONode.js", "three/addons/tsl/display/BloomNode.js": "./gpuvendor/addons__BloomNode.js"}}</script></head><body><div id="l">booting…</div>
 <script type="module">
 import * as THREE from 'three';
-import { GLTFLoader } from 'addons/GLTFLoader.js';
-import { MeshoptDecoder } from 'addons/meshopt_decoder.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { makeCityMaterial, cityFogNode } from './gpu/material.js';
 const log = [];
 const say = (s) => { log.push(s); document.getElementById('l').innerHTML = log.join('<br>'); };

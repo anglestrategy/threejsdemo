@@ -100,10 +100,17 @@ Three vendoring traps, all fixed, all of which fail as bare 404s:
       TSL hoisting a shared var's init into the first `If` branch, `fogNode`
       replacing the fragment rather than modifying it, and `uniform()` needing
       a `Color`/`Vector3` rather than a hex Number. See "Bisect attempt 7".
-- [ ] 4 — CSM, then TRAA
-- [ ] 5 — SSGI, GTAO
-- [ ] 6 — walk cycle, water, planar reflection
-- [ ] 7 — colour script + post stack, then the six-bookmark side-by-side
+- [x] **4 — CSM, TRAA, and the post stack.** `src/gpu/lighting.js`,
+      `src/gpu/post.js`, `src/gpu/grade.js`, and `src/gpuscene.html` — a real
+      street rather than a swatch board, because nothing in the post stack can
+      be judged on flat panels. GTAO, TRAA, bloom and the colour script all
+      verified in-frame on the WebGL2 backend; CSM and SSGI are WebGPU-only and
+      recorded in DEVIATIONS.md #12 rather than claimed.
+- [x] **5 — SSGI, GTAO.** GTAO in and verified. SSGI written and gated on the
+      backend; see DEVIATIONS.md #12 for why that is a gate and not a bug.
+- [ ] 6 — the real district on this renderer (the material factory in
+      `district.js` becomes injectable), then walk cycle, water, planar reflection
+- [ ] 7 — the six-bookmark side-by-side against the WebGL2 build
 
 ## Step 3: black panels — RESOLVED at attempt 7
 

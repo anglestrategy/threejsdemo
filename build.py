@@ -133,45 +133,46 @@ open(p('dist/index.html'), 'w', encoding='utf-8').write(shell)
 # probe page and the vendored WebGPU modules lived in dist/, and dist/ is
 # ignored: one container restart from gone.
 gmods = json.load(open(p('src/vendor_gpu.json'), encoding='utf-8'))
-os.makedirs(p('dist/gpuvendor'), exist_ok=True)
+if os.path.isdir(p('dist/gpuvendor')):
+    shutil.rmtree(p('dist/gpuvendor'))
 os.makedirs(p('dist/gpu'), exist_ok=True)
-os.makedirs(p('dist/utils'), exist_ok=True)
-for d_ in ('gpuvendor', 'gpu'):
-    for f in os.listdir(p('dist', d_)):
-        if os.path.isfile(p('dist', d_, f)):
-            os.remove(p('dist', d_, f))
+for f in os.listdir(p('dist/gpu')):
+    if os.path.isfile(p('dist/gpu', f)):
+        os.remove(p('dist/gpu', f))
 
-gimports = {}
+# vendor_gpu.json keys are already dist-relative paths that mirror the package's
+# own layout, so every RELATIVE import inside a vendored module resolves to the
+# same place it did in the tarball. That is not tidiness: an import map cannot
+# remap a relative specifier, and the flat `addons__Name.js` scheme this
+# replaces produced 404s that all looked like missing modules and none were.
 for key, b64 in gmods.items():
-    data = base64.b64decode(b64)
-    if key.startswith('utils/'):
-        # GLTFLoader imports these by RELATIVE path (`../utils/…`), and an
-        # import map cannot remap a relative specifier. They have to sit where
-        # the resolution actually lands, not where a map points.
-        open(p('dist', key), 'wb').write(data)
-        continue
-    fn = key.replace('/', '__') + ('' if key.endswith('.js') else '.js')
-    open(p('dist/gpuvendor', fn), 'wb').write(data)
-    if key != 'three.core.js':          # imported by ./three.core.js, beside it
-        gimports[key] = './gpuvendor/' + fn
+    dst = p('dist', key)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    open(dst, 'wb').write(base64.b64decode(b64))
 
-# ONE url per module instance. `three` and `three/webgpu` used to be two
+# ONE url per module instance. `three` and `three/webgpu` were once two
 # byte-identical copies under two paths; a browser instantiates a module once
-# per URL, so `currentStack` — which Fn() sets and every assign reads — existed
-# twice, and MeshStandardNodeMaterial's entire lighting model built to nothing.
-gimports['three/webgpu'] = './gpuvendor/three.js'
-for k in ('TRAANode', 'SSGINode', 'GTAONode', 'BloomNode'):
-    gimports['three/addons/tsl/display/%s.js' % k] = './gpuvendor/addons__%s.js' % k
+# per URL, so TSL's `currentStack` — which Fn() sets and every assign reads —
+# existed twice, and MeshStandardNodeMaterial's whole lighting model wrote into
+# a stack the builder never read. Everything rendered black.
+gimports = {
+    'three': './gpuvendor/three.js',
+    'three/webgpu': './gpuvendor/three.js',
+    'three/tsl': './gpuvendor/three.tsl.js',
+    'three/addons/': './gpuvendor/jsm/',      # prefix map: one entry, no traps
+}
 
 for f in os.listdir(p('src/gpu')):
     if f.endswith('.js'):
         shutil.copyfile(p('src/gpu', f), p('dist/gpu', f))
 
-probe = open(p('src/gpuprobe.html'), encoding='utf-8').read()
-probe = re.sub(r'<script type="importmap">.*?</script>',
-               '<script type="importmap">' + json.dumps({'imports': gimports})
-               + '</script>', probe, count=1, flags=re.S)
-open(p('dist/gpuprobe.html'), 'w', encoding='utf-8').write(probe)
+for page in ('gpuprobe.html', 'gpuscene.html'):
+    src_html = open(p('src', page), encoding='utf-8').read()
+    src_html = re.sub(r'<script type="importmap">.*?</script>',
+                      '<script type="importmap">'
+                      + json.dumps({'imports': gimports}) + '</script>',
+                      src_html, count=1, flags=re.S)
+    open(p('dist', page), 'w', encoding='utf-8').write(src_html)
 
 total = sum(os.path.getsize(os.path.join(r, f))
             for r, _, fs in os.walk(dist) for f in fs)
