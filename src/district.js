@@ -651,7 +651,31 @@ function makeCityMaterial() {
       float wh(vec3 p){ return fract(sin(dot(p,vec3(12.99,78.23,37.71)))*43758.5453); }\n` +
       sh.vertexShader
         .replace('#include <begin_vertex>', `#include <begin_vertex>
-          vSurf = aSurf; vONrm = normalize(normal);
+          vSurf = floor(aSurf + 0.001); vONrm = normalize(normal);
+          /* THE WORLD MOVES, part two: a limb tag rides in the fractional part
+             of the surface class — .1 and .2 are the legs, .3 and .4 the arms.
+             Each swings about its own pivot in the instance's local frame, so
+             a hundred people walk without a skeleton, a bone matrix or a second
+             attribute. The phase comes from the instance's own position, which
+             the walker moves every frame, so no two are ever in step. */
+          float limbTag = fract(aSurf + 0.001);
+          if (limbTag > 0.05) {
+            vec3 anch = vec3(0.0);
+            #ifdef USE_INSTANCING
+              anch = instanceMatrix[3].xyz;
+            #endif
+            float wph = wh(floor(anch * 0.35) + vec3(7.3)) * 6.2831853;
+            float sw = sin(uTime * 4.15 + wph);
+            float swang, piv;
+            if (limbTag < 0.15)      { swang =  sw * 0.52; piv = 0.92; }
+            else if (limbTag < 0.25) { swang = -sw * 0.52; piv = 0.92; }
+            else if (limbTag < 0.35) { swang = -sw * 0.40; piv = 1.40; }
+            else                     { swang =  sw * 0.40; piv = 1.40; }
+            float cw = cos(swang), sw2 = sin(swang);
+            vec3 q = transformed; q.y -= piv;
+            transformed.z = q.z * cw - q.y * sw2;
+            transformed.y = q.z * sw2 + q.y * cw + piv;
+          }
           /* THE WORLD MOVES: anything tagged foliage or fabric leans with the
              wind, amplitude rising with its height above its own origin, so a
              palm crown swings and its trunk does not. */

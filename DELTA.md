@@ -230,3 +230,15 @@ cost compatibility for a file that must open from `file://` anywhere.
 | 7 | A shelf of primaries reads as a toy shop whatever the trade is meant to be. | The stock palette is muted into the district's own. |
 | 8 | 1,152 fitted rooms is 2.55 M triangles, and an instanced mesh has one bounding sphere for every instance in it — so a shop nobody can walk to is submitted every frame forever. | The planting's rule, applied to interiors: full fit-out within 30 m of the walkable core, a lit shell with a window display and a counter outside it. 8.52 M back down to 7.28 M. |
 | 9 | Walking the souq, the mirror pass was still firing for a channel forty metres away behind two hundred metres of building. | The reflection range now scales with camera height: 70 m + 2.6 × altitude, capped at 300. |
+
+---
+
+## Round 13 — the people
+
+| # | delta | what changed |
+|---|---|---|
+| 1 | **The figures were the last thing giving the district away.** A stack of tapered drums with a hem 800 mm across and no legs: at street level a hundred of them read as traffic cones, and nothing about them moved except the whole body sliding along its path. | Rebuilt to a real skeleton — feet at 0, knee at 0.48, hip at 0.92, shoulder at 1.42, crown at 1.74 — with legs, feet, upper and lower arms, hands, a neck, and a head that sits on it. |
+| 2 | A hundred people need a walk cycle, and a walk cycle normally needs a skeleton, a bone palette and per-vertex weights — none of which an instanced mesh has. | The limb tag rides in the **fractional part of the surface class**: `.1` and `.2` are the legs, `.3` and `.4` the arms. The surface law reads `floor(aSurf)` and the walk cycle reads `fract(aSurf)`, so it costs no attribute, no memory and no second draw. Each limb swings about its own pivot in the instance's local frame, phased from the instance's own position — which the walker rewrites every frame, so no two people are ever in step. |
+| 3 | A robe has no legs to swing. | Its skirt is split into two overlapping panels tagged as legs, so the hem opens and closes as the legs pass each other — which is what a thobe actually does when someone walks in it. |
+| 4 | Everyone was in a thobe or an abaya. Downtown Al Khobar is not a uniform. | Five walking types now: thobe with ghutra and igal, abaya with hijab, two western-dress variants with trousers and visible shoes, and children. Roughly a third, a third, a quarter, the rest. |
+| 5 | True black lost the whole figure at dusk. | The abaya is a very dark warm grey with a blue rim off the sky, not black. |

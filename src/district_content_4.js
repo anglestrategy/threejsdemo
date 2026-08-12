@@ -679,64 +679,132 @@ function defineKit() {
     defInst('sconce', combine(L), { shadow: false });
   }
 
-  /* ---- people: stylised, faceless, respectful ------------------------ */
-  const figure = (robe, head, cloth, seated) => {
+  /* ---- people: stylised, faceless, respectful ------------------------ *
+     The old figure was a stack of tapered drums, and at street level a hundred
+     of them read as traffic cones: no legs, a hem 800 mm across, and nothing
+     that moved except the whole body sliding along a path.
+
+     These are built to a real skeleton — feet at 0, knee at 0.48, hip at 0.92,
+     shoulder at 1.42, crown at 1.74 — and every limb is tagged so the vertex
+     shader can swing it. The tag rides in the *fractional* part of the surface
+     class, which costs no attribute and no memory: the surface law reads
+     `floor(aSurf)` and the walk cycle reads `fract(aSurf)`.
+
+        .10 left leg   .20 right leg   .30 left arm   .40 right arm
+
+     A robed figure gets its skirt split into two overlapping panels tagged as
+     legs, so the hem opens and closes as it walks, which is what a thobe
+     actually does. Bare-legged figures get trousers.                        */
+  const LIMB = { LL: 0.10, RL: 0.20, LA: 0.30, RA: 0.40 };
+  const SPH7 = new THREE.SphereGeometry(0.5, 7, 5);
+  const DRUM8 = (function () { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 8, 1); g.translate(0, 0.5, 0); return g; })();
+
+  /* an eight-sided tapered drum, flattened front-to-back — a body is an
+     ellipse in plan, never a circle and never a slab */
+  function limb(L, x, y, z, h, rTop, rBot, col, shade, tag, lean, flat) {
+    const g = DRUM8.clone();
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const t = p.getY(i);
+      const r = mix(rBot, rTop, t);
+      p.setX(i, p.getX(i) * r * 2);
+      p.setZ(i, p.getZ(i) * r * 2 * (flat === undefined ? 0.80 : flat));
+    }
+    g.computeVertexNormals();
+    L.push({ geo: g, mtx: xf3(x, y, z, lean || 0, 0, 0, 1, h, 1),
+      col, surf: S.FABRIC + (tag || 0), shade });
+  }
+
+  const figure = (opt) => {
     const L = [];
-    const SPH = new THREE.SphereGeometry(0.5, 7, 5);
-    if (seated) {
-      L.push({ geo: taper(1.35, 1), mtx: xf3(0, 0, 0, 0, 0, 0, 0.44, 0.58, 0.40), col: robe, surf: S.FABRIC, shade: 0.86 });
-      L.push({ geo: taper(0.7, 1), mtx: xf3(0, 0.05, 0.26, 0, 0, 1.45, 0.30, 0.52, 0.30), col: robe, surf: S.FABRIC, shade: 0.80 });
-      L.push({ geo: SPH, mtx: xf3(0, 0.60, 0, 0, 0, 0, 0.34, 0.30, 0.32), col: robe, surf: S.FABRIC, shade: 0.92 });
-      L.push({ geo: SPH, mtx: xf3(0, 0.78, 0, 0, 0, 0, 0.19, 0.23, 0.19), col: head, surf: S.FABRIC, shade: 0.96 });
+    const robe = opt.robe, skin = opt.skin, cloth = opt.cloth;
+    const walk = opt.walk ? 1 : 0;
+    const tag = (t) => walk * t;
+
+    if (opt.seated) {
+      limb(L, 0, 0, 0, 0.44, 0.20, 0.24, robe, 0.84);
+      limb(L, 0, 0.03, 0.20, 0.40, 0.15, 0.17, robe, 0.78, 0, 1.42);
+      limb(L, 0, 0.44, 0, 0.30, 0.20, 0.22, robe, 0.92);
+      for (const s of [-1, 1]) limb(L, s * 0.19, 0.66, 0.02, 0.34, 0.055, 0.07, robe, 0.76, 0, 0.5);
+      limb(L, 0, 0.74, 0, 0.07, 0.055, 0.06, skin, 0.88);
+      L.push({ geo: SPH7, mtx: xf3(0, 0.86, 0, 0, 0, 0, 0.185, 0.225, 0.19), col: skin, surf: S.FABRIC, shade: 0.96 });
       if (cloth) {
-        L.push({ geo: SPH, mtx: xf3(0, 0.80, 0, 0, 0, 0, 0.22, 0.16, 0.22), col: cloth, surf: S.FABRIC, shade: 1.0 });
-        L.push({ geo: taper(1.6, 1), mtx: xf3(0, 0.62, 0, 0, 0, 0, 0.20, 0.20, 0.20), col: cloth, surf: S.FABRIC, shade: 0.86 });
+        L.push({ geo: SPH7, mtx: xf3(0, 0.885, 0, 0, 0, 0, 0.215, 0.185, 0.22), col: cloth, surf: S.FABRIC, shade: 1.02 });
+        for (const s of [-1, 1]) limb(L, s * 0.10, 0.60, 0.02, 0.30, 0.055, 0.085, cloth, 0.86, 0, 0, 1.4);
+      } else if (opt.hijab) {
+        L.push({ geo: SPH7, mtx: xf3(0, 0.86, -0.015, 0, 0, 0, 0.235, 0.26, 0.235), col: opt.hijab, surf: S.FABRIC, shade: 0.94 });
+        limb(L, 0, 0.60, -0.02, 0.30, 0.11, 0.15, opt.hijab, 0.84);
       }
+      return combine(L);
+    }
+
+    // ---- legs. A robe hides them; trousers do not.
+    if (opt.trousers) {
+      for (const [s, t] of [[-1, LIMB.LL], [1, LIMB.RL]]) {
+        limb(L, s * 0.085, 0.46, 0, 0.48, 0.075, 0.095, opt.trousers, 0.72, tag(t));
+        limb(L, s * 0.085, 0.06, 0, 0.42, 0.062, 0.078, opt.trousers, 0.66, tag(t));
+        limb(L, s * 0.09, 0.0, 0.03, 0.06, 0.075, 0.070, opt.shoe || 0x2a2520, 0.60, tag(t), 0, 1.9);
+      }
+      limb(L, 0, 0.90, 0, 0.30, 0.155, 0.175, opt.trousers, 0.78);
+      limb(L, 0, 1.16, 0, 0.30, 0.195, 0.175, robe, 0.90);
     } else {
-      /* The robe is a stack of eight-sided tapered drums, not a box: a flat
-         slab is the loudest tell at eye level, and eight sides is enough to
-         read as a body from two metres. Shoulders narrow, hem wide, a slight
-         forward lean. */
-      const DRUM = (function () { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 8, 1); g.translate(0, 0.5, 0); return g; })();
-      const drum = (y, h, rTop, rBot, col, sh, lean) => {
-        const g = DRUM.clone();
-        const p = g.attributes.position;
-        for (let i = 0; i < p.count; i++) {
-          const yy = p.getY(i);
-          const r = mix(rBot, rTop, yy);
-          p.setX(i, p.getX(i) * r * 2); p.setZ(i, p.getZ(i) * r * 2 * 0.78);
-        }
-        g.computeVertexNormals();
-        L.push({ geo: g, mtx: xf3(0, y, 0, lean || 0, 0, 0, 1, h, 1), col, surf: S.FABRIC, shade: sh });
-      };
-      drum(0, 0.62, 0.30, 0.40, robe, 0.80);          // the hem
-      drum(0.62, 0.46, 0.25, 0.30, robe, 0.88);       // the waist
-      drum(1.08, 0.26, 0.27, 0.25, robe, 0.96);       // the shoulders
-      L.push({ geo: SPH, mtx: xf3(0, 1.26, 0, 0, 0, 0, 0.30, 0.18, 0.26), col: robe, surf: S.FABRIC, shade: 0.98 });
-      L.push({ geo: taper(0.86, 1), mtx: xf3(0, 1.30, 0, 0, 0, 0, 0.15, 0.13, 0.15), col: head, surf: S.FABRIC, shade: 0.86 });
-      L.push({ geo: SPH, mtx: xf3(0, 1.43, 0, 0, 0, 0, 0.185, 0.225, 0.185), col: head, surf: S.FABRIC, shade: 0.96 });
-      if (cloth) {
-        // the shemagh: a cap and two falls either side of the face
-        L.push({ geo: SPH, mtx: xf3(0, 1.47, 0, 0, 0, 0, 0.215, 0.20, 0.215), col: cloth, surf: S.FABRIC, shade: 1.0 });
-        for (const s of [-1, 1]) {
-          L.push({ geo: taper(1.4, 1), mtx: xf3(s * 0.115, 1.10, 0.02, 0, 0, s * 0.09, 0.095, 0.36, 0.15), col: cloth, surf: S.FABRIC, shade: 0.86 });
-        }
-        L.push({ geo: SPH, mtx: xf3(0, 1.16, -0.09, 0, 0, 0, 0.28, 0.30, 0.16), col: cloth, surf: S.FABRIC, shade: 0.80 });
+      // the robe: one body above the knee, two overlapping panels below it, so
+      // the hem opens as the legs pass each other
+      for (const [s, t] of [[-1, LIMB.LL], [1, LIMB.RL]]) {
+        limb(L, s * 0.055, 0.10, 0, 0.56, 0.135, 0.175, robe, 0.78, tag(t));
+        limb(L, s * 0.075, 0.0, 0.025, 0.065, 0.075, 0.070, opt.shoe || 0x3a3128, 0.58, tag(t), 0, 1.9);
       }
-      for (const s of [-1, 1]) {
-        L.push({ geo: taper(0.72, 1), mtx: xf3(s * 0.205, 1.10, 0.01, 0.12, 0, s * 0.13, 0.105, 0.58, 0.105), col: robe, surf: S.FABRIC, shade: 0.76 });
-      }
+      limb(L, 0, 0.62, 0, 0.44, 0.155, 0.215, robe, 0.86);
+      limb(L, 0, 1.06, 0, 0.40, 0.185, 0.165, robe, 0.94);
+    }
+
+    // ---- shoulders, neck, head
+    L.push({ geo: SPH7, mtx: xf3(0, 1.40, 0, 0, 0, 0, 0.40, 0.17, 0.25), col: robe, surf: S.FABRIC, shade: 0.98 });
+    limb(L, 0, 1.42, 0, 0.09, 0.055, 0.062, skin, 0.84);
+    L.push({ geo: SPH7, mtx: xf3(0, 1.60, 0.005, 0, 0, 0, 0.185, 0.235, 0.195), col: skin, surf: S.FABRIC, shade: 0.96 });
+
+    // ---- arms, swinging opposite the legs
+    for (const [s, t] of [[-1, LIMB.LA], [1, LIMB.RA]]) {
+      limb(L, s * 0.195, 1.10, 0.005, 0.32, 0.055, 0.072, robe, 0.76, tag(t), s * 0.05, 0.9);
+      limb(L, s * 0.205, 0.78, 0.015, 0.32, 0.048, 0.056, robe, 0.72, tag(t), s * 0.04, 0.9);
+      L.push({ geo: SPH7, mtx: xf3(s * 0.21, 0.76, 0.02, 0, 0, 0, 0.085, 0.10, 0.075),
+        col: skin, surf: S.FABRIC + tag(t), shade: 0.86 });
+    }
+
+    if (cloth) {
+      // the ghutra: a cap, a fall either side of the face, and the black igal
+      L.push({ geo: SPH7, mtx: xf3(0, 1.645, 0, 0, 0, 0, 0.215, 0.19, 0.225), col: cloth, surf: S.FABRIC, shade: 1.04 });
+      for (const s of [-1, 1]) limb(L, s * 0.115, 1.30, 0.005, 0.34, 0.055, 0.10, cloth, 0.86, 0, s * 0.06, 1.5);
+      L.push({ geo: SPH7, mtx: xf3(0, 1.44, -0.06, 0, 0, 0, 0.30, 0.24, 0.20), col: cloth, surf: S.FABRIC, shade: 0.82 });
+      L.push({ geo: G_CYLT, mtx: xf3(0, 1.695, 0, 0, 0, 0, 0.235, 0.035, 0.245), col: 0x1b1814, surf: S.FABRIC, shade: 0.9 });
+    } else if (opt.hijab) {
+      L.push({ geo: SPH7, mtx: xf3(0, 1.60, -0.012, 0, 0, 0, 0.225, 0.255, 0.225), col: opt.hijab, surf: S.FABRIC, shade: 0.94 });
+      limb(L, 0, 1.24, -0.02, 0.34, 0.115, 0.16, opt.hijab, 0.84);
+    } else if (opt.hair) {
+      L.push({ geo: SPH7, mtx: xf3(0, 1.625, -0.01, 0, 0, 0, 0.195, 0.21, 0.205), col: opt.hair, surf: S.FABRIC, shade: 0.72 });
     }
     return combine(L);
   };
-  defInst('thobe', figure(0xf0ece2, 0x8a6a4e, 0xd8534a, false));
-  defInst('abaya', figure(0x241f26, 0x2a2228, 0, false));
-  defInst('child', (function () {
-    const g = figure(0xe4d8c4, 0x8a6a4e, 0, false);
-    g.scale(0.66, 0.66, 0.66); return g;
-  })());
-  defInst('sit_thobe', figure(0xf0ece2, 0x8a6a4e, 0xd8534a, true));
-  defInst('sit_abaya', figure(0x241f26, 0x2a2228, 0, true));
+
+  const THOBE = { robe: 0xf0ece2, skin: 0x8a6a4e, cloth: 0xe8e4da, shoe: 0x4a3c2c };
+    // not black-black: at this hour an abaya reads as a very dark warm grey with
+  // a blue rim off the sky, and true black loses the whole figure
+  const ABAYA = { robe: 0x37313a, skin: 0x8a6a4e, hijab: 0x3d3642, shoe: 0x241f22 };
+  const WEST  = { robe: 0xdad4c6, skin: 0x8a6a4e, trousers: 0x3d4552, hair: 0x2b2119, shoe: 0x2a2520 };
+  const WEST2 = { robe: 0xc0d2d8, skin: 0x9a7a58, trousers: 0x574a5c, hair: 0x3a2a20, shoe: 0x3a2f28 };
+  for (const w of [0, 1]) {
+    const p = w ? 'walk_' : '';
+    defInst(p + 'thobe', figure(Object.assign({ walk: w }, THOBE)));
+    defInst(p + 'abaya', figure(Object.assign({ walk: w }, ABAYA)));
+    defInst(p + 'west', figure(Object.assign({ walk: w }, WEST)));
+    defInst(p + 'west2', figure(Object.assign({ walk: w }, WEST2)));
+    defInst(p + 'child', (function () {
+      const g = figure(Object.assign({ walk: w }, w % 2 ? WEST : THOBE));
+      g.scale(0.64, 0.64, 0.64); return g;
+    })());
+  }
+  defInst('sit_thobe', figure(Object.assign({ seated: 1 }, THOBE)));
+  defInst('sit_abaya', figure(Object.assign({ seated: 1 }, ABAYA)));
 
   /* ---- birds and fountain jets --------------------------------------- */
   {

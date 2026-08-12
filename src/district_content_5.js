@@ -260,17 +260,22 @@ function buildLife() {
   for (let i = 0; i < N; i++) {
     const path = PATHS[i % PATHS.length];
     const kind = rnd();
+    /* a downtown in Al Khobar is mixed dress, not a uniform. Roughly a third
+       thobe, a third abaya, a quarter western, the rest children. */
+    const which = kind < 0.32 ? 'walk_thobe' : kind < 0.63 ? 'walk_abaya'
+      : kind < 0.79 ? 'walk_west' : kind < 0.92 ? 'walk_west2' : 'walk_child';
     WALKERS.push({
       path, t: rnd(), speed: rr(0.55, 1.35) / 100,
-      kind: kind < 0.44 ? 'thobe' : (kind < 0.82 ? 'abaya' : 'child'),
+      kind: which,
       lane: rr(-2.4, 2.4), ph: rnd() * 100,
-      scale: kind < 0.82 ? rr(0.94, 1.08) : rr(0.62, 0.78),
-      col: kind < 0.44 ? pick([0xffffff, 0xf2ece0, 0xe8e2d4])
-        : (kind < 0.82 ? pick([0xffffff, 0xdcd6e0, 0xc8c2d0]) : pick([0xffd8c0, 0xd8e0f0, 0xe8d8c0])),
+      scale: which === 'walk_child' ? rr(0.90, 1.05) : rr(0.94, 1.08),
+      col: which === 'walk_thobe' ? pick([0xffffff, 0xf6f2ea, 0xece6da])
+        : which === 'walk_abaya' ? pick([0xffffff, 0xe2dce6, 0xd0cad8])
+        : pick([0xffffff, 0xe8e2d4, 0xd6dce4, 0xdcd2c2]),
     });
   }
   // the instanced meshes the walkers drive
-  for (const k of ['thobe', 'abaya', 'child']) {
+  for (const k of ['walk_thobe', 'walk_abaya', 'walk_west', 'walk_west2', 'walk_child']) {
     for (const w of WALKERS) if (w.kind === k) inst(k, xf(0, -999, 0), w.col);
     if (INST_DEF[k]) { INST_DEF[k].cull = false; INST_DEF[k].shadow = true; }
   }
@@ -313,7 +318,7 @@ const _wm = new THREE.Matrix4();
 function updateLife(dt, t) {
   const defs = INST_DEF;
   // walkers
-  const idx = { thobe: 0, abaya: 0, child: 0 };
+  const idx = { walk_thobe: 0, walk_abaya: 0, walk_west: 0, walk_west2: 0, walk_child: 0 };
   for (let i = 0; i < WALKERS.length; i++) {
     const w = WALKERS[i];
     w.t += w.speed * dt;
