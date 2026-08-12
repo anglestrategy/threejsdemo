@@ -391,6 +391,7 @@ function* buildSteps() {
   yield 'planting'; buildPlanting();
   yield 'identity'; buildIdentity();
   yield 'probes'; bakeProbes();
+  yield 'dressing'; { const d = nearDressing(); INSTCOUNT.dressing = d.placed; INSTCOUNT.litter = d.scraps; }
   yield 'life'; buildLife();
   yield 'merge'; finalise();
 }
@@ -469,4 +470,130 @@ function finalise() {
   INSTCOUNT.walkers = WALKERS.length;
   INSTCOUNT.bulbs = (INST.bulb ? INST.bulb.m.length : 0);
   cityRoot.updateMatrixWorld(true);
+}
+
+/* ================================================== NEAR-FIELD DRESSING ==
+   The gap between a model and a place is the first eight metres. A block, a
+   kerb and a tree are the same in both; what is only in the real one is the
+   crate someone left against a shopfront, the A-board turned to catch the
+   street, the drift of leaves in the lee of a step, the stain of a spilled
+   drink, the chair pulled out of line.
+
+   None of that can be authored by hand across a 940 m district, and scattering
+   it everywhere costs a fortune for detail no one is close enough to read. So
+   it goes where the composed viewpoints are, and it is placed by asking the
+   collision world the same questions a person would: is this ground I could
+   stand on, and is there a wall within arm's reach? Props that belong against
+   a wall go against a wall, facing out; props that belong in the open stay in
+   the open; and nothing lands inside a building, because the test that keeps
+   the walker out is the test that places them.                             */
+const DRESS_SPOTS = [
+  { x: 0, z: 0, r: 60, d: 0.9 },          // the canopy plaza
+  { x: 21, z: -44, r: 44, d: 0.9 },
+  { x: -40, z: -26, r: 34, d: 0.7 },
+  { x: 150, z: 235, r: 34, d: 1.1 },      // the majlis terrace
+  { x: -224, z: 198, r: 46, d: 1.0 },     // the colonnade court
+  { x: -200, z: 150, r: 34, d: 0.8 },
+  { x: -34, z: 120, r: 30, d: 0.7 },      // the channel walk
+];
+for (let z = 90; z <= 360; z += 26) {     // the souq spine, end to end
+  DRESS_SPOTS.push({ x: 4 + (z > 250 ? 26 : 0), z, r: 22, d: 1.5 });
+}
+
+/* Leaf and paper drift. Wind does not distribute litter evenly — it piles it
+   against whatever stops it, so a scrap goes in the lee of the wall it was
+   found by, in a tight cluster, lying flat with a little curl. Two triangles
+   each and one instanced draw for the lot. */
+function litterDrift(x, z, gy, wallAng, n) {
+  const bx = Math.cos(wallAng), bz = Math.sin(wallAng);
+  let k = 0;
+  for (let i = 0; i < n; i++) {
+    const along = rr(-1.4, 1.4), out = 0.06 + Math.abs(rr(0, 0.5));
+    const px = x + -bz * along - bx * out;
+    const pz = z + bx * along - bz * out;
+    if (insideSolid(px, pz, gy + 0.3)) continue;
+    inst('scrap', xf3(px, gy + 0.010 + rnd() * 0.010, pz,
+      rr(-0.20, 0.20), rnd() * 6.2831853, rr(-0.20, 0.20),
+      0.055 + rnd() * 0.085, 1, 0.045 + rnd() * 0.075),
+      // dry leaf, dust and pale paper: at dusk a dark scrap reads as a hole in
+      // the paving, not as litter
+      pick([0xa8996f, 0xbdae86, 0xc9c1ab, 0x9a7f4e, 0xd6cfbd, 0x8f7a55]));
+    k++;
+  }
+  return k;
+}
+
+/* Where the nearest wall is, and how far. Probing outward in rings rather than
+   testing one radius is what turns a scatter into a street: almost everything
+   a shop puts out is against its own frontage, and a crate in the middle of the
+   road is not dressing, it is litter of the wrong kind. */
+const _dw = { ang: 0, dist: 0, hit: false };
+function wallNear(x, z, y, maxReach) {
+  for (let r = 0.9; r <= maxReach; r += 0.72) {
+    for (let k = 0; k < 16; k++) {
+      const th = k / 16 * 6.2831853;
+      if (insideSolid(x + Math.cos(th) * r, z + Math.sin(th) * r, y + 0.7)) {
+        _dw.ang = th; _dw.dist = r; _dw.hit = true; return true;
+      }
+    }
+  }
+  _dw.hit = false;
+  return false;
+}
+
+/* Paving sits 6 to 24 cm above the terrain it is laid on, so anything dressed
+   onto the terrain height is buried in it. A platform, on the other hand, is
+   its own finished level. */
+function dressY(x, z) {
+  const g = groundAt(x, z), t = terrainY(x, z);
+  return g > t + 0.5 ? g + 0.02 : t + 0.155;
+}
+
+function nearDressing() {
+  let placed = 0, scraps = 0;
+  for (const s of DRESS_SPOTS) {
+    const n = Math.round(s.r * s.r * 0.14 * s.d);
+    for (let i = 0; i < n; i++) {
+      const a = rnd() * 6.2831853, rr2 = Math.sqrt(rnd()) * s.r;
+      let x = s.x + Math.cos(a) * rr2, z = s.z + Math.sin(a) * rr2;
+      let gy = dressY(x, z);
+      if (gy < -6 || insideSolid(x, z, gy + 0.35)) continue;
+      if (WATERBODIES.some((b) => x > b.x0 - 1.2 && x < b.x1 + 1.2 && z > b.z0 - 1.2 && z < b.z1 + 1.2)) continue;
+
+      const found = wallNear(x, z, gy, 3.9);
+      if (found && rnd() < 0.86) {
+        // slide the prop in to arm's reach of the frontage it belongs to
+        const bx = Math.cos(_dw.ang), bz = Math.sin(_dw.ang);
+        const off = _dw.dist - rr(0.45, 0.85);
+        const px = x + bx * off, pz = z + bz * off;
+        if (insideSolid(px, pz, gy + 0.35)) continue;
+        gy = dressY(px, pz);
+        // the kit's wall-mounted convention: local -Z faces out of the wall
+        const ang = _dw.ang + Math.PI / 2;
+        const roll = rnd();
+        if (roll < 0.17) inst('crate', xf3(px, gy, pz, 0, ang + rr(-0.22, 0.22), 0, 0.85 + rnd() * 0.3, 0.9, 0.85 + rnd() * 0.3), pick([0x9a7444, 0x86643a, 0xa88254]));
+        else if (roll < 0.29) inst('matroll', xf3(px, gy, pz, 0, ang + rr(-0.3, 0.3), 0, 1, 0.85 + rnd() * 0.3, 1), 0xffffff);
+        else if (roll < 0.42) inst('aboard', xf3(px, gy, pz, 0, ang + rr(-0.8, 0.8), 0, 1, 1, 1), pick([0x6b4526, 0x54361d]));
+        else if (roll < 0.53) inst('goods', xf3(px, gy, pz, 0, ang, 0, 0.9 + rnd() * 0.25, 1, 1), pick([0xd8c0a0, 0xc8b090, 0xe0cdb0, 0x9d5f4e, 0x6e7f8e, 0xb8a25e, 0x7c5a72, 0xd9d3c4]));
+        else if (roll < 0.64) inst('basket', xf(px, gy, pz, rnd() * 6.28, 0.7 + rnd() * 0.4, 0.8 + rnd() * 0.5, 0.7 + rnd() * 0.4), pick([0xc9b088, 0xb59a72]));
+        else if (roll < 0.73) {
+          inst('pot', xf(px, gy, pz, rnd() * 6.28, 0.8, 0.8, 0.8), pick([0xcbb79a, 0xb9a184]));
+          inst('potbush', xf3(px, gy + 0.53, pz, 0, rnd() * 6.28, 0, 0.7, 0.7, 0.7), pick([K.leaf, K.leafLt]));
+        } else if (roll < 0.81) inst('bin', xf(px, gy, pz, rnd() * 6.28, 0.85, 0.9, 0.85), 0xffffff);
+        else if (roll < 0.90) inst('planter', xf3(px, gy, pz, 0, ang, 0, 0.9, 0.85, 0.9), pick([K.travert, K.plaster]));
+        else inst('bench', xf(px, gy, pz, ang), pick([0xd6c6a8, 0xcbbb9c]));
+        scraps += litterDrift(px, pz, gy, _dw.ang, 3 + Math.floor(rnd() * 6));
+        placed++;
+      } else if (rnd() < 0.5) {
+        const roll = rnd();
+        // the middle of a street is not where a shop puts its stock: out here
+        // it is only what blows about and what a cafe pulls out of line
+        if (roll < 0.16) inst('chair', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xefeade, 0xd8d2c4, 0xb9b2a2]));
+        else if (roll < 0.22) inst('table', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xe8e3d6, 0xd6c6a8]));
+        else scraps += litterDrift(x, z, gy, rnd() * 6.28, 2 + Math.floor(rnd() * 4));
+        placed++;
+      }
+    }
+  }
+  return { placed, scraps };
 }

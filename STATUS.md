@@ -60,7 +60,7 @@ Yaw 0 = looking toward +Z in both scenes, so a pose is portable.
 | p2 | dive in/out ×3 | no state corruption; return pose identical to departure pose; panel keeps both photos; hover/click/legend intact |
 | p2 | collision sweep | 337,448 resolved steps over the whole plan, 3 residual corner leaks (0.0009%), now impossible — a step that still lands inside is refused |
 | p2 | walk probe | 244 samples, 0 inside a building, 0 floating off the ground |
-| p7 | file size | 5.23 MB |
+| p11 | file size | 5.26 MB |
 | p6 | app source | 6,158 lines / 469 KB |
 | p6 | boot to `__ready` (map only, headless swiftshader) | ~3.3 s |
 | p6 | district build (blocking, headless) | ~2.2 s, hidden inside the 3.35 s dive veil |
@@ -75,7 +75,11 @@ Yaw 0 = looking toward +Z in both scenes, so a pose is portable.
 | p8 | reflection target | half canvas, capped 1120x700, HalfFloat; mirror camera far 340 m |
 | p9 | shadow map | 4096, one cascade, half-box 34 m walking to 420 m from altitude |
 | p9 | sun | 20 deg WSW (was 12); key 2.35, sky fill 0.54, ground bounce 0.74, shadow intensity 0.92 |
-| p9 | map boot after all three | 3.06 s (was 2.9 s) |
+| p9 | map boot after all three | 3.13 s (was 2.9 s) |
+| p10 | focus pull | ray-marched against the district's own ground and colliders, clamped 3.5-48 m |
+| p11 | near-field dressing | 1,122 props on 18 anchors, 4,029 litter scraps |
+| p11 | instanced triangles, aerial | 5.97 M in 74 instanced meshes |
+| p11 | collision sweep after dressing | 337,960 steps, 6 stuck (0.0018%), 468 colliders, 15 platforms |
 | p6 | canopy panels | 1,084 folded triangles + fascia + frame + 3-armed columns |
 
 Frame rate is not measurable in this container — see DEVIATIONS 1. The numbers
@@ -154,16 +158,22 @@ Local metres, origin at the canopy plaza, +Z north, +X east, sun 11° WSW.
 - **P6 closed.** Life (108 walkers, seated groups, birds, jets, wind), the golden-into-
   blue grade, IBL from the sky, and the full battery. Contact sheet:
   `shots/contact_sheet.png`. Four-frame test: `shots/four_frame_test.png`.
-- **P8.** Real plants: four reduced CC0 photogrammetry scans replace the procedural
-  planting, with build-time LOD. Planar reflection on every water surface. And the
-  sun's shadow map, which had never been switched on. See DELTA rounds 7-9.
+- **P8 closed.** Real plants: four reduced CC0 photogrammetry scans replace the
+  procedural planting, with build-time LOD. Planar reflection on every water
+  surface. The sun's shadow map, which had never been switched on, and the
+  re-light around it. Depth of field with a ray-marched focus pull. Near-field
+  dressing on eighteen anchors. See DELTA rounds 7-11. Contact sheet:
+  `shots/contact_sheet.png`.
 
 ## Known open items (ranked, for the next session)
 
 1. Geometric LOD for the *built* fabric — the vegetation now has it (build-time, distance to the
    walkable core); the buildings do not.
-2. Near-field dressing in the first 8 m of every bookmark (litter, drain lines,
-   A-boards, spilled seating); this is the largest remaining visual delta.
-3. Figures: swinging arms, and groups standing in twos and threes rather than singles.
+2. Figures: still tapered drums. No CC0 human mesh of adequate quality exists
+   (DEVIATIONS 7); the honest fix is a proper procedural humanoid with a walk
+   pose, instanced. This is now the largest remaining visual delta.
+3. Open plazas get less from the dressing pass than streets do, because the
+   pass keys off walls. The courtyard and the canopy plaza want their own rule:
+   clusters around the pool edge and the column line.
 4. Cars on the boulevards.
 5. Shopfront interiors want figures and richer merchandise.

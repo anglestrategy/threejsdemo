@@ -613,6 +613,14 @@ function defineKit() {
      target heights are the heights the procedural versions were authored at,
      so every existing placement, scale and pivot still reads correctly — the
      avenue spacing, the courtyard beds and the roof gardens are unchanged. */
+  /* a scrap of leaf or paper: one flat quad, curled, for the litter drift */
+  {
+    const L = [];
+    L.push({ geo: G_PLANE, mtx: xf3(0, 0, 0, 0, 0, 0, 1, 1, 1), col: 0xffffff, surf: S.FABRIC, shade: 0.92 });
+    L.push({ geo: G_PLANE, mtx: xf3(0.36, 0.055, 0.10, 0.42, 0.5, 0, 0.7, 1, 0.7), col: 0xffffff, surf: S.FABRIC, shade: 1.04 });
+    defInst('scrap', combine(L), { shadow: false });
+  }
+
   routeModel('tree', 'island_tree_01', 6.2, { near: 62 });
   routeModel('rooftree', 'island_tree_01', 4.1, { near: 0 });
   routeModel('shrub', 'shrub_02', 1.55, { near: 52 });

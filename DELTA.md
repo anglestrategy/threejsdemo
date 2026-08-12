@@ -201,3 +201,16 @@ cost compatibility for a file that must open from `file://` anywhere.
 | 4 | Focus. A constant is dead and a frame average hunts. | The district raymarches the view ray against its own ground and colliders and pulls focus toward what the camera is pointed at, damped — fast in, slow out, like a lens. And it marches a **second ray seven degrees below** the first, taking the nearer hit: looking level along a street the centre ray runs to the horizon, and focusing at two hundred metres throws the ground you are standing on out of focus, which is not what anyone pointing a camera down a street would do. Clamped to 3.5–48 m. |
 
 `?nodof=1` turns it off.
+
+---
+
+## Round 11 — the first eight metres
+
+| # | delta | what changed |
+|---|---|---|
+| 1 | The gap between a model and a place is the first eight metres. A block, a kerb and a tree are the same in both; what is only in the real one is the crate left against a shopfront, the A-board turned to catch the street, the drift of leaves in the lee of a step, the chair pulled out of line. | A near-field dressing pass over eighteen anchors — the canopy plaza, the souq spine end to end, the colonnade court, the channel walk and the majlis terrace. |
+| 2 | None of that can be hand-authored across a 940 m district, and scattering it everywhere buys detail nobody is close enough to read. | It is placed by asking the collision world the same two questions a person would: *is this ground I could stand on*, and *is there a wall within arm's reach*. The wall probe sweeps outward in rings and returns a direction and a distance, and the prop is then slid in to 45–85 cm of the frontage it belongs to, facing out. Nothing lands inside a building or in the water, because the test that keeps the walker out is the test that places them. |
+| 3 | A crate in the middle of the road is not dressing, it is litter of the wrong kind. | Anything a shop puts out — crates, cloth rails, A-boards, rolled mats, baskets, planters, bins — only ever goes against a frontage. The open middle of a street gets what actually belongs there: a chair pulled out of line, and what blows about. |
+| 4 | Litter is not evenly distributed. Wind piles it against whatever stops it. | `litterDrift` clusters scraps in the lee of the wall the prop was found by, running along it, lying flat with a curl. Two triangles each, one instanced draw for the lot. |
+| 5 | The first version buried everything: paving sits 6 to 24 cm above the terrain it is laid on, and the dressing was placed on the terrain. | `dressY` returns the platform level where there is one and the terrain plus the paving lift where there is not. |
+| 6 | The first litter read as black shards — holes in the paving rather than leaves. | Smaller, and in dry-leaf, dust and pale-paper tones. At dusk a dark scrap is a hole. |
