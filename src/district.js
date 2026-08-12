@@ -138,6 +138,8 @@ const G_SPH = new THREE.SphereGeometry(0.5, 8, 5);
    shot and never from closer. At 64 triangles a blob it was the single largest
    triangle bill in the district — larger than every tree put together. */
 const G_SPHL = new THREE.SphereGeometry(0.5, 5, 3);
+// a unit plane standing up in XY, facing -Z, for alpha-cutout panels
+const G_PANEL = (function () { const g = new THREE.PlaneGeometry(1, 1); g.rotateY(Math.PI); return g; })();
 const G_CONE = (function () { const g = new THREE.ConeGeometry(0.5, 1, 10); g.translate(0, 0.5, 0); return g; })();
 
 // tapered box (battered walls, watchtowers): top scale relative to bottom
@@ -194,6 +196,23 @@ const TEX = {};
 /* every material that wants the irradiance field registers here, so the bake
    binds one set of textures to all of them */
 const PROBE_MATS = [];
+/* Panels generated from the renders and baked to alpha-cutout imposters by
+   `gen_imposter.py`. A mashrabiya is 22,000 triangles of real lattice and this
+   district wants two hundred and sixty of them — but it is a flat thing, and
+   from more than a couple of metres a quad carrying its own colour with its own
+   holes punched out of the alpha is the same picture for two triangles. */
+const PANELPACK = /*@PANELS@*/;
+const PANELS = {};
+{
+  const ld = new THREE.TextureLoader();
+  for (const k in PANELPACK) {
+    const t = ld.load(PANELPACK[k].tex);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    PANELS[k] = Object.assign({}, PANELPACK[k], { map: t });
+  }
+}
 const MODELPACK = /*@MODELS@*/;
 const MODELS = {};
 {

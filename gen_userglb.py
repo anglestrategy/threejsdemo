@@ -52,13 +52,25 @@ _, near = cKDTree(pos).query(p, workers=-1)
 uv2 = uv[near] if uv is not None else np.zeros((len(p), 2), np.float32)
 nr2 = nrm[near] if nrm is not None else np.zeros((len(p), 3), np.float32)
 
-im = doc['images'][0]
-bv = doc['bufferViews'][im['bufferView']]
-raw = buf[bv['byteOffset']:bv['byteOffset'] + bv['byteLength']]
-img = Image.open(io.BytesIO(raw)).convert('RGB').resize((TEX, TEX), Image.LANCZOS)
-b = io.BytesIO(); img.save(b, 'WEBP', quality=82, method=6)
-tex = b.getvalue()
-print('texture %d -> %d KB webp @ %d' % (len(raw) // 1024, len(tex) // 1024, TEX))
+# carry every map the generator produced, not just the albedo: a panel with a
+# real normal and roughness set relights properly, one with a baked albedo does not
+mat0 = doc['materials'][0]
+pbr0 = mat0.get('pbrMetallicRoughness', {})
+slots = []
+def slot(name, ref, size, q):
+    if not ref:
+        return
+    src = doc['textures'][ref['index']]['source']
+    bv = doc['bufferViews'][doc['images'][src]['bufferView']]
+    o0 = bv.get('byteOffset', 0)
+    raw = buf[o0:o0 + bv['byteLength']]
+    img = Image.open(io.BytesIO(raw)).convert('RGB').resize((size, size), Image.LANCZOS)
+    b = io.BytesIO(); img.save(b, 'WEBP', quality=q, method=6)
+    slots.append((name, b.getvalue()))
+    print('  %-10s %5d -> %4d KB webp @ %d' % (name, len(raw) // 1024, len(b.getvalue()) // 1024, size))
+slot('base', pbr0.get('baseColorTexture'), TEX, 84)
+slot('mr', pbr0.get('metallicRoughnessTexture'), max(256, TEX // 2), 78)
+slot('normal', mat0.get('normalTexture'), max(256, TEX // 2), 88)
 
 bins, views, accs = bytearray(), [], []
 def push(a, t=None):
@@ -72,7 +84,7 @@ vp = push(p.astype(np.float32), 34962); vn = push(nr2.astype(np.float32), 34962)
 vu = push(uv2.astype(np.float32), 34962)
 small = len(p) <= 65535
 vi = push(i2.reshape(-1).astype(np.uint16 if small else np.uint32), 34963)
-vt = push(np.frombuffer(tex, np.uint8))
+tviews = [(nm, push(np.frombuffer(t, np.uint8))) for nm, t in slots]
 accs = [
     {'bufferView': vp, 'componentType': 5126, 'count': len(p), 'type': 'VEC3',
      'min': p.min(0).tolist(), 'max': p.max(0).tolist()},
@@ -80,15 +92,23 @@ accs = [
     {'bufferView': vu, 'componentType': 5126, 'count': len(uv2), 'type': 'VEC2'},
     {'bufferView': vi, 'componentType': 5123 if small else 5125, 'count': i2.size, 'type': 'SCALAR'},
 ]
+idxof = {nm: i for i, (nm, _) in enumerate(tviews)}
+MAT = {'name': 'gen', 'doubleSided': True,
+       'pbrMetallicRoughness': {'metallicFactor': 0.0, 'roughnessFactor': 0.92}}
+if 'base' in idxof: MAT['pbrMetallicRoughness']['baseColorTexture'] = {'index': idxof['base']}
+if 'mr' in idxof:
+    MAT['pbrMetallicRoughness']['metallicRoughnessTexture'] = {'index': idxof['mr']}
+    MAT['pbrMetallicRoughness'].pop('roughnessFactor', None)
+    MAT['pbrMetallicRoughness'].pop('metallicFactor', None)
+if 'normal' in idxof: MAT['normalTexture'] = {'index': idxof['normal']}
+
 out = {'asset': {'version': '2.0', 'generator': 'gen_userglb.py'},
        'scene': 0, 'scenes': [{'nodes': [0]}], 'nodes': [{'mesh': 0, 'name': 'LOD0'}],
        'meshes': [{'primitives': [{'attributes': {'POSITION': 0, 'NORMAL': 1, 'TEXCOORD_0': 2},
                                    'indices': 3, 'material': 0}]}],
-       'materials': [{'name': 'tripo', 'doubleSided': True,
-                      'pbrMetallicRoughness': {'baseColorTexture': {'index': 0},
-                                               'metallicFactor': 0.0, 'roughnessFactor': 0.92}}],
-       'textures': [{'sampler': 0, 'source': 0}],
-       'images': [{'mimeType': 'image/webp', 'bufferView': vt}],
+       'materials': [MAT],
+       'textures': [{'sampler': 0, 'source': i} for i in range(len(tviews))],
+       'images': [{'mimeType': 'image/webp', 'bufferView': v} for _, v in tviews],
        'samplers': [{'magFilter': 9729, 'minFilter': 9987, 'wrapS': 10497, 'wrapT': 10497}],
        'accessors': accs, 'bufferViews': views, 'buffers': [{'byteLength': len(bins)}]}
 js = json.dumps(out, separators=(',', ':')).encode()
@@ -96,10 +116,11 @@ while len(js) % 4: js += b' '
 glb = (struct.pack('<III', 0x46546C67, 2, 12 + 8 + len(js) + 8 + len(bins))
        + struct.pack('<II', len(js), 0x4E4F534A) + js
        + struct.pack('<II', len(bins), 0x004E4942) + bytes(bins))
-open('work/user/model26_lod.glb', 'wb').write(glb)
-json.dump({'user_model': {'glb': base64.b64encode(glb).decode(), 'tris': len(i2),
+OUT = SRC.replace('.glb', '_lod.glb')
+open(OUT, 'wb').write(glb)
+json.dump({(sys.argv[4] if len(sys.argv) > 4 else 'user_model'): {'glb': base64.b64encode(glb).decode(), 'tris': len(i2),
                           'height': float(hi[1] - lo[1]), 'base': float(lo[1]),
                           'radius': float(max(hi[0] - lo[0], hi[2] - lo[2]) / 2),
-                          'credit': 'user-generated (Tripo)'}},
-          open('work/usermodels.json', 'w'))
-print('-> work/user/model26_lod.glb  %d KB' % (len(glb) // 1024))
+                          'credit': 'user-generated'}},
+          open(sys.argv[5] if len(sys.argv) > 5 else 'work/usermodels.json', 'w'))
+print('-> %s  %d KB' % (OUT, len(glb) // 1024))

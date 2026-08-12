@@ -312,7 +312,29 @@ function defineKit() {
     }
     // a dark void behind so the lattice reads against depth
     L.push({ geo: G_BOX, mtx: xf3(0, 0.5, 0.16, 0, 0, 0, 1.0, 1.0, 0.06), col: 0x140f0a, surf: S.RENDER, shade: 0.5 });
-    defInst('mashrabiya', combine(L));
+    defInst('mashrabiya_box', combine(L));
+    /* the generated panel, if it came through: one quad with the lattice in its
+       alpha, plus the thin timber surround that sets it into the reveal */
+    if (PANELS.mashrabiya) {
+      const P = [];
+      P.push({ geo: G_PANEL, mtx: xf3(0, 0.5, 0, 0, 0, 0, 1.0, 1.0, 1.0), col: 0xffffff, surf: S.TIMBER, shade: 1.0 });
+      defInst('mashrabiya', combine(P), {
+        mat: makeModelMaterial({ map: PANELS.mashrabiya.map, alphaTest: 0.5, name: 'mashrabiya' }, false),
+        shadow: true, receive: false,
+      });
+      const F = [];
+      for (const s of [-1, 1]) kitBox(F, s * 0.5, 0, 0, 0.075, 1.0, 0.12, 0xffffff, S.TIMBER, 0.84);
+      for (const y of [0, 1]) kitBox(F, 0, y, 0, 1.06, 0.075, 0.12, 0xffffff, S.TIMBER, 0.92);
+      defInst('mashframe', combine(F));
+      /* what you see through a mashrabiya at this hour is the room behind it.
+         Backing the lattice with a near-black slab, as the box version did,
+         throws away the one thing the screen is for. */
+      const B = [];
+      B.push({ geo: G_BOXT, mtx: xf3(0, 0, 0.16, 0, 0, 0, 1.0, 1.0, 0.05), col: 0xffffff, surf: 0, shade: 1 });
+      defInst('mashglow', combine(B), { mat: emisRoomMat, shadow: false });
+    } else {
+      defInst('mashrabiya', combine(L));
+    }
   }
   /* ---- timber shutter ------------------------------------------------ */
   {

@@ -293,7 +293,9 @@ function officeBand(S4, y, fh, len, nb, bw, ang, nx, nz, ux, uz, fl, floors, bas
 function openingKit(x, y, z, ang, w, h, kind, style) {
   const sc = xf3(x, y, z, 0, ang + Math.PI / 2, 0, w, h, 1);
   if (kind === 'mashrabiya') {
-    inst('mashrabiya', sc, pick([K.timberDk, 0x4a2f1a, 0x63421f]));
+    inst('mashrabiya', sc, 0xffffff);
+    inst('mashframe', sc, pick([K.timberDk, 0x4a2f1a, 0x63421f]));
+    inst('mashglow', sc, pick([0xffc98a, 0xffb877, 0xffd9a8]));
   } else if (kind === 'shutter') {
     inst('shutter', sc, pick([K.timber, 0x5b3b20, 0x7a5330, 0x46301c]));
   } else {

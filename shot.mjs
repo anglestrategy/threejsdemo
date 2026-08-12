@@ -13,7 +13,8 @@ const query = args[1] && !args[1].startsWith('--') ? args[1] : '';
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const W = +opt('w', 1400), H = +opt('h', 786);
 const WAIT = +opt('wait', 4000);
-const FILE = opt('file', 'living-map-v2.html');
+const FILE = opt('file', '');
+const BASE = opt('base', 'http://localhost:8099/');
 
 const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
@@ -24,7 +25,10 @@ const errors = [];
 page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errors.push(m.type() + ': ' + m.text()); });
 page.on('pageerror', e => errors.push('PAGEERROR: ' + (e.stack || e.message)));
 
-const url = 'file://' + path.join(ROOT, FILE) + (query ? (query.startsWith('?') ? query : '?' + query) : '');
+/* the deliverable is served now, not opened from disk: assets are real files
+   fetched at runtime, which is the whole reason they can be full resolution. */
+const url = (FILE ? 'file://' + path.join(ROOT, FILE) : BASE)
+  + (query ? (query.startsWith('?') ? query : '?' + query) : '');
 const t0 = Date.now();
 await page.goto(url, { waitUntil: 'load', timeout: 120000 });
 try {

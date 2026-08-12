@@ -6,7 +6,7 @@ const p = await b.newPage({ viewport: { width: 640, height: 360 } });
 const errs = [];
 p.on('pageerror', e => errs.push('PAGEERROR ' + (e.stack||e.message).slice(0,300)));
 p.on('console', m => { if (m.type()==='error') errs.push('ERR ' + m.text().slice(0,200)); });
-await p.goto('file://' + path.join(ROOT, 'living-map-v2.html'), { waitUntil: 'load' });
+await p.goto('http://localhost:8099/', { waitUntil: 'load' });
 await p.waitForFunction('window.__ready === true', { timeout: 120000 });
 await p.waitForTimeout(1500);
 const snap = async (tag) => {

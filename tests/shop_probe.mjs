@@ -4,7 +4,7 @@ const ROOT = '/home/user/threejsdemo';
 const b = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 700, height: 400 } });
 p.on('pageerror', e => console.log('ERR', e.message));
-await p.goto('file://' + path.join(ROOT, 'living-map-v2.html') + '?scene=city&shot=3&noveil=1', { waitUntil: 'load', timeout: 180000 });
+await p.goto('http://localhost:8099/' + '?scene=city&shot=3&noveil=1', { waitUntil: 'load', timeout: 180000 });
 await p.waitForFunction('window.__ready === true', { timeout: 180000 });
 await p.waitForTimeout(3000);
 const r = await p.evaluate(() => {
