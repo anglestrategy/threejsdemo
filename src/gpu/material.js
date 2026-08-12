@@ -36,6 +36,13 @@ import { directionalFog, probeIrradiance, ATMOS } from './atmosphere.js';
  * @param opts.reliefAmp normal-perturbation amplitude (0.055 in the WebGL2 build)
  */
 export function makeCityMaterial(opts = {}) {
+  /* `plain` returns a stock node material with nothing of ours attached. If
+     the panels are still black under it, the fault is in the probe scene —
+     lights, geometry, winding — and not in this file at all. That distinction
+     is worth one flag: three rounds were spent on the wrong half of it. */
+  if (opts.plain) {
+    return new MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.8 });
+  }
   const mat = new MeshStandardNodeMaterial({
     vertexColors: true, roughness: 0.86, metalness: 0.02,
   });
@@ -52,7 +59,7 @@ export function makeCityMaterial(opts = {}) {
 
   /* ---- normal ---------------------------------------------------------- */
   // world-space, framed by the triplanar tangent basis — see surface.js
-  mat.normalNode = reliefNormal(uv, surfClass, dist, uAmp, normalWorld);
+  if (!opts.noNormal) mat.normalNode = reliefNormal(uv, surfClass, dist, uAmp, normalWorld);
 
   /* ---- albedo ----------------------------------------------------------
      Two terms, both from the height field: the recesses go darker because
@@ -69,7 +76,7 @@ export function makeCityMaterial(opts = {}) {
   /* ---- roughness -------------------------------------------------------
      Up in the recesses. Without this the joints read wet, which is the
      single most common tell of relief faked with a normal map alone. */
-  mat.roughnessNode = Fn(() =>
+  if (!opts.noRough) mat.roughnessNode = Fn(() =>
     clamp(float(0.86).add(float(1).sub(h.y).mul(0.12))
       .sub(h.z.mul(0.06)), 0.25, 1.0))();
 

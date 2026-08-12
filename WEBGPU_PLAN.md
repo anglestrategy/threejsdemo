@@ -159,3 +159,40 @@ The tool is rewritten to sample the PNG `shot.mjs` writes, which is the same
 image a human looks at and is known good. It needs `pngjs` (`npm i pngjs`) to
 auto-sample; without it, it still writes five comparable screenshots to
 `shots/bisect_*.png`. Run it first next pass.
+
+### Bisect attempt 2 — the tool works, and the fault is bounded
+
+Two harness faults had to be cleared first, both self-inflicted and both worth
+recording because they cost a whole pass:
+
+- `npm i pngjs --no-save` **removed playwright**. There was no `package.json`,
+  so npm had nothing to preserve. There is one now, listing only the dev
+  harness — the build itself has no npm dependencies, three.js is vendored.
+- reinstalling pulled a newer playwright whose browser build (1234) does not
+  match the container's pre-installed Chromium (1194). Every launcher now
+  passes `executablePath` at the shipped binary rather than downloading a
+  second browser into an image that already has one. `PW_CHROME` overrides it.
+
+With a PNG readback and a working harness, the signal is clean:
+
+| case | sample |
+|---|---|
+| `plain` — stock `MeshStandardNodeMaterial`, nothing of ours | **17** |
+| `all off` — every one of our nodes bypassed | **17** |
+| baseline, `noNormal`, `noRough`, `flatColor`, `fixedClass`, `noOutput` | **0** |
+
+So the probe scene, its lights, the geometry and the winding are all fine — a
+stock material lights those panels. **The fault is ours, and it is not any
+single node**: disabling normal alone, roughness alone, colour alone or output
+alone each still reads 0. Only turning *everything* off recovers.
+
+That pattern points at something shared rather than at any one node, and there
+is exactly one shared thing: `surfClass`, `uv`, `dist` and `h` are declared
+with `.toVar()` at **function scope in `makeCityMaterial`, outside any `Fn()`**.
+A TSL var belongs to the node function that consumes it; hoisting one and
+feeding it into several independent graphs is not the same as a GLSL local, and
+is the most likely reason every graph that touches them collapses.
+
+**Next action, and it is a small one:** move those four declarations inside the
+`Fn()` bodies that use them — each graph computes its own — and re-run
+`node tests/_bisect.mjs`. If `baseline` reads non-zero, step 3 is done.

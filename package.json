@@ -1,0 +1,10 @@
+{
+  "name": "sdc-living-map",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only tooling for the SDC Living Map. The build itself has no npm dependencies -- three.js is vendored as base64 in src/vendor_mods.json and src/vendor_gpu.json. These are the headless harness and its image reader.",
+  "devDependencies": {
+    "playwright": "^1.48.0",
+    "pngjs": "^7.0.0"
+  }
+}

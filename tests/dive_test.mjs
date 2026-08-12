@@ -1,7 +1,9 @@
 import { chromium } from 'playwright';
 import path from 'path'; import { fileURLToPath } from 'url'; import fs from 'fs';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const b = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
+const b = await chromium.launch({
+  executablePath: process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 640, height: 360 } });
 const errs = [];
 p.on('pageerror', e => errs.push('PAGEERROR ' + (e.stack||e.message).slice(0,300)));

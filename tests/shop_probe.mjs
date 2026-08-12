@@ -1,7 +1,9 @@
 import { chromium } from 'playwright';
 import path from 'path';
 const ROOT = '/home/user/threejsdemo';
-const b = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
+const b = await chromium.launch({
+  executablePath: process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 700, height: 400 } });
 p.on('pageerror', e => console.log('ERR', e.message));
 await p.goto('http://localhost:8123/' + '?scene=city&shot=3&noveil=1', { waitUntil: 'load', timeout: 180000 });

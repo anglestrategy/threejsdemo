@@ -14,8 +14,8 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { PNG } = (() => { try { return require('pngjs'); } catch { return {}; } })();
 
-const CASES = [['baseline', ''], ['1 flatColor', '&c=1'], ['2 fixedClass', '&s=1'],
-  ['3 noOutput', '&o=1'], ['all three', '&c=1&s=1&o=1']];
+const CASES = [['baseline', ''], ['4 noNormal', '&n=1'], ['5 noRough', '&r=1'],
+  ['6 plain', '&plain=1'], ['all off', '&c=1&s=1&o=1&n=1&r=1']];
 
 for (const [name, q] of CASES) {
   const tag = 'bisect_' + name.split(' ')[0];
