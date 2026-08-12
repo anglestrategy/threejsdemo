@@ -1142,5 +1142,21 @@ function defineKit() {
   if (!routeProp('palm', 'palm2', 9.5, { near: 26 }) && PALM_PROC) {
     MODEL_ROUTE.palm = PALM_PROC;
   }
+  /* ---- the final batch --------------------------------------------------
+     Routed here beside the rest so every scanned asset in the district goes
+     through one door. Heights are real metres measured off the contact sheet;
+     Meshy normalises everything into the same two-metre box, so the number in
+     `routeProp` is the only thing that says what the object actually is. */
+  routeProp('windtower', 'windtower', 11.5, { jitter: false, near: 90 });
+  routeProp('heritage', 'heritage', 9.6, { jitter: false, near: 70 });
+  routeProp('shuttle', 'shuttle', 2.85, { jitter: false, near: 70 });
+  routeProp('stall', 'stall', 3.10, { near: 40 });
+  routeProp('planterset', 'planters', 1.35, { foliage: true, near: 32 });
+  routeProp('pvplanter', 'pvplanter', 2.45, { near: 34 });
+  routeProp('deckbench', 'deckbench', 0.95, { near: 34 });
+  /* the palm with its own pit: 9.5 m to match the bare palm exactly, so the
+     two read as one avenue where a paved row meets a planted one */
+  routeProp('palmpit', 'palmbase', 9.5, { foliage: true, near: 30 });
+
   // palm2 and bench2 are generated but not routed: see DELTA.md
 }

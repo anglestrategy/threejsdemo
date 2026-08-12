@@ -1157,6 +1157,7 @@ function* buildSteps() {
   yield 'roundabout'; buildRoundabout();
   yield 'planting'; buildPlanting();
   yield 'green'; buildGreen();
+  yield 'sustain'; buildSustainability();
   yield 'identity'; buildIdentity();
   yield 'probes'; bakeProbes();
   yield 'dressing'; { const d = nearDressing(); INSTCOUNT.dressing = d.placed; INSTCOUNT.litter = d.scraps; }
@@ -1387,4 +1388,140 @@ function nearDressing() {
     }
   }
   return { placed, scraps };
+}
+
+/* ========================================================= SUSTAINABILITY ==
+   The last batch of scans, and the one theme the four SDC renders carry that
+   this district was carrying only as a roof-mounted solar array: a wind-catcher
+   tower, PV over the planting and over a heritage roof, an electric shuttle on
+   the boulevard. Plus the soft landscape the plaza was visibly short of —
+   tiered planters, deck benches over the water, market stalls down the souq,
+   and a date palm that arrives with its own stone tree pit rather than needing
+   one built under it.
+
+   Everything here places against the existing reservation system and the road
+   table, so nothing lands in a carriageway or inside a building's footprint,
+   and everything is seeded off DRNG so the world is still identical per seed.
+   ========================================================================== */
+function buildSustainability() {
+  CURCHUNK = 'sustain';
+  let n = 0;
+  const put = (kit, x, z, ry, y) => {
+    if (!MODEL_ROUTE[kit]) return false;
+    inst(kit, xf3(x, y === undefined ? terrainY(x, z) : y, z, 0, ry, 0, 1, 1, 1));
+    n++;
+    return true;
+  };
+
+  /* ---- wind-catcher towers ---------------------------------------------
+     A malqaf is a landmark and a piece of infrastructure at once, so these go
+     where a landmark belongs: the four corners of the canopy plaza, standing
+     clear of the deck, plus one on the souq's north head where the spine
+     needs a stop. Four, not forty — the whole point of a wind tower is that
+     you can see it from the other end of the district. */
+  const CP = PLAN.canopy;
+  const TOWERS = [
+    [CP.x0 - 9, CP.z0 - 9, 0.78], [CP.x1 + 9, CP.z0 - 9, -0.78],
+    [CP.x0 - 9, CP.z1 + 9, 2.36], [CP.x1 + 9, CP.z1 + 9, -2.36],
+    [PLAN.spineX, PLAN.souq.z1 + 18, 0],
+  ];
+  for (const [x, z, ry] of TOWERS) put('windtower', x, z, ry);
+
+  /* ---- the heritage block ----------------------------------------------
+     A solar roof on a vernacular stone building is the clearest single image
+     of the brief, so it faces the colonnade court rather than hiding on a back
+     street. Three of them, along the court's north edge. */
+  const CT = PLAN.court;
+  for (let i = 0; i < 3; i++) {
+    put('heritage', CT.x0 + 18 + i * 41, CT.z1 + 26, Math.PI);
+  }
+
+  /* ---- deck benches over the water --------------------------------------
+     9 m of timber deck with its own planting, so they belong on the channel
+     edge where the bank is otherwise a stone lip. Alternating sides, and only
+     where the reservation system says the bank is clear. */
+  const WX = PLAN.water.x, WW = PLAN.water.w;
+  for (let z = 20, i = 0; z < 420; z += 62, i++) {
+    const side = i % 2 ? 1 : -1;
+    const x = WX + side * (WW / 2 + 4.6);
+    if (inScanSite(x, z)) continue;
+    put('deckbench', x, z, side > 0 ? -Math.PI / 2 : Math.PI / 2);
+  }
+
+  /* ---- market stalls ----------------------------------------------------
+     Down the souq spine, alternating sides, at the bay rhythm the arcade
+     already uses. A souq without stalls in it is a shopping street. */
+  const SQ = PLAN.souq;
+  for (let z = SQ.z0 + 14; z < SQ.z1 - 10; z += 21) {
+    for (const side of [-1, 1]) {
+      if (chance(0.35)) continue;
+      const x = PLAN.spineX + side * 12.5;
+      if (inScanSite(x, z)) continue;
+      put('stall', x, z, side > 0 ? -Math.PI / 2 : Math.PI / 2);
+    }
+  }
+
+  /* ---- tiered planters and PV planters -----------------------------------
+     Planters soften the plaza edge; the PV planters line the boulevards,
+     where they are shading a footway rather than decorating a square. */
+  /* A fixed ring placed nothing: every radius that reads as "the plaza edge"
+     is inside the plaza's own reservation, so all 26 samples were rejected and
+     the kit silently never appeared. Walk each sample outward until it clears
+     instead — the intent is "just outside whatever is already claimed here",
+     which is a search, not a radius. */
+  for (let i = 0; i < 30; i++) {
+    const a = (i / 30) * Math.PI * 2 + DRNG() * 0.12;
+    let x = 0, z = 0, ok = false;
+    for (let r2 = 118; r2 <= 260 && !ok; r2 += 9) {
+      x = Math.cos(a) * r2;
+      z = 20 + Math.sin(a) * r2 * 0.8;
+      ok = !inReserved(x, z) && !inScanSite(x, z);
+    }
+    if (ok) put('planterset', x, z, DRNG() * Math.PI * 2);
+  }
+  for (const r of ROADS) {
+    if (r[5] !== 0) continue;                       // vehicular only
+    const horiz = Math.abs(r[3] - r[1]) < Math.abs(r[2] - r[0]);
+    const half = r[4] / 2 + 5.2;                    // just outside the kerb
+    const len = horiz ? r[2] - r[0] : r[3] - r[1];
+    const steps = Math.min(9, Math.max(2, Math.floor(Math.abs(len) / 96)));
+    for (let s = 1; s <= steps; s++) {
+      const t = s / (steps + 1);
+      const cx = horiz ? r[0] + len * t : r[0];
+      const cz = horiz ? r[1] : r[1] + len * t;
+      for (const side of [-1, 1]) {
+        const x = horiz ? cx : cx + side * half;
+        const z = horiz ? cz + side * half : cz;
+        if (inScanSite(x, z)) continue;
+        put('pvplanter', x, z, horiz ? 0 : Math.PI / 2);
+      }
+    }
+  }
+
+  /* ---- the shuttle ------------------------------------------------------
+     Four of them on the boulevards, in the kerbside lane, facing the way the
+     traffic goes. Parked rather than driving: the district's life system moves
+     people, not vehicles, and a stationary bus at a stop is a true image where
+     a frozen bus mid-lane is not. */
+  const SHUTTLES = [
+    [-64, 104 - 6.2, Math.PI / 2], [128, 104 + 6.2, -Math.PI / 2],
+    [-88 - 6.0, 232, 0], [88 + 6.0, 168, Math.PI],
+  ];
+  for (const [x, z, ry] of SHUTTLES) put('shuttle', x, z, ry);
+
+  /* ---- palms with their own tree pit ------------------------------------
+     The plaza's palms stand in paving, and the district was building a ring of
+     kerb under each one. This asset arrives with the pit, the ring and the
+     underplanting, so it takes over exactly the paved rows and leaves the
+     planted ground to the bare palm. */
+  const rows = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+  for (const [sx, sz] of rows) {
+    for (let i = 0; i < 7; i++) {
+      const x = sx * (26 + i * 11.5), z = sz * (22 + (i % 3) * 15);
+      if (inScanSite(x, z)) continue;
+      put('palmpit', x, z, DRNG() * Math.PI * 2);
+    }
+  }
+
+  INSTCOUNT.sustain = n;
 }
