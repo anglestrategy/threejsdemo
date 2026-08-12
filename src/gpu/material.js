@@ -68,8 +68,12 @@ export function makeCityMaterial(opts = {}) {
        and its documented feed (16566) is normalMap(...), whose input is a
        TANGENT-SPACE normal. The first version had the right space; the
        triplanar world frame and the view transform both moved away from it. */
-    mat.normalNode = normalMap(Fn(() =>
-      reliefNormal(uvOf(), clsOf(), distOf(), uAmp))());
+    /* nc=1 feeds normalMap a flat tangent-space normal. If that is black too,
+       normalMap is unusable in this setup; if it lights, reliefNormal's output
+       is the fault. One flag, and it splits the remaining question in two. */
+    mat.normalNode = opts.normalConst
+      ? normalMap(vec3(0, 0, 1))
+      : normalMap(Fn(() => reliefNormal(uvOf(), clsOf(), distOf(), uAmp))());
   }
 
   /* ---- albedo ----------------------------------------------------------

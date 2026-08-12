@@ -16,10 +16,9 @@ const { PNG } = (() => { try { return require('pngjs'); } catch { return {}; } }
 
 /* from the state that works, switch ONE node back on at a time */
 const CASES = [
-  ['all off',      '&c=1&s=1&o=1&n=1&r=1'],
-  ['+normal',      '&c=1&s=1&o=1&r=1'],
-  ['+output(fog)', '&c=1&s=1&n=1&r=1'],
-  ['baseline',     ''],
+  ['all off',        '&c=1&s=1&o=1&n=1&r=1'],
+  ['+normal(real)',  '&c=1&s=1&o=1&r=1'],
+  ['+normal(flat)',  '&c=1&s=1&o=1&r=1&nc=1'],
 ];
 
 for (const [name, q] of CASES) {

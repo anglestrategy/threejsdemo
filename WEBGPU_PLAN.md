@@ -306,3 +306,44 @@ Next actions, in order:
    tangents today. Either compute them at merge time, or keep the world-space
    path (`reliefNormalWorld`) and find the node property that accepts a world
    normal — grep first.
+
+### Bisect attempt 6 — fault 1 localised to reliefNormal's arithmetic
+
+Tangents on the probe panels did **not** fix it (`computeTangents()` on an
+indexed BoxGeometry — kept anyway, it is correct). So the tangent-frame theory
+is disproved too.
+
+The discriminator that settled it, one flag:
+
+| case | sample |
+|---|---|
+| `normalMap(vec3(0,0,1))` — flat, through the same node | **17** |
+| `normalMap(reliefNormal(...))` — the real perturbation | **0** |
+
+**`normalMap` works.** The fault is what `reliefNormal` returns.
+
+That is a small function and `srfH` inside it is already proven good — colour
+and roughness both call it and both light. So the fault is in the six lines
+around it. In order of suspicion:
+
+1. `.normalize()` on a vector that can be degenerate. If the gradient is zero
+   and the z term is scaled oddly the result is 0/0.
+2. `k = amp * fade / e` — division by `e`, which is `0.006 + dist*0.00035`.
+   Fine at eye level, but `dist` inside a `normalMap` input graph may not be
+   what it is elsewhere; if it resolves to 0 the division is by 0.006 (safe),
+   if it resolves to something huge, k collapses.
+3. the three `srfH` calls each carry `If/ElseIf` ladders with `.toVar()`, and
+   nested control flow inside a node consumed by `normalMap` is the one shape
+   here that has no equivalent in the working cases — colour and roughness
+   each call `srfH` **once**, at the top level of their own `Fn`.
+
+**Next actions, cheapest first.** Return early from `reliefNormal` at each
+stage and re-run: (a) `return vec3(0,0,1)` — proves the wrapper; (b) return the
+gradient without `.normalize()`; (c) return with one `srfH` call instead of
+three (drop the central difference, use a constant gradient). Whichever step
+turns 0 into 17 names the line.
+
+Suspect 3 is the interesting one: if nested `If` ladders cannot be consumed by
+`normalMap`, the fix is to compute the three heights in a plain `Fn` that
+returns them, and do the differencing outside — which is a structural change to
+`reliefNormal` rather than a one-liner, and worth knowing before writing it.
