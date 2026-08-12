@@ -140,3 +140,22 @@ ran out of working context, not because it is hard. **Do 1 through 3 in order
 before touching anything else.**
 
 The WebGL2 build is untouched and remains the deliverable.
+
+### Bisect attempt 1 — the measurement was wrong, the fault is still open
+
+`tests/_bisect.mjs` ran all five cases (baseline, each candidate bypassed, all
+three bypassed) and every one returned **0 for all eleven samples** — including
+the samples that fall on the tram, which demonstrably renders in the same
+frame. That is not a black material; it is a broken readback.
+
+Cause: the probe sampled the canvas with `ctx.drawImage`. A WebGL drawing
+buffer is not readable after the frame is composited, and WebGPURenderer's
+WebGL2 backend does not honour `preserveDrawingBuffer` (tried; no change).
+
+So **the three candidates remain untested.** Nothing was learned about the
+material, and the earlier note must not be read as having narrowed it.
+
+The tool is rewritten to sample the PNG `shot.mjs` writes, which is the same
+image a human looks at and is known good. It needs `pngjs` (`npm i pngjs`) to
+auto-sample; without it, it still writes five comparable screenshots to
+`shots/bisect_*.png`. Run it first next pass.

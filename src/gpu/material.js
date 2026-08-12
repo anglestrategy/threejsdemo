@@ -44,7 +44,8 @@ export function makeCityMaterial(opts = {}) {
 
   /* the class travels per-vertex; floor() drops the walk-cycle limb tag that
      shares the same attribute */
-  const surfClass = floor(attribute('aSurf', 'float')).toVar();
+  const surfClass = (opts.fixedClass ? float(4)
+    : floor(attribute('aSurf', 'float'))).toVar();
   const uv = triplanarUV(positionWorld, normalWorld).toVar();
   const dist = length(positionWorld.sub(cameraPosition)).toVar();
   const h = srfH(uv, surfClass).toVar();      // (height, cavity, grain)
@@ -58,7 +59,7 @@ export function makeCityMaterial(opts = {}) {
      less light reaches them, and each block carries its own tone so a wall
      is coursed stone rather than one colour behind a joint pattern. */
   mat.colorNode = Fn(() => {
-    const base = vertexColor().toVar();
+    const base = (opts.flatColor ? vec3(0.78) : vertexColor()).toVar();
     const cav = h.y.toVar();
     const grain = h.z.toVar();
     const shaded = base.mul(mix(float(0.62), float(1.0), cav)).toVar();
@@ -96,10 +97,12 @@ export function makeCityMaterial(opts = {}) {
     cool: ATMOS.fogCool, warm: ATMOS.fogWarm, sun: ATMOS.sun,
     density: ATMOS.fogDensity, scaleH: ATMOS.fogScaleH,
   });
-  mat.outputNode = Fn(() => {
-    const c = output.toVar();
-    return vec4(mix(c.rgb, fog.rgb, fog.a), c.a);
-  })();
+  if (!opts.noOutput) {
+    mat.outputNode = Fn(() => {
+      const c = output.toVar();
+      return vec4(mix(c.rgb, fog.rgb, fog.a), c.a);
+    })();
+  }
 
   mat.userData.u = { uAmp };
   return mat;
