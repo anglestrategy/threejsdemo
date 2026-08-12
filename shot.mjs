@@ -14,7 +14,7 @@ const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i
 const W = +opt('w', 1400), H = +opt('h', 786);
 const WAIT = +opt('wait', 4000);
 const FILE = opt('file', '');
-const BASE = opt('base', 'http://localhost:8099/');
+const BASE = opt('base', 'http://localhost:8123/');
 
 const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
@@ -30,9 +30,9 @@ page.on('pageerror', e => errors.push('PAGEERROR: ' + (e.stack || e.message)));
 const url = (FILE ? 'file://' + path.join(ROOT, FILE) : BASE)
   + (query ? (query.startsWith('?') ? query : '?' + query) : '');
 const t0 = Date.now();
-await page.goto(url, { waitUntil: 'load', timeout: 120000 });
+await page.goto(url, { waitUntil: 'load', timeout: 300000 });
 try {
-  await page.waitForFunction('window.__ready === true', { timeout: 120000 });
+  await page.waitForFunction('window.__ready === true', { timeout: 300000 });
 } catch (e) { errors.push('NEVER READY'); }
 const bootMs = Date.now() - t0;
 await page.waitForTimeout(WAIT);

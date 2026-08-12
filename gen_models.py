@@ -50,7 +50,7 @@ from scipy.spatial import cKDTree
 import fast_simplification
 
 CACHE = 'work/models'
-RES = '1k'
+RES = '2k'   # served now: the 1k set was a single-file compromise
 
 # name -> (triangle budget, leaf-card budget, what the district uses it for)
 # Solid primitives divide what is left over by the square root of their source
@@ -69,7 +69,10 @@ MODELS = {
 
 # base colour is the only map where the extra pixels are visible at street
 # distance; the normal and the ARM ride at half that.
-TEX_BASE, TEX_AUX, TEX_LEAF = 256, 192, 384
+# Served, not embedded: these were 256/192/384 because every byte was base64
+# inside one HTML file. A leaf atlas at 1k is the difference between a tree you
+# can stand under and a tree you can only look at.
+TEX_BASE, TEX_AUX, TEX_LEAF = 1024, 1024, 1024
 
 RNG = np.random.default_rng(0x5D0C17)
 
@@ -343,10 +346,10 @@ def parse(name):
     print('==', name)
     files = files_index(name)
     entry = files['gltf'][RES]['gltf']
-    g = json.load(open(fetch(entry['url'], '%s/%s.gltf' % (CACHE, name))))
+    g = json.load(open(fetch(entry['url'], '%s/%s_%s.gltf' % (CACHE, name, RES))))
     inc = entry['include']
     binuri = g['buffers'][0]['uri']
-    buf = open(fetch(inc[binuri]['url'], '%s/%s' % (CACHE, binuri)), 'rb').read()
+    buf = open(fetch(inc[binuri]['url'], '%s/%s_%s' % (CACHE, RES, binuri)), 'rb').read()
 
     # a material is a cutout only if the asset actually ships the alpha map.
     # `quiver_tree_01_leaf` is declared BLEND and has none — its blades are
@@ -480,18 +483,18 @@ def pack(name, g, inc, files, cutout, lods, kind):
         if 'baseColorTexture' in pbr:
             uri = uri_of(pbr['baseColorTexture'])
             au = alpha_url(files, uri) if leaf else None
-            t = add_image(uri, TEX_LEAF if leaf else TEX_BASE, au, 84 if leaf else 80)
+            t = add_image(uri, TEX_LEAF if leaf else TEX_BASE, au, 92 if leaf else 90)
             out['pbrMetallicRoughness']['baseColorTexture'] = {'index': t}
             if au:
                 out['alphaMode'] = 'MASK'
                 out['alphaCutoff'] = 0.4
         # a leaf card is flat: its normal map is noise at this size, and its
         # roughness is a constant. Only the solid materials carry them.
-        if not leaf:
+        if True:
             if 'normalTexture' in m:
-                out['normalTexture'] = {'index': add_image(uri_of(m['normalTexture']), TEX_AUX, quality=88)}
+                out['normalTexture'] = {'index': add_image(uri_of(m['normalTexture']), TEX_AUX, quality=93)}
             if 'metallicRoughnessTexture' in pbr:
-                t = add_image(uri_of(pbr['metallicRoughnessTexture']), TEX_AUX, quality=78)
+                t = add_image(uri_of(pbr['metallicRoughnessTexture']), TEX_AUX, quality=88)
                 out['pbrMetallicRoughness']['metallicRoughnessTexture'] = {'index': t}
                 out['occlusionTexture'] = {'index': t}
         else:

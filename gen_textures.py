@@ -18,14 +18,19 @@ from PIL import Image
 
 SRC = 'work/tex'
 OUT = {}
-SIZE = 512
+SIZE = 2048
 
 
 def load(name, suffix):
-    return Image.open(os.path.join(SRC, '%s_%s_1k.jpg' % (name, suffix)))
+    # 2k source where it exists, 1k otherwise
+    for res in ('2k', '1k'):
+        p2 = os.path.join(SRC, '%s_%s_%s.jpg' % (name, suffix, res))
+        if os.path.exists(p2):
+            return Image.open(p2)
+    raise FileNotFoundError(name + ' ' + suffix)
 
 
-def pack(key, name, diff_q=80, nrm_q=92):
+def pack(key, name, diff_q=94, nrm_q=96):
     d = load(name, 'diff').convert('RGB').resize((SIZE, SIZE), Image.LANCZOS)
     n = load(name, 'nor_gl').convert('RGB').resize((SIZE, SIZE), Image.LANCZOS)
     a = load(name, 'arm').convert('RGB').resize((SIZE, SIZE), Image.LANCZOS)

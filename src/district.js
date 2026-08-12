@@ -21,7 +21,7 @@ const chance = (p) => DRNG() < p;
 const K = {
   sand:      0xa89678, sandDk:   0x7b6b53, sandLt:  0xc6b596,
   travert:   0xc4b79e, travDk:   0x9d9179,
-  brick:     0x9a5c46, brickDk:  0x744336, brickLt: 0xb0765a,
+  brick:     0x9d7150, brickDk:  0x7a5c44, brickLt: 0xb8977a,
   timber:    0x71482a, timberDk: 0x462c17, timberLt: 0x8f6234,
   plaster:   0xcdbfa2, plasterDk: 0xa89878,
   white:     0xe6e1d4, whiteDk:  0xc3bdae,
@@ -142,6 +142,71 @@ const G_SPHL = new THREE.SphereGeometry(0.5, 5, 3);
 const G_PANEL = (function () { const g = new THREE.PlaneGeometry(1, 1); g.rotateY(Math.PI); return g; })();
 const G_CONE = (function () { const g = new THREE.ConeGeometry(0.5, 1, 10); g.translate(0, 0.5, 0); return g; })();
 
+/* A chamfered box, built at its real size.
+
+   This is most of what reads as "low poly" in a scene like this. Nothing here
+   is actually low poly — the district submits eight million triangles — but
+   every mass met the next one at a hard ninety-degree edge, and a hard edge
+   catches no highlight. Real stonework has an arris: two or three centimetres
+   of cut that picks up the sky along every corner and separates one plane from
+   the next. Without it a building is a shape; with it, it is a solid.
+
+   The chamfer has to be in world units, so the geometry is built per box
+   rather than scaled from a unit cube — which is free here, because every one
+   of these is merged into a chunk immediately afterwards. Forty-four triangles
+   against twelve, on the masses that carry the district's silhouette. */
+const _cbCache = new Map();
+function chamferBox(w, h, d, c) {
+  c = Math.min(c, w * 0.4, h * 0.4, d * 0.4);
+  const key = w.toFixed(2) + '_' + h.toFixed(2) + '_' + d.toFixed(2) + '_' + c.toFixed(3);
+  const hit = _cbCache.get(key);
+  if (hit) return hit;
+  const hw = w / 2, hd = d / 2;
+  const P = [], N = [], I = [];
+  const push = (x, y, z, nx, ny, nz) => { P.push(x, y, z); N.push(nx, ny, nz); return P.length / 3 - 1; };
+  const quad = (a, b, c2, d2) => { I.push(a, b, c2, a, c2, d2); };
+  // the four side faces, each inset by the chamfer at both ends
+  const sides = [
+    [0, 0, -1, [-hw + c, hw - c], -hd],
+    [1, 0, 0, [-hd + c, hd - c], hw],
+    [0, 0, 1, [hw - c, -hw + c], hd],
+    [-1, 0, 0, [hd - c, -hd + c], hw],
+  ];
+  const ring = (y, inset) => {
+    // one ring of eight points around the box at height y, corners cut
+    const a = hw - inset, b = hd - inset;
+    return [
+      [-a + c, y, -b], [a - c, y, -b], [a, y, -b + c], [a, y, b - c],
+      [a - c, y, b], [-a + c, y, b], [-a, y, b - c], [-a, y, -b + c],
+    ];
+  };
+  const rings = [ring(c, c), ring(c, 0), ring(h - c, 0), ring(h - c, c)];
+  const idx = rings.map((r) => r.map((p2) => push(p2[0], p2[1], p2[2], 0, 0, 0)));
+  for (let lvl = 0; lvl < 3; lvl++) {
+    for (let i = 0; i < 8; i++) {
+      const j = (i + 1) % 8;
+      quad(idx[lvl][i], idx[lvl][j], idx[lvl + 1][j], idx[lvl + 1][i]);
+    }
+  }
+  // caps
+  const top = idx[3], bot = idx[0];
+  for (let i = 1; i < 7; i++) { I.push(top[0], top[i], top[i + 1]); }
+  for (let i = 1; i < 7; i++) { I.push(bot[0], bot[i + 1], bot[i]); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  g.setIndex(I);
+  g.computeVertexNormals();
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((P.length / 3) * 2), 2));
+  if (_cbCache.size < 4000) _cbCache.set(key, g);
+  return g;
+}
+
+/* add a chamfered mass to an accumulator, in place of a scaled unit box */
+function addMass(acc, x, y, z, ry, w, h, d, col, surf, shade, cham) {
+  acc.add(chamferBox(w, h, d, cham === undefined ? 0.055 : cham),
+    xf(x, y, z, ry, 1, 1, 1), col, surf, shade);
+}
+
 // tapered box (battered walls, watchtowers): top scale relative to bottom
 function taper(topScale, h) {
   const g = new THREE.BoxGeometry(1, 1, 1, 1, 1, 1);
@@ -213,6 +278,39 @@ const PANELS = {};
     PANELS[k] = Object.assign({}, PANELPACK[k], { map: t });
   }
 }
+/* ================================================ THE GENERATED PROPS ==
+   Assets generated from the project's own renders, reduced by `gen_props.py`
+   and served as real files. They arrive as one mesh with one PBR material and
+   a bounding box normalised to 1.9 m, so every one of them is given its true
+   size here — a bicycle is 1.8 m long, a bin is 0.9 m tall, a mosque is not
+   1.9 m of anything.
+
+   They are fetched in parallel and the district does not wait on them: if one
+   is slow or missing the kit falls back to what it had, because a demo that
+   will not start because a bench is late is worse than a demo without that
+   bench. */
+const PROPS = {};
+const PROP_URL = 'assets/props.json';
+async function loadProps() {
+  let index = null;
+  try {
+    const r = await fetch(PROP_URL);
+    if (!r.ok) return;
+    index = await r.json();
+  } catch (e) { return; }
+  const gl = new GLTFLoader();
+  await Promise.all(Object.keys(index).map(async (key) => {
+    try {
+      const g = await gl.loadAsync(index[key].file);
+      const parts = [];
+      g.scene.traverse((o) => { if (o.isMesh) parts.push({ geo: o.geometry, src: o.material }); });
+      if (!parts.length) return;
+      PROPS[key] = Object.assign({ parts }, index[key]);
+    } catch (e) { console.warn('prop ' + key + ' failed', e); }
+  }));
+  INSTCOUNT.props = Object.keys(PROPS).length;
+}
+
 const MODELPACK = /*@MODELS@*/;
 const MODELS = {};
 {
@@ -239,6 +337,11 @@ const MODELS = {};
     };
   }
 }
+
+/* The props are files on the wire, so the fetch starts here and is collected
+   at the bottom of this module — everything between is decode and setup that
+   would otherwise be waiting on the network for no reason. */
+const PROPS_READY = loadProps();
 
 /* ================================================= IRRADIANCE PROBES ==
    The difference between "lit by three lights" and "rendered" is that in a
@@ -409,6 +512,9 @@ const PLAN = {
   majlis: { x: 158, z: 246 },                 // the rooftop terrace block
   courtPool: { x0: -238, x1: -206, z0: 214, z1: 236 },
   sailPool:  { x0: -228, x1: -200, z0: -21, z1: 35 },
+  // the jamaa closing the north head of the water court, and the radius
+  // everything else keeps clear of it
+  jamaa: { x: -214, z: 62, r: 40, h: 38 },
 };
 const ROAD_W = 17;
 
@@ -643,7 +749,8 @@ function makeCityMaterial(cacheKey) {
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
     uProbeInt: { value: 1.05 },
-    uFogWarm: { value: new THREE.Color(0xe6bd92) }, uFogCool: { value: new THREE.Color(0x62789f) },
+    uFogWarm: { value: new THREE.Color(0xd9a878) }, uFogCool: { value: new THREE.Color(0x7286a8) },
+    uFogScaleH: { value: 150 },
     uSunW: { value: CSUN.clone() },
     /* A room the sun never enters is lit by its own ceiling, and no pooled
        point light can do that for two hundred shops at once. So an interior
@@ -727,6 +834,11 @@ function makeCityMaterial(cacheKey) {
       uniform vec3 uProbeOrg, uProbeStp, uProbeDim;
       uniform float uProbeOn, uProbeInt;
       uniform vec3 uRoomAdd, uFogWarm, uFogCool, uSunW;
+      uniform float uFogScaleH;
+      float FOG_H(float wy) {
+        float hAvg = 0.5 * (cameraPosition.y + wy);
+        return exp(-max(hAvg, 0.0) / uFogScaleH);
+      }
       vec3 gProbeSky, gProbeGnd;\n` + SURF_GLSL +
       sh.fragmentShader
         .replace('void main() {', 'void main() {\n gRough = roughness; gMetal = metalness;')
@@ -858,7 +970,12 @@ function makeCityMaterial(cacheKey) {
         vec3 fdir = normalize(vWP - cameraPosition);
         float fsun = pow(max(dot(fdir, normalize(uSunW)), 0.0), 1.8);
         vec3 fcol = mix(uFogCool, uFogWarm, fsun);
-        float fogF = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+        /* Haze is not uniform: dust and humidity sit in the bottom couple of
+           hundred metres and thin out exponentially above it. A single density
+           has to be either too weak to dissolve the desert at eye level or
+           strong enough to grey out the whole district seen from three hundred
+           metres up — this is the one change that lets it do both. */
+        float fogF = 1.0 - exp(-fogDensity * fogDensity * FOG_H(vWP.y) * vFogDepth * vFogDepth);
         gl_FragColor.rgb = mix(gl_FragColor.rgb, fcol, clamp(fogF, 0.0, 1.0));
       #endif`);
   };
@@ -899,7 +1016,8 @@ function makeModelMaterial(src, foliage) {
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
     uProbeInt: { value: 1.05 },
-    uFogWarm: { value: new THREE.Color(0xe6bd92) }, uFogCool: { value: new THREE.Color(0x62789f) },
+    uFogWarm: { value: new THREE.Color(0xd9a878) }, uFogCool: { value: new THREE.Color(0x7286a8) },
+    uFogScaleH: { value: 150 },
     uSunW: { value: CSUN.clone() },
   };
   mat.onBeforeCompile = (sh) => {
@@ -930,13 +1048,20 @@ function makeModelMaterial(src, foliage) {
       uniform sampler3D uProbeSky, uProbeGnd;
       uniform vec3 uProbeOrg, uProbeStp, uProbeDim;
       uniform vec3 uFogWarm, uFogCool, uSunW;
+      uniform float uFogScaleH;
+      /* mean aerosol density along the ray, from an exponential atmosphere of
+         scale height uFogScaleH sampled at both ends */
+      float FOG_H(float wy) {
+        float hAvg = 0.5 * (cameraPosition.y + wy);
+        return exp(-max(hAvg, 0.0) / uFogScaleH);
+      }
       uniform float uProbeOn, uProbeInt;\n` +
       sh.fragmentShader
         .replace('#include <fog_fragment>', `
       #ifdef USE_FOG
         vec3 fdir = normalize(vMWP - cameraPosition);
         float fsun = pow(max(dot(fdir, normalize(uSunW)), 0.0), 1.8);
-        float fogF = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+        float fogF = 1.0 - exp(-fogDensity * fogDensity * FOG_H(vMWP.y) * vFogDepth * vFogDepth);
         gl_FragColor.rgb = mix(gl_FragColor.rgb, mix(uFogCool, uFogWarm, fsun), clamp(fogF, 0.0, 1.0));
       #endif`)
         .replace('#include <lights_fragment_begin>', `#include <lights_fragment_begin>
@@ -959,8 +1084,16 @@ function makeModelMaterial(src, foliage) {
 /* ======================================================== SCENE & LIGHTS == */
 const cityScene = new THREE.Scene();
 cityScene.background = null;
-const CITY_FOG = 0.00034;
-cityScene.fog = new THREE.FogExp2(0x5d729c, CITY_FOG);
+/* Aerial perspective was the single biggest thing missing from the wide shot.
+   At 0.00034 the desert apron kept its full contrast right out to its own
+   geometric edge, so the world ended in a hard brown line against the sky and
+   the skyline towers read as grey cardboard standing on it. At 0.00080 the
+   apron is 90% dissolved by the time it reaches that edge — the horizon
+   becomes a gradient instead of a cut — the towers gain the depth cue that
+   tells you they are two kilometres away, and the district itself is still
+   only 4% hazed at 300 m, so nothing you can walk to loses a thing. */
+const CITY_FOG = 0.00145;
+cityScene.fog = new THREE.FogExp2(0x7286a8, CITY_FOG);
 
 const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.11, 3400);
 
@@ -1788,6 +1921,8 @@ function insideSolid(x, z, feetY) {
   }
   return false;
 }
+
+await PROPS_READY;
 
 return {
   enter, exit, goShot, update, hudInfo,

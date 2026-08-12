@@ -78,9 +78,17 @@ if SINGLE:
 
 # ---- served build ---------------------------------------------------------
 dist = p('dist')
-shutil.rmtree(dist, ignore_errors=True)
+# clear the contents, never the directory itself: a dev server has dist/ as its
+# working directory and rmtree pulls the floor out from under it mid-session
 os.makedirs(p('dist/vendor'), exist_ok=True)
 os.makedirs(p('dist/assets'), exist_ok=True)
+for sub in ('vendor', 'assets'):
+    for f in os.listdir(p('dist', sub)):
+        # assets/props/ holds real GLB files written by gen_props.py, which is a
+        # separate and much slower pipeline: clear what this script emits, not
+        # what it does not own
+        if os.path.isfile(p('dist', sub, f)):
+            os.remove(p('dist', sub, f))
 
 sizes = []
 for marker, name, path in PAYLOADS:
@@ -94,6 +102,16 @@ for marker, name, path in PAYLOADS:
 
 check(main)
 open(p('dist/app.js'), 'w', encoding='utf-8').write(main)
+
+# the prop index is fetched by URL rather than inlined, because the GLBs it
+# points at are already real files next to it
+if os.path.exists(p('work/props.json')):
+    shutil.copyfile(p('work/props.json'), p('dist/assets/props.json'))
+    nprops = len(json.load(open(p('work/props.json'), encoding='utf-8')))
+    pdir = p('dist/assets/props')
+    pbytes = sum(os.path.getsize(os.path.join(pdir, f)) for f in os.listdir(pdir)) \
+        if os.path.isdir(pdir) else 0
+    sizes.append(('props (%d GLB)' % nprops, pbytes))
 
 imports = {}
 for key, b64 in mods.items():

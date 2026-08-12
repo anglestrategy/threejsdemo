@@ -74,6 +74,31 @@ function routeModel(kit, model, targetH, opts) {
   return true;
 }
 
+/* Register a generated prop under a kit name, sized to what it actually is.
+   Meshy normalises every asset to the same bounding box, so `targetH` is the
+   real height in metres and everything else follows from it. */
+function routeProp(kit, key, targetH, opts) {
+  const P = PROPS[key];
+  if (!P || !P.parts.length) return false;
+  opts = opts || {};
+  const k = targetH / Math.max(0.01, P.height);
+  const fit = new THREE.Matrix4().makeScale(k, k, k)
+    .multiply(new THREE.Matrix4().makeTranslation(0, -(P.base || 0), 0));
+  const names = [];
+  P.parts.forEach((p, pi) => {
+    const nm = 'p:' + key + ':' + pi;
+    if (!INST_DEF[nm]) {
+      defInst(nm, p.geo, {
+        mat: makeModelMaterial(p.src, !!opts.foliage),
+        shadow: opts.shadow !== false, receive: true, cull: opts.cull !== false,
+      });
+    }
+    names.push(nm);
+  });
+  MODEL_ROUTE[kit] = { parts: [{ fit, names }], near: 1e9, jitter: opts.jitter !== false };
+  return true;
+}
+
 function modelLOD(r, x, z) {
   if (r.parts.length < 2) return 0;
   let best = 1e9;
@@ -204,17 +229,51 @@ const contact = (y) => 0.62 + 0.38 * sstep(0, 2.4, y);
 function buildGround() {
   const B = PLAN.bounds;
   const a = ACC.ground;
-  // the desert apron — one big subdivided plane so it takes the ground shade
-  const AP = 3800, SEG = 60;
+  /* The desert apron. It used to be a 3.8 km plane at 63 m per quad carrying
+     one sine wave, which from the air is a sheet of mud: no landform, no
+     colour, and a hard edge where it stopped. It is now 5.2 km at 26 m per
+     quad, and its height is three things at three scales —
+
+       barchan   wind-aligned crescent dunes, the shape that actually forms
+                 on this coast, ridged along the prevailing WSW and asymmetric
+                 across it, so the light catches a bright windward face and
+                 leaves a long slip-face shadow;
+       swell     a slow two-kilometre rise and fall that keeps the horizon
+                 from being a ruled line;
+       grain     fine fbm, only where the dunes already are.
+
+     Everything is faded out toward the district by the same distance ramp, so
+     the ground the walker stands on stays the flat sabkha it has to be. */
+  const AP = 5200, SEG = 200;
   const gp = new THREE.PlaneGeometry(AP, AP, SEG, SEG);
   gp.rotateX(-Math.PI / 2);
   const pos = gp.attributes.position;
+  // the prevailing wind, WSW: dune crests run across it
+  const WX = 0.9239, WZ = 0.3827;
+  const duneAt = (x, z) => {
+    const along = x * WX + z * WZ;      // downwind
+    const across = -x * WZ + z * WX;    // along the crest line
+    // crest lines meander instead of running dead straight
+    const wander = 62 * fbm(across * 0.00085 + 13, along * 0.00042 - 7, 3);
+    const u = (along + wander) / 210;
+    const ph = u - Math.floor(u);
+    /* a barchan section: a long windward ramp to the crest at 0.72, then a
+       short steep slip face. Squaring the ramp keeps the toe flat. */
+    const prof = ph < 0.72 ? Math.pow(ph / 0.72, 1.7) : 1 - Math.pow((ph - 0.72) / 0.28, 0.85);
+    // dune fields are patchy: some corridors are bare sabkha
+    const field = sstep(0.34, 0.66, fbm(x * 0.00046 - 31, z * 0.00046 + 19, 3));
+    return prof * field;
+  };
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i) + 220;
     pos.setZ(i, z);
     const d = Math.max(Math.abs(x) - 430, Math.abs(z - 220) - 460);
-    const dune = 3.4 * sstep(30, 620, d) * (0.5 + 0.5 * Math.sin(x * 0.0052 + z * 0.0031));
-    pos.setY(i, terrainY(x, z) - 0.06 + dune + 1.8 * fbm(x * 0.0022 + 5, z * 0.0022, 3) * sstep(20, 420, d));
+    const out = sstep(20, 700, d);          // how far into the open desert
+    const far = sstep(300, 1900, d);        // the big dunes are only far out
+    const dune = (3.0 + 6.0 * far) * duneAt(x, z) * out;
+    const swell = 2.6 * fbm(x * 0.00052 + 5, z * 0.00052, 3) * far;
+    const grain = 1.1 * fbm(x * 0.0075 + 41, z * 0.0075 - 12, 3) * out;
+    pos.setY(i, terrainY(x, z) - 0.06 + dune + swell + grain);
   }
   {
     const ix = [], SN = SEG + 1;
@@ -234,13 +293,31 @@ function buildGround() {
     const g2 = gp;
     const cnt = gpp.count;
     const sa = new Float32Array(cnt), ca = new Float32Array(cnt * 3);
-    _c3.set(K.sand);
+    /* Three ground types, not one. Eastern Province desert is a mosaic: pale
+       salt sabkha where the water table is near, warm aeolian sand where it
+       has drifted, and dark gravel serir scoured between them. One tone over
+       five kilometres is what made the aerial read as mud. */
+    const SABKHA = [0.86, 0.83, 0.75], SANDC = [0.76, 0.62, 0.40], SERIR = [0.48, 0.42, 0.33];
     for (let i = 0; i < cnt; i++) {
       sa[i] = S.SAND;
-      const x = gpp.getX(i), z = gpp.getZ(i);
+      const x = gpp.getX(i), y = gpp.getY(i), z = gpp.getZ(i);
       const d = Math.max(Math.abs(x) - 430, Math.abs(z - 220) - 460);
-      const s = 0.86 + 0.20 * fbm(x * 0.02, z * 0.02, 2) - 0.10 * sstep(0, 200, d);
-      ca[i * 3] = _c3.r * s; ca[i * 3 + 1] = _c3.g * s * 0.99; ca[i * 3 + 2] = _c3.b * s * 0.96;
+      // which of the three, chosen by a slow field and reinforced by height:
+      // sand piles up, sabkha sits in the hollows, gravel is the flat between
+      const t = fbm(x * 0.00062 + 88, z * 0.00062 - 41, 4);
+      const lift = clamp((y - terrainY(x, z)) / 14, 0, 1);
+      const wSand = clamp(sstep(0.48, 0.66, t) + lift * 0.8, 0, 1);
+      const wSab = clamp(sstep(0.46, 0.22, t) * (1 - lift), 0, 1);
+      let r = mix(mix(SERIR[0], SABKHA[0], wSab), SANDC[0], wSand);
+      let g = mix(mix(SERIR[1], SABKHA[1], wSab), SANDC[1], wSand);
+      let b = mix(mix(SERIR[2], SABKHA[2], wSab), SANDC[2], wSand);
+      // scrub stipple: sparse grey-green in the gravel corridors only
+      const scrub = sstep(0.63, 0.80, fbm(x * 0.011 - 5, z * 0.011 + 3, 3)) * (1 - wSand) * 0.5;
+      r = mix(r, 0.30, scrub); g = mix(g, 0.32, scrub); b = mix(b, 0.22, scrub);
+      // fine tonal break-up, and a slow darkening in toward the district so
+      // the paved slab does not sit on a lighter ring
+      const s = 0.90 + 0.16 * fbm(x * 0.019, z * 0.019, 2) - 0.09 * sstep(600, 0, d);
+      ca[i * 3] = r * s; ca[i * 3 + 1] = g * s; ca[i * 3 + 2] = b * s;
     }
     g2.setAttribute('aSurf', new THREE.BufferAttribute(sa, 1));
     g2.setAttribute('color', new THREE.BufferAttribute(ca, 3));

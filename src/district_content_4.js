@@ -939,4 +939,30 @@ function defineKit() {
   routeModel('olive', 'quiver_tree_01', 2.6, { near: 999 });
   routeModel('yucca', 'quiver_tree_01', 2.3, { near: 999 });
   routeModel('potbush', 'potted_plant_01', 1.05, { near: 999 });
+
+  /* ---- generated props -------------------------------------------------
+     Seventeen assets generated from this project's own renders, each reduced
+     from ~2 M triangles to a few thousand and registered under a kit name.
+     Where the name already exists the prop takes it over, so every bench and
+     every bin in the district is upgraded without touching one placement —
+     and if a prop failed to arrive, routeProp returns false and the hand-built
+     part it would have replaced stays exactly where it was.
+
+     The target is the real height in metres. Meshy normalises everything into
+     the same two-metre box, so this is the only number that matters and the
+     footprint follows from it. */
+  routeProp('bench', 'benchw', 0.86);
+  routeProp('binbank', 'bins', 1.15);
+  routeProp('potset', 'pots', 1.30);
+  routeProp('bike', 'bicycle', 1.00);
+  routeProp('evpoint', 'evpoint', 1.50);
+  routeProp('pvarray', 'solar', 0.42, { shadow: false });
+  routeProp('vinepanel', 'trellis', 2.60);
+  routeProp('hammock', 'hammock', 1.05);
+  routeProp('rugbig', 'carpet', 0.09, { shadow: false });
+  routeProp('bunting', 'bunting', 0.50, { shadow: false });
+  routeProp('wshrub', 'watershrub', 1.45);
+  routeProp('slimtree', 'lagoon_a', 6.20);
+  routeProp('jamaa', 'mosque', PLAN.jamaa.h, { jitter: false });
+  routeProp('arcadeblk', 'arcade', 11.0, { jitter: false });
 }

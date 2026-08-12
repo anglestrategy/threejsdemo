@@ -3,7 +3,7 @@ import path from 'path';
 const b = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 640, height: 400 } });
 p.on('pageerror', e => console.log('ERR', e.message));
-await p.goto('http://localhost:8099/' + '?scene=city&shot=3&noveil=1', { waitUntil: 'load', timeout: 240000 });
+await p.goto('http://localhost:8123/' + '?scene=city&shot=3&noveil=1', { waitUntil: 'load', timeout: 240000 });
 await p.waitForFunction('window.__ready === true', { timeout: 240000 });
 await p.waitForTimeout(3000);
 console.log(JSON.stringify(await p.evaluate(() => {

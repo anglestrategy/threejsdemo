@@ -9,7 +9,7 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const b = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
 const p = await b.newPage({ viewport: { width: 460, height: 260 } });
 const errs = []; p.on('pageerror', e => errs.push(String(e).slice(0,200)));
-await p.goto('http://localhost:8099/' + '?scene=city&noveil=1&walk=1', { waitUntil: 'load' });
+await p.goto('http://localhost:8123/' + '?scene=city&noveil=1&walk=1', { waitUntil: 'load' });
 await p.waitForFunction('window.__ready === true', { timeout: 180000 });
 
 const out = await p.evaluate(() => {

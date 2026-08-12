@@ -68,7 +68,7 @@ function block(x0, z0, x1, z1, o) {
 
   const PAL = {
     sand:  [K.sand, K.sandDk, K.sandLt, 0xcfae7e, 0xbb9a6e],
-    brick: [K.brick, K.brickDk, K.brickLt, 0x9a5138, 0xae5f42],
+    brick: [K.brick, K.brickDk, K.brickLt, 0x9c6a4a, 0xab7c5a],
     trav:  [K.travert, K.travDk, 0xdfd2b6, 0xcdbb9c, 0xd4c3a4],
   };
   const fam = style === 'brick' ? 'brick' : (style === 'trav' || style === 'office') ? 'trav' : 'sand';
@@ -92,13 +92,13 @@ function block(x0, z0, x1, z1, o) {
   const inset = detail > 0 ? 0.62 : 0.0;
   const gh0 = style === 'office' ? fh * 1.5 : fh;
   const hollow = detail > 0 ? Math.min(SHOP_DEPTH, Math.min(w, d) / 2 - 0.2) : inset;
-  a.add(G_BOXT, xf(cx, gy + gh0, cz, 0, Math.max(1, w - inset * 2), Math.max(0.1, floors * fh - gh0),
-    Math.max(1, d - inset * 2)), baseCol, surfBody, shade * 0.68);
-  a.add(G_BOXT, xf(cx, gy - 0.4, cz, 0, Math.max(0.8, w - hollow * 2), gh0 + 0.4,
-    Math.max(0.8, d - hollow * 2)), baseCol, surfBody, shade * 0.68);
+  addMass(a, cx, gy + gh0, cz, 0, Math.max(1, w - inset * 2), Math.max(0.1, floors * fh - gh0),
+    Math.max(1, d - inset * 2), baseCol, surfBody, shade * 0.68, 0.08);
+  addMass(a, cx, gy - 0.4, cz, 0, Math.max(0.8, w - hollow * 2), gh0 + 0.4,
+    Math.max(0.8, d - hollow * 2), baseCol, surfBody, shade * 0.68, 0.08);
 
   // ---- plinth course
-  a.add(G_BOXT, xf(cx, gy - 0.30, cz, 0, w + 0.34, 0.62, d + 0.34), fam === 'brick' ? K.brickDk : K.sandDk, surfBase, shade * 0.80);
+  addMass(a, cx, gy - 0.30, cz, 0, w + 0.34, 0.62, d + 0.34, fam === 'brick' ? K.brickDk : K.sandDk, surfBase, shade * 0.80, 0.05);
 
   const SIDES = [
     { ax: 1, x0: x0, z0: z1, x1: x1, z1: z1, nx: 0, nz: 1, ang: Math.PI / 2 },
@@ -176,7 +176,7 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
       const oh = gh - 1.15;
       const rd = 0.9;
       // the reveal: piers each side + head
-      a.add(G_BOXT, xf(at(b * bw + pierW / 2, -rd / 2)[0], gy, at(b * bw + pierW / 2, -rd / 2)[1], ang, pierW, gh, rd), baseCol, surfBase, shade * 0.86);
+      addMass(a, at(b * bw + pierW / 2, -rd / 2)[0], gy, at(b * bw + pierW / 2, -rd / 2)[1], ang, pierW, gh, rd, baseCol, surfBase, shade * 0.86, 0.035);
       archHead(a, p[0] - nx * rd * 0.5, gy + oh * 0.62, p[1] - nz * rd * 0.5, ang, ow, 1.05, rd, baseCol, surfBase, shade * 0.9);
       a.add(G_BOXT, xf(p[0] - nx * rd * 0.5, gy + oh * 0.62 + 1.05, p[1] - nz * rd * 0.5, ang, ow, Math.max(0.1, gh - oh * 0.62 - 1.05), rd), baseCol, surfBody, shade * 0.88);
       shopInterior(p[0] - nx * (rd * 0.55), gy + 0.12, p[1] - nz * (rd * 0.55), ang + Math.PI / 2, ow * 0.94, oh * 0.94,
@@ -191,7 +191,7 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
       a.add(G_BOXT, xf(at(t, -1.35)[0], gy - 0.06, at(t, -1.35)[1], ang, ow + 0.6, 0.14, 1.0), 0xc9b795, S.TRAVERTINE, shade * 0.95);
     } else {
       // pier / spandrel grammar: real openings
-      a.add(G_BOXT, xf(at(b * bw + pierW / 2, 0)[0], gy, at(b * bw + pierW / 2, 0)[1], ang, pierW, gh, 0.5), baseCol, surfBase, shade * 0.9);
+      addMass(a, at(b * bw + pierW / 2, 0)[0], gy, at(b * bw + pierW / 2, 0)[1], ang, pierW, gh, 0.5, baseCol, surfBase, shade * 0.9, 0.035);
       const ow = bw - pierW, sill = isDoor ? 0.0 : 0.95, head = gh - 0.85;
       if (sill > 0.01) a.add(G_BOXT, xf(p[0], gy, p[1], ang, ow, sill, 0.42), baseCol, surfBase, shade * 0.88);
       a.add(G_BOXT, xf(p[0], gy + head, p[1], ang, ow, gh - head, 0.42), baseCol, surfBase, shade * 0.88);
@@ -202,7 +202,7 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
     }
   }
   // last pier closes the run
-  if (lvl > 0) a.add(G_BOXT, xf(at(len - pierW / 2, 0)[0], gy, at(len - pierW / 2, 0)[1], ang, pierW, gh, 0.5), baseCol, surfBase, shade * 0.9);
+  if (lvl > 0) addMass(a, at(len - pierW / 2, 0)[0], gy, at(len - pierW / 2, 0)[1], ang, pierW, gh, 0.5, baseCol, surfBase, shade * 0.9, 0.035);
   // ground-floor string course
   if (lvl > 0) a.add(G_BOXT, xf(S4.x0 + ux * len / 2 + nx * 0.16, gy + gh, S4.z0 + uz * len / 2 + nz * 0.16, ang, 0.62, 0.22, len), baseCol, surfBase, shade * 1.02);
 
@@ -380,8 +380,17 @@ function roofscape(cx, cz, w, d, top, o) {
     const rows = 2 + Math.floor(rnd() * 3);
     const ax = cx + (rnd() - 0.5) * w * 0.3, az = cz + (rnd() - 0.5) * d * 0.3;
     const rw = Math.min(w * 0.5, 10);
+    // a real array where one was generated, the tilted box where it was not
+    const pv = !!MODEL_ROUTE.pvarray;
     for (let r2 = 0; r2 < rows; r2++) {
       const rz = az - rows * 0.9 + r2 * 1.8;
+      if (pv) {
+        const n = Math.max(1, Math.round(rw / 4.4));
+        for (let k = 0; k < n; k++) {
+          inst('pvarray', xf(ax - rw / 2 + rw * (k + 0.5) / n, top + 0.02, rz, 0));
+        }
+        continue;
+      }
       a.add(G_BOXT, xf(ax, top + 0.30, rz, 0, rw, 0.06, 1.15), 0x1b2740, S.METAL, 0.72, undefined, -0.42);
       for (const sx of [-1, 1]) a.add(G_BOXT, xf(ax + sx * rw * 0.45, top, rz, 0, 0.07, 0.34, 0.07), 0x7d7668, S.METAL, 0.8);
     }
@@ -394,6 +403,10 @@ function roofscape(cx, cz, w, d, top, o) {
     a.add(G_BOXT, xf(bx, top, bz, 0, bw, 0.34, bd), 0xbdb2a0, S.CONCRETE, 0.95);
     inst('lawn', xf(bx, top + 0.34, bz, 0, bw * 0.94, 1, bd * 0.94),
       pick([0x4a6b34, 0x53743a, 0x415f2d, 0x3d5c30]));
+    if (MODEL_ROUTE.hammock && bw > 5 && bd > 5 && chance(0.45)) {
+      inst('hammock', xf(bx + rr(-bw * 0.25, bw * 0.25), top + 0.34,
+        bz + rr(-bd * 0.25, bd * 0.25), rnd() * 6.28));
+    }
     const cnt = Math.max(4, Math.round(bw * bd / 5.5));
     for (let i = 0; i < cnt; i++) {
       const px = bx + (rnd() - 0.5) * (bw - 0.9), pz = bz + (rnd() - 0.5) * (bd - 0.9);

@@ -282,3 +282,21 @@ well and it is the right reference for form, but it cannot be walked into, lit
 by this scene's sun, or collided with. The useful ask from those tools is a
 *component*: a dome, a minaret, a wind tower, a mashrabiya panel, an arcade
 bay. `gen_userglb.py` takes any such GLB, decimates it and repacks it.
+
+## Round 16 — generated props, and the aerial again
+
+Seventeen assets generated from this project's own renders came back as ~2 M
+triangles each with 4k PBR sets, delivered as GitHub release assets. `gen_props.py`
+fetches, reduces and repacks each one into `dist/assets/props/<key>.glb`, and
+`routeProp` registers it under a kit name — where the name already exists the
+prop takes it over, so every bench in the district was upgraded without touching
+one placement.
+
+| # | delta | what changed |
+|---|---|---|
+| 1 | **QEM cannot collapse an edge that does not exist.** A scanned shrub is a few thousand leaf shells that never touch, so decimation hit a floor at 132 k triangles and the loop ground against it — one prop spent forty-five minutes at 100% CPU with no stall guard. | When a full pass buys less than 2%, weld the vertices onto a tolerance grid and try again, a little coarser each round. 132 k → 9 k. The guard is what makes the loop terminate at all. |
+| 2 | **Budget is a question about instance count, not file size.** The solar array was reduced to 10 k triangles, which is modest — until the roofscape placed 1,353 of them. That one prop was 13.5 M triangles, more than the entire district. | Per-prop budgets set from how many of each the plan actually places: 900 for the panel, 2,600 for the bench, 60 k for the one mosque. 27.2 M back to 10.8 M. |
+| 3 | **A "bins" asset is a bank of three, not one bin**, and it had taken over the kit name that every street corner places by the dozen. Walking the court you were surrounded by two-metre stacks of them. | It is `binbank` now, placed sparingly; `bin` is the hand-built single bin again. The majlis lounge set did not survive its own decimation — 16 k triangles of brown rubble — and was dropped for the hand-built cushions. |
+| 4 | **A single fog density cannot serve both views.** Tuned for eye level it left the desert at full contrast out to its own geometric edge, so the world ended in a hard brown line; raised enough to dissolve that edge, it greyed out the whole district seen from three hundred metres up. | Haze now falls off with altitude — an exponential atmosphere of 150 m scale height, sampled at both ends of the ray. The apron is 90% dissolved at its edge, the district is 4% hazed at 300 m, and the towers finally have the depth cue that says two kilometres. |
+| 5 | **The desert was a 3.8 km plane at 63 m per quad carrying one sine wave** — from the air, a sheet of mud. | 5.2 km at 26 m per quad, with wind-aligned barchan dunes ridged across the prevailing WSW and asymmetric along it, a slow two-kilometre swell, and three ground types instead of one: pale salt sabkha, warm aeolian sand, dark gravel serir, chosen by a slow field and reinforced by height. |
+| 6 | **The wide shot had no focal point, and the water court was 164 by 162 metres of paving with seven sails on it.** | A jamaa on a travertine podium closes the court's north head — 38 m to the top of the minaret, the only thing in the plan taller than its own quarter — with steps, a walkable ramp, a riwaq on three sides, and floodlights on the facade. The court below it is now a walled garden on the mosque's axis: two date allées running its full length, planting beds between them and the riwaq, majlis rugs under the sails, string lights, and an arcaded street wall of eight generated colonnade blocks where there had been nothing at all. |

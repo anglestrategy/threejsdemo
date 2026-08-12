@@ -623,6 +623,8 @@ function buildTensile() {
   // seven sails: masts with tensioned hypar quads
   for (let i = 0; i < 7; i++) {
     const mx = cx + rr(-16, 16), mz = T.z0 + 12 + (i / 6) * (T.z1 - T.z0 - 24) + rr(-4, 4);
+    // the jamaa takes the north head of the court; no sail crowds its forecourt
+    if (Math.hypot(mx - PLAN.jamaa.x, mz - PLAN.jamaa.z) < PLAN.jamaa.r + 12) continue;
     const h = 7.5 + rnd() * 5.5;
     const r = 8.5 + rnd() * 4.5;
     const rot = rnd() * 6.28;

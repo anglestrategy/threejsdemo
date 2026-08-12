@@ -55,6 +55,8 @@ function buildPlanting() {
           }
         }
         if (chance(0.18)) inst('bin', xf(px + nx * s * 1.5, gy, pz + nz * s * 1.5, rnd() * 6.28), 0xffffff);
+        if (chance(0.05)) inst('evpoint', xf(px + nx * s * 2.6, gy, pz + nz * s * 2.6, Math.atan2(-nx * s, -nz * s)));
+        if (chance(0.07)) inst('bike', xf(px - nx * s * 1.1, gy, pz - nz * s * 1.1 + rr(-2, 2), rnd() * 6.28));
       }
     }
     // pedestrian crossings where two roads meet
@@ -132,6 +134,12 @@ function buildPlanting() {
     for (const sd of [-1, 1]) {
       const dx2 = sp + sd * 5.35;
       inst('drain', xf(dx2, terrainY(dx2, z) + 0.152, z, 0), 0xbfae92);
+    }
+  }
+
+  if (MODEL_ROUTE.bunting) {
+    for (let z = S1.z0 - 6; z < S1.z1 + 12; z += rr(9, 14)) {
+      inst('bunting', xf(sp, terrainY(sp, z) + 5.1 + rr(-0.2, 0.2), z, Math.PI / 2, 2.5, 1, 1));
     }
   }
 
@@ -445,6 +453,208 @@ function updateLife(dt, t) {
   waterMat.uniforms.uTime.value = t;
 }
 
+/* ============================================================ LANDMARKS ==
+   Two things were missing from the wide shot, and they are the same thing
+   twice: nothing rose out of the district that you could name, and the open
+   quarters trailed off into paving instead of being held by architecture.
+
+   Both are generated assets — a jamaa at the head of the water court, whose
+   minaret is the only thing in the plan taller than its own quarter, and a
+   colonnaded street building repeated along the edges that had no street
+   wall. Every one of them stands on hand-built ground: a podium, steps, a
+   ramp, a collider, and light aimed at the facade after dark.             */
+
+/* Meshy picks its own facing per asset. These two constants are the whole
+   correction, and they are read off a screenshot rather than guessed. */
+const JAMAA_ROT = Math.PI;
+const ARCADE_ROT = 0;
+
+function buildLandmarks() {
+  CURCHUNK = 'landmark';
+  const a = ACC.arch, f = ACC.fine;
+  const J = PLAN.jamaa;
+  const gy = terrainY(J.x, J.z);
+
+  /* ---- the podium ------------------------------------------------------
+     A jamaa does not sit on the pavement. It sits a metre proud of it, with
+     the whole precinct wall reading as one plane of travertine.           */
+  const PW = 62, PD = 68, PY = gy + 1.15;
+  const x0 = J.x - PW / 2, x1 = J.x + PW / 2, z0 = J.z - PD / 2, z1 = J.z + PD / 2;
+  a.add(G_BOXT, xf(J.x, gy - 1.1, J.z, 0, PW, 2.25, PD), K.travDk, S.TRAVERTINE, 0.90);
+  paved(ACC.ground, x0 + 0.4, z0 + 0.4, x1 - 0.4, z1 - 0.4, PY - terrainY(J.x, J.z) + 0.01, K.travert, 1.08);
+  platform(x0, z0, x1, z1, PY);
+
+  // three steps and a walkable ramp down to the court on the south face
+  for (let s = 0; s < 3; s++) {
+    a.add(G_BOXT, xf(J.x, gy + 0.05 + 0.34 * s, z0 - 1.05 + s * 0.35, 0,
+      19 - s * 1.2, 0.36, 0.72), K.travert, S.TRAVERTINE, 1.02 - s * 0.03);
+  }
+  ramp(J.x, z0 - 1.9, J.x, z0 + 1.4, gy + 0.06, PY, 9);
+  platform(J.x - 9.5, z0 - 2.2, J.x + 9.5, z0 - 1.0, gy + 0.06);
+
+  /* ---- the riwaq -------------------------------------------------------
+     A pier-and-lintel colonnade round three sides of the precinct. It is
+     what turns a building standing on a slab into a courtyard.           */
+  const PIER = 4.6;
+  for (const side of [-1, 1]) {
+    for (let z = z0 + 3; z <= z1 - 3; z += PIER) {
+      a.add(G_BOXT, xf(J.x + side * (PW / 2 - 1.5), PY, z, 0, 1.0, 4.5, 1.0), K.travert, S.TRAVERTINE, 1.0);
+    }
+    a.add(G_BOXT, xf(J.x + side * (PW / 2 - 1.5), PY + 4.5, J.z, 0, 1.3, 0.85, PD - 5), K.travert, S.TRAVERTINE, 1.06);
+  }
+  for (let x = x0 + 3; x <= x1 - 3; x += PIER) {
+    a.add(G_BOXT, xf(x, PY, z1 - 1.5, 0, 1.0, 4.5, 1.0), K.travert, S.TRAVERTINE, 1.0);
+  }
+  a.add(G_BOXT, xf(J.x, PY + 4.5, z1 - 1.5, 0, PW - 5, 0.85, 1.3), K.travert, S.TRAVERTINE, 1.06);
+
+  /* ---- the jamaa ------------------------------------------------------- */
+  inst('jamaa', xf(J.x, PY, J.z, JAMAA_ROT));
+  collider(J.x, J.z, 9.6, 12.4, 0, PY + J.h);
+
+  // washing court and planting on the podium, and the light that finds the
+  // minaret once the sun has gone
+  for (const s of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    inst('uplight', xf(J.x + s[0] * 13.5, PY + 0.06, J.z + s[1] * 16.5), 0xffc98a);
+    inst('slimtree', xf(J.x + s[0] * 18.5, PY, J.z + s[1] * 20.0, rnd() * 6.28));
+  }
+  for (let i = 0; i < 8; i++) {
+    const t = i / 7;
+    inst('potset', xf(mix(J.x - 8.5, J.x + 8.5, t), PY, z0 + 3.4, rnd() * 6.28));
+  }
+  for (let i = 0; i < 5; i++) {
+    inst('bench', xf(J.x + rr(-16, 16), PY, z0 + rr(6, 12), rnd() < 0.5 ? 0 : Math.PI));
+  }
+
+  /* ---- the street wall -------------------------------------------------
+     The water court was 164 by 162 metres of paving with seven sails on it
+     and nothing at its edges, which is why it read as the empty quarter. */
+  const T = PLAN.tensile;
+  const AW = 28.6;          // the arcade block's real width at this height
+  for (let i = 0; i < 5; i++) {
+    const z = T.z0 + 6 + i * (AW + 3.4);
+    if (z > T.z1 - 22) break;
+    const x = T.x0 - 15;
+    const g = terrainY(x, z);
+    a.add(G_BOXT, xf(x, g - 0.6, z, 0, 20, 0.72, AW + 2.2), K.travDk, S.TRAVERTINE, 0.92);
+    platform(x - 10, z - AW / 2 - 1.1, x + 10, z + AW / 2 + 1.1, g + 0.12);
+    inst('arcadeblk', xf(x, g + 0.12, z, ARCADE_ROT + Math.PI / 2));
+    collider(x, z, 5.6, AW / 2 - 0.6, 0, g + 11);
+    inst('slimtree', xf(x + 11.5, g, z - AW / 3, rnd() * 6.28));
+    inst('slimtree', xf(x + 11.5, g, z + AW / 3, rnd() * 6.28));
+    inst('bench', xf(x + 9.5, g + 0.12, z, Math.PI / 2));
+    if (i % 2 === 0) inst('binbank', xf(x + 9.8, g + 0.12, z + 7, rnd() * 6.28));
+  }
+  // and a short terrace closing the court's south end
+  for (let i = 0; i < 3; i++) {
+    const x = T.x0 + 24 + i * (AW + 4);
+    const z = T.z0 - 17;
+    const g = terrainY(x, z);
+    a.add(G_BOXT, xf(x, g - 0.6, z, 0, AW + 2.2, 0.72, 20), K.travDk, S.TRAVERTINE, 0.92);
+    platform(x - AW / 2 - 1.1, z - 10, x + AW / 2 + 1.1, z + 10, g + 0.12);
+    inst('arcadeblk', xf(x, g + 0.12, z, ARCADE_ROT + Math.PI));
+    collider(x, z, AW / 2 - 0.6, 5.6, 0, g + 11);
+    inst('bench', xf(x, g + 0.12, z + 9.5, 0));
+  }
+
+  /* ---- the water's edge ------------------------------------------------
+     A basin with a hard travertine kerb and nothing growing at it is a
+     swimming pool. These are what make it a lagoon.                      */
+  const B = PLAN.sailPool;
+  for (const side of [-1, 1]) {
+    // a soil strip down each long side, and the planting standing in it —
+    // scattering shrubs straight onto the pavers read as a carpet of leaves
+    const sx = side < 0 ? B.x0 - 3.3 : B.x1 + 3.3;
+    const g0 = terrainY(sx, (B.z0 + B.z1) / 2);
+    ACC.arch.add(G_BOXT, xf(sx, g0 + 0.02, (B.z0 + B.z1) / 2, 0, 4.0, 0.16, B.z1 - B.z0 + 4),
+      0x6a5b45, S.SAND, 0.86);
+    for (let i = 0; i < 11; i++) {
+      const px = sx + rr(-1.3, 1.3), pz = mix(B.z0 - 1.6, B.z1 + 1.6, (i + rr(0.1, 0.9)) / 11);
+      inst('wshrub', xf(px, terrainY(px, pz) + 0.18, pz, rnd() * 6.28,
+        1.0 + rnd() * 0.6, 1.05 + rnd() * 0.7, 1.0 + rnd() * 0.6));
+    }
+  }
+  for (let i = 0; i < 9; i++) {
+    const ang = i / 9 * 6.2831853 + 0.4;
+    const px = (B.x0 + B.x1) / 2 + Math.cos(ang) * rr(24, 40);
+    const pz = (B.z0 + B.z1) / 2 + Math.sin(ang) * rr(30, 52);
+    if (Math.hypot(px - J.x, pz - J.z) < J.r + 6) continue;
+    inst('slimtree', xf(px, terrainY(px, pz) + 0.14, pz, rnd() * 6.28));
+  }
+
+  /* ---- the garden ------------------------------------------------------
+     What was actually wrong with this quarter was not that it lacked a
+     landmark — it was that a hundred and sixty metres of paving with seven
+     sails on it is a car park. It is now a walled garden on the jamaa's
+     axis: two date allées running the full length, planting between them
+     and the riwaq, and the basin sitting in the middle of it.
+
+     The axis is the mosque's, so everything is measured off J.x rather than
+     off the court, and the whole composition reads from the podium steps. */
+  const AX = J.x;
+  const gz0 = T.z0 + 8, gz1 = z0 - 6;      // between the south terrace and the podium
+  for (const side of [-1, 1]) {
+    const px = AX + side * 27;
+    for (let z = gz0; z <= gz1; z += 9.4) {
+      const g = terrainY(px, z);
+      inst('planter', xf3(px, g + 0.10, z, 0, rnd() * 6.28, 0, 2.5, 1.0, 2.5), pick([0xcabb9d, 0xd2c3a4]));
+      inst('palm', xf3(px, g + 0.42, z, 0, rnd() * 6.28, 0,
+        0.94 + rnd() * 0.28, 1.02 + rnd() * 0.34, 0.94 + rnd() * 0.28), 0xffffff);
+      // the allées are lit from below, which is what makes them read at dusk
+      if (((z - gz0) / 9.4) % 2 < 1) inst('uplight', xf(px + side * 2.2, g + 0.14, z), 0xffc98a);
+    }
+    // the bed behind each allée: lawn plate, bougainvillea against the riwaq
+    const bx0 = AX + side * 33, bx1 = AX + side * 62;
+    const bx = (bx0 + bx1) / 2, bw = Math.abs(bx1 - bx0);
+    for (let z = gz0 + 6; z <= gz1 - 12; z += 24) {
+      const g = terrainY(bx, z);
+      inst('lawn', xf(bx, g + 0.16, z, 0, bw * 0.94, 1, 22), pick([K.leaf, K.leafDk, 0x4b6d3e]));
+      for (let k = 0; k < 5; k++) {
+        const qx = bx + rr(-bw * 0.42, bw * 0.42), qz = z + rr(-9, 9);
+        inst(chance(0.5) ? 'wshrub' : 'bougain',
+          xf3(qx, terrainY(qx, qz) + 0.18, qz, 0, rnd() * 6.28, 0,
+            0.8 + rnd() * 0.6, 0.8 + rnd() * 0.6, 0.8 + rnd() * 0.6), 0xffffff);
+      }
+      inst('slimtree', xf(bx + rr(-bw * 0.3, bw * 0.3), g + 0.16, z + rr(-8, 8), rnd() * 6.28));
+    }
+  }
+
+  /* the shaded rooms under the sails: a rug, a low seating set, and the
+     string lights that turn the whole court on after sunset */
+  for (let i = 0; i < 6; i++) {
+    const mx = AX + rr(-17, 17), mz = mix(gz0 + 14, gz1 - 20, i / 5) + rr(-4, 4);
+    if (mz > B.z0 - 6 && mz < B.z1 + 6 && mx > B.x0 - 6 && mx < B.x1 + 6) continue;
+    const g = terrainY(mx, mz);
+    const rot = rnd() * 6.28;
+    inst('rugbig', xf(mx, g + 0.13, mz, rot, 1.15, 1, 1.15));
+    // seating round the rug: the hand-built majlis kit, because the scanned
+    // lounge set did not survive its own decimation
+    for (let k = 0; k < 7; k++) {
+      const a2 = rot + k / 7 * 6.2831853;
+      const px = mx + Math.sin(a2) * 1.55, pz = mz + Math.cos(a2) * 1.55;
+      inst('cushion', xf3(px, g + 0.15, pz, 0, a2 + Math.PI, 0, 1, 1, 1),
+        pick([K.sadu, 0xb03a32, 0x8d2a26, 0xd9cbb4]));
+      if (k % 3 === 0) inst('bolster', xf3(px, g + 0.47, pz, 0, a2 + Math.PI, 0, 1, 1, 1),
+        pick([K.sadu, 0xe0d3ba, 0x7d2622]));
+    }
+    inst('lowtable', xf3(mx, g + 0.15, mz, 0, rot, 0, 1, 1, 1), 0xf2ece0);
+    if (chance(0.6)) inst('potset', xf(mx + rr(-3.4, 3.4), g + 0.13, mz + rr(-3.4, 3.4), rnd() * 6.28));
+  }
+  for (const side of [-1, 1]) {
+    for (let z = gz0 + 4.7; z <= gz1 - 9; z += 18.8) {
+      const g = terrainY(AX + side * 27, z);
+      inst('bunting', xf(AX + side * 27, g + 6.4, z + 9.4, 0, 1, 1, 1));
+    }
+  }
+  // benches facing the water, back to back down the axis
+  for (let z = gz0 + 10; z <= gz1 - 10; z += 12.5) {
+    if (z > B.z0 - 4 && z < B.z1 + 4) continue;
+    const g = terrainY(AX, z);
+    inst('bench', xf(AX - 1.3, g + 0.13, z, 0));
+    inst('bench', xf(AX + 1.3, g + 0.13, z, Math.PI));
+    if (chance(0.22)) inst('binbank', xf(AX + rr(-7, 7), g + 0.13, z + 5, rnd() * 6.28));
+  }
+}
+
 /* =========================================================== BUILD ORDER */
 function* buildSteps() {
   yield 'env'; buildEnvironment();
@@ -460,6 +670,7 @@ function* buildSteps() {
   yield 'majlis'; buildMajlis();
   yield 'court'; buildCourtyard();
   yield 'tensile'; buildTensile();
+  yield 'landmarks'; buildLandmarks();
   yield 'planting'; buildPlanting();
   yield 'green'; buildGreen();
   yield 'identity'; buildIdentity();
@@ -569,6 +780,8 @@ const DRESS_SPOTS = [
   { x: -224, z: 198, r: 46, d: 1.0 },     // the colonnade court
   { x: -200, z: 150, r: 34, d: 0.8 },
   { x: -34, z: 120, r: 30, d: 0.7 },      // the channel walk
+  { x: -214, z: 20, r: 48, d: 1.0 },      // the water court garden
+  { x: -214, z: 24, r: 26, d: 1.2 },      // and its axis, more densely
 ];
 for (let z = 90; z <= 360; z += 26) {     // the souq spine, end to end
   DRESS_SPOTS.push({ x: 4 + (z > 250 ? 26 : 0), z, r: 22, d: 1.5 });
@@ -660,7 +873,11 @@ function nearDressing() {
         const roll = rnd();
         if (roll < 0.17) inst('crate', xf3(px, gy, pz, 0, ang + rr(-0.22, 0.22), 0, 0.85 + rnd() * 0.3, 0.9, 0.85 + rnd() * 0.3), pick([0x9a7444, 0x86643a, 0xa88254]));
         else if (roll < 0.29) inst('matroll', xf3(px, gy, pz, 0, ang + rr(-0.3, 0.3), 0, 1, 0.85 + rnd() * 0.3, 1), 0xffffff);
-        else if (roll < 0.42) inst('aboard', xf3(px, gy, pz, 0, ang + rr(-0.8, 0.8), 0, 1, 1, 1), pick([0x6b4526, 0x54361d]));
+        else if (roll < 0.36) inst('aboard', xf3(px, gy, pz, 0, ang + rr(-0.8, 0.8), 0, 1, 1, 1), pick([0x6b4526, 0x54361d]));
+        else if (roll < 0.42) {
+          if (MODEL_ROUTE.vinepanel) inst('vinepanel', xf(px, gy, pz, ang));
+          else inst('matroll', xf3(px, gy, pz, 0, ang, 0, 1, 1, 1), 0xffffff);
+        }
         else if (roll < 0.53) inst('goods', xf3(px, gy, pz, 0, ang, 0, 0.9 + rnd() * 0.25, 1, 1), pick([0xd8c0a0, 0xc8b090, 0xe0cdb0, 0x9d5f4e, 0x6e7f8e, 0xb8a25e, 0x7c5a72, 0xd9d3c4]));
         else if (roll < 0.64) inst('basket', xf(px, gy, pz, rnd() * 6.28, 0.7 + rnd() * 0.4, 0.8 + rnd() * 0.5, 0.7 + rnd() * 0.4), pick([0xc9b088, 0xb59a72]));
         else if (roll < 0.73) {
