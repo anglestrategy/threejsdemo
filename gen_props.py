@@ -89,6 +89,12 @@ PROPS = [
     # --- people: the largest remaining delta in the whole build
     ('models_of_people_x_10_00.glb',                                       'people10',  160000, 4096, 18000),
     ('sitting_people_x_5_11.glb',                                          'people5s',  100000, 4096, 12000),
+    # --- the two that were sitting in the release unprocessed. The golden-hour
+    #     scene is a furnished interior: the district's shops and majlis are
+    #     dressed from a hand-built kit, and this is the first real furniture
+    #     in the build.
+    ('goldenhourscene_nhp.glb',                                            'ghscene',   400000, 4096, 40000),
+    ('model.26.glb',                                                       'diorama',   300000, 4096, 30000),
 ]
 
 

@@ -246,7 +246,7 @@ function palmGeo(detail) {
   return g;
 }
 
-let STANDERS = [], SITTERS = [], PALM_PROC = null;
+let STANDERS = [], SITTERS = [], PALM_PROC = null, FURNITURE = [];
 
 function defineKit() {
   /* ---- palm ----------------------------------------------------------- */
@@ -1104,6 +1104,10 @@ function defineKit() {
   routeProp('townhouse', 'extra', 11.5, { near: 150 });
   routeProp('townhouse2', 'lagoon_b', 13.0, { near: 150 });
   routeProp('majlisset', 'majlisset', 0.80, { near: 30 });
+
+  /* the furnished interior, split into its pieces. Anything over 2.4 m is
+     part of the room rather than something standing in it. */
+  FURNITURE = routeSceneParts('ghscene', 'fn', { maxH: 2.4 });
 
   /* ---- the scanned people ---------------------------------------------
      Ten standing figures and five seated ones, each split out of its scene

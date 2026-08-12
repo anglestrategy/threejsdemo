@@ -53,14 +53,17 @@ for (const n of show) {
   if (!INDEX[n]) continue;
   const g = await loader.loadAsync(INDEX[n].file);
   const root = g.scene; root.updateMatrixWorld(true);
-  const k = (TARGET[n] || 2) / Math.max(0.01, INDEX[n].height);
+  // measure what loaded, not what the index claims: an FBX conversion keeps
+  // its scale in the node transforms and the index only sees accessor min/max
+  const raw = new THREE.Box3().setFromObject(root);
+  const k = (TARGET[n] || 2) / Math.max(0.001, raw.max.y - raw.min.y);
   root.scale.setScalar(k);
   root.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true;
     o.material.side = THREE.DoubleSide; } });
   const bb = new THREE.Box3().setFromObject(root);
   root.position.set(x - bb.min.x, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
   x += (bb.max.x - bb.min.x) + 2.0;
-  span = Math.max(span, bb.max.y - bb.min.y);
+  span = Math.max(span, bb.max.y - bb.min.y, (bb.max.z - bb.min.z) * 0.55);
   sc.add(root);
   info.push(n + '  ' + INDEX[n].tris + ' tris  ' +
     (bb.max.x - bb.min.x).toFixed(1) + ' x ' + (bb.max.y - bb.min.y).toFixed(1) +
@@ -68,10 +71,17 @@ for (const n of show) {
 }
 document.getElementById('l').innerHTML = info.join('<br>');
 const view = +((location.search.match(/view=(\\d)/) || [])[1] || 0);
-const ang = [0, 1.35, 3.14159][view] || 0;
+const ang = [0, 1.35, 3.14159, 0.7][view] || 0;
 const cx = (x - 2.0) / 2, d = Math.max(x * 0.62, span * 2.2);
-cam.position.set(cx + Math.sin(ang) * d, span * 0.62, Math.cos(ang) * d);
-cam.lookAt(cx, span * 0.42, 0);
+if (view === 3) {
+  // an interior has to be looked into, not at: from outside a furnished room
+  // all you ever see is the outside of its walls
+  cam.position.set(cx + Math.sin(ang) * d * 0.55, span * 1.85, Math.cos(ang) * d * 0.55);
+  cam.lookAt(cx, 0, 0);
+} else {
+  cam.position.set(cx + Math.sin(ang) * d, span * 0.62, Math.cos(ang) * d);
+  cam.lookAt(cx, span * 0.42, 0);
+}
 let f = 0; window.__frames = 0;
 (function loop(){ requestAnimationFrame(loop); rn.render(sc, cam); window.__frames++;
   if (++f === 3) window.__ready = true; })();
@@ -86,7 +96,8 @@ let f = 0; window.__frames = 0;
                    'shophouse': 12.0, 'bluehall': 16.0, 'resblock': 15.0,
                    'fountain': 2.46, 'obelisk': 12.0, 'sail1': 5.0,
                    'kiosk': 3.0, 'bench2': 0.6,
-                   'people10': 1.72, 'people5s': 1.28}))
+                   'people10': 1.72, 'people5s': 1.28,
+                   'ghscene': 3.0, 'diorama': 12.0}))
 
 os.makedirs('dist', exist_ok=True)
 open('dist/props.html', 'w').write(html)

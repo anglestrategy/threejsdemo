@@ -199,6 +199,7 @@ the plan places, not from a file-size ceiling.
 | key | what it is | tris | LOD1 | texture | size | sited |
 |---|---|---|---|---|---|---|
 | `mosque` | jamaa with dome and minaret — the district landmark | 399,994 | — | 4096 px | 7.9 MB | yes |
+| `diorama` | district diorama from the original render | 299,992 | 29954 | 4096 px | 4.4 MB | no |
 | `arcade` | two-storey arcaded colonnade block — street wall | 259,998 | 25996 | 4096 px | 7.0 MB | yes |
 | `watershrub` | waterside shrub clump | 251,544 | 3958 | 2048 px | 2.4 MB | yes |
 | `tram` | articulated light-rail vehicle | 240,000 | — | 4096 px | 4.9 MB | yes |
@@ -209,6 +210,7 @@ the plan places, not from a file-size ceiling.
 | `lagoon_b` | vernacular block, arcaded ground floor | 149,976 | 7862 | 2048 px | 3.5 MB | yes |
 | `resblock` | residential apartment block | 149,964 | 18806 | 2048 px | 4.2 MB | yes |
 | `lagoon_a` | slender street tree | 148,564 | 4728 | 2048 px | 2.3 MB | yes |
+| `ghscene` | furnished residential interior — 30 pieces of real furniture | 144,542 | 45574 | 4096 px | 50.1 MB | yes |
 | `fountain` | roundabout fountain bowl | 119,996 | — | 2048 px | 1.8 MB | yes |
 | `majlisset` | majlis lounge seating | 119,992 | 5984 | 2048 px | 3.6 MB | yes |
 | `extra` | three-storey vernacular building | 119,533 | 5762 | 2048 px | 3.5 MB | yes |
@@ -230,7 +232,7 @@ the plan places, not from a file-size ceiling.
 | `bunting` | string-light bunting | 11,998 | 1600 | 1024 px | 0.5 MB | yes |
 | `solar` | rooftop photovoltaic array | 2,598 | 648 | 1024 px | 0.7 MB | yes |
 
-**31 assets, 126.3 MB served.**
+**33 assets, 180.8 MB served.**
 
 Generated but not sited: none — every asset in the release is placed.
 

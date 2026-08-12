@@ -81,9 +81,22 @@ function routeProp(kit, key, targetH, opts) {
   const P = PROPS[key];
   if (!P || !P.parts.length) return false;
   opts = opts || {};
-  const k = targetH / Math.max(0.01, P.height);
+  /* Measured from the geometry that actually loaded, not from the index.
+     The index records accessor min/max, which ignores node transforms — and
+     an FBX conversion puts all of its scale there, so the golden-hour interior
+     was recorded as 0.2 m across. The loader bakes matrixWorld in, so the
+     geometry in hand is always right; ask it. */
+  const bb = new THREE.Box3();
+  const _b1 = new THREE.Box3();
+  for (const p of P.parts) {
+    p.geo.computeBoundingBox();
+    bb.union(_b1.copy(p.geo.boundingBox));
+  }
+  const gh = Math.max(0.001, bb.max.y - bb.min.y);
+  const k = targetH / gh;
   const fit = new THREE.Matrix4().makeScale(k, k, k)
-    .multiply(new THREE.Matrix4().makeTranslation(0, -(P.base || 0), 0));
+    .multiply(new THREE.Matrix4().makeTranslation(
+      -(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2));
   const level = (list, sfx) => {
     const names = [];
     list.forEach((p, pi) => {
@@ -151,6 +164,48 @@ function routePersonParts(key, prefix, targetH) {
       parts: [{ fit: new THREE.Matrix4(), names: [nm] }], near: 1e9, jitter: true,
     };
     kits.push(prefix + pi);
+  });
+  return kits;
+}
+
+/* Split a furnished scene into individually placeable pieces.
+
+   `ghscene` is a complete residential interior: fifty-four meshes across
+   thirty materials — leather and beige-cushioned sofas, marble, a rug,
+   curtains, lamps, two indoor trees — inside a shell of FLOOR, ROOF and three
+   WALLs. The shell is the one part that is no use: the district already has
+   rooms, and what it has never had is furniture in them.
+
+   So the shell is dropped by name and everything else is taken on its own,
+   re-centred on its own footprint with its base at zero, and registered under
+   its own kit name at whatever real size it already is — this scene is
+   modelled to scale, so nothing is resized.                                */
+const SHELL = /FLOOR|ROOF|WALL|ROOM|Particles|BezierCurve/i;
+
+function routeSceneParts(key, prefix, opts) {
+  const P = PROPS[key];
+  if (!P || !P.parts.length) return [];
+  opts = opts || {};
+  const kits = [];
+  const bb = new THREE.Box3();
+  P.parts.forEach((p, pi) => {
+    if (SHELL.test(p.name || '') || /Window|Curtains|IMAGE|FILL/i.test(p.mat || '')) return;
+    const g = p.geo.clone();
+    g.computeBoundingBox();
+    bb.copy(g.boundingBox);
+    const h = bb.max.y - bb.min.y, w = bb.max.x - bb.min.x, d = bb.max.z - bb.min.z;
+    // skip the slivers: two-triangle planes and anything the size of a coin
+    if (h < 0.05 || Math.max(w, d) < 0.12 || g.index === null) return;
+    if (opts.maxH && h > opts.maxH) return;
+    g.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+    const nm = 'f:' + prefix + pi;
+    if (!INST_DEF[nm]) {
+      defInst(nm, g, { mat: makeModelMaterial(p.src, false), shadow: true, receive: true });
+    }
+    MODEL_ROUTE[prefix + pi] = {
+      parts: [{ fit: new THREE.Matrix4(), names: [nm] }], near: 1e9, jitter: true,
+    };
+    kits.push({ kit: prefix + pi, h, w, d });
   });
   return kits;
 }

@@ -314,7 +314,13 @@ async function loadProps() {
         if (!o.isMesh) return;
         const geo = o.geometry.clone();
         geo.applyMatrix4(o.matrixWorld);
-        parts.push({ geo, src: o.material });
+        /* the useful name is the parent's: a glTF converted out of Blender
+           names its meshes Object_N and puts FLOOR / WALL / ROOF on the node
+           above, which is the only way to tell a room's shell from what is
+           standing in it */
+        parts.push({ geo, src: o.material,
+          name: ((o.parent && o.parent.name) || o.name || ''),
+          mat: (o.material && o.material.name) || '' });
       });
       if (!parts.length) return;
       const rec = Object.assign({ parts }, index[key]);
@@ -1991,6 +1997,7 @@ return {
        invisible by eye and obvious in this table, which is the whole reason
        it exists: `node tests/scale_audit.mjs` reads it and diffs it against
        the sizes the reference renders imply. */
+    furniture: () => FURNITURE,
     sizes() {
       const out = {};
       const bb = new THREE.Box3(), b2 = new THREE.Box3(), m = new THREE.Matrix4();

@@ -982,6 +982,58 @@ function buildScannedPeople() {
   return n;
 }
 
+/* ========================================================== FURNISHING ==
+   The golden-hour interior is a complete furnished room, and the thirty
+   pieces standing in it are the first real furniture in the build — every
+   shop fit-out until now was a hand-built kit of boxes.
+
+   Which piece is which is not recorded anywhere and the mesh names are
+   Object_N, so they are used by size rather than by name, which is both
+   honest and sufficient: a 1.4 m-wide, 0.6 m-tall object is seating whatever
+   the modeller called it, a 1.8 m-tall, 0.4 m-wide one stands in a corner,
+   and a 0.2 m one goes on a counter. Placement is inside the fitted rooms,
+   against the back wall and clear of the glass, because the whole point of
+   the interiors is that you see them from the street.                      */
+function furnishInteriors() {
+  if (!FURNITURE.length) return 0;
+  CURCHUNK = 'furnish';
+  const SEAT = FURNITURE.filter((f) => f.h > 0.25 && f.h < 1.15 && Math.max(f.w, f.d) > 0.9);
+  const TALL = FURNITURE.filter((f) => f.h >= 1.15 && Math.max(f.w, f.d) < 0.75);
+  const SMALL = FURNITURE.filter((f) => f.h <= 0.25 && Math.max(f.w, f.d) < 0.7);
+  let n = 0;
+  for (const sh of SHOPS) {
+    if (!sh.fitted) continue;
+    const sn = Math.sin(sh.ang), cs = Math.cos(sh.ang);
+    // the shop's own frame: `across` runs along the frontage, `into` goes back
+    const at = (across, into) => [sh.x + cs * across + sn * into, sh.z - sn * across + cs * into];
+    const put = (list, across, into, ry) => {
+      if (!list.length) return;
+      const q = at(across, into);
+      inst(pick(list).kit, xf(q[0], sh.y + 0.02, q[1], sh.ang + (ry || 0)));
+      n++;
+    };
+    const half = Math.max(0.6, sh.w * 0.5 - 0.7);
+    if (SEAT.length && chance(0.72)) put(SEAT, rr(-half, half), rr(1.5, 2.6), rr(-0.4, 0.4));
+    if (TALL.length && chance(0.62)) put(TALL, (chance(0.5) ? -1 : 1) * half, rr(1.9, 2.9), 0);
+    if (SMALL.length) {
+      for (let k = 0, m = ri(1, 3); k < m; k++) put(SMALL, rr(-half, half), rr(1.0, 2.4), rnd() * 6.28);
+    }
+  }
+  /* and on the majlis terrace and the court rugs, where a room's worth of
+     furniture is the difference between a terrace and a roof */
+  for (let i = 0; i < 22; i++) {
+    const x = PLAN.majlis.x + rr(-16, 16), z = PLAN.majlis.z + rr(-14, 14);
+    const gy = groundAt(x, z);
+    if (gy < -6 || insideSolid(x, z, gy + 0.5)) continue;
+    const list = chance(0.5) ? SEAT : (chance(0.5) ? TALL : SMALL);
+    if (!list.length) continue;
+    inst(pick(list).kit, xf(x, gy, z, rnd() * 6.28));
+    n++;
+  }
+  INSTCOUNT.furniture = n;
+  return n;
+}
+
 /* =============================================================== RULER ==
    ?ruler=1 stands a graduated two-metre pole and a 1.7 m figure at every
    composed viewpoint, plus a one-metre chequer on the ground.
@@ -1045,6 +1097,7 @@ function* buildSteps() {
   yield 'dressing'; { const d = nearDressing(); INSTCOUNT.dressing = d.placed; INSTCOUNT.litter = d.scraps; }
   yield 'life'; buildLife();
   yield 'people'; buildScannedPeople();
+  yield 'furnish'; furnishInteriors();
   yield 'ruler'; buildRuler();
   yield 'merge'; finalise();
 }

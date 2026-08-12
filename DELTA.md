@@ -491,3 +491,46 @@ good work and it is the fallback, but a photogrammetric palm beats it and
 always would have.
 
 157 instanced meshes, 24.3 M triangles, scale audit green, walk cycle green.
+
+## Round 22 — the two assets I had never processed, and real furniture
+
+Two files had been sitting in the release untouched: `goldenhourscene_nhp.glb`
+and `model.26.glb`. The first turned out to be the most useful thing in the
+whole release.
+
+**`ghscene` is a complete furnished residential interior** — 54 meshes across
+30 materials named `Leather`, `Beige_cushion_for_sofas`, `Marble`,
+`Floor_ceramic`, `Rug`, `Curtains`, `Lamp`, inside a shell of FLOOR, ROOF and
+three WALLs, with two indoor trees. Every shop fit-out in the district until
+now was a hand-built kit of boxes; this is the first real furniture in the
+build.
+
+`routeSceneParts` drops the shell by node name — a glTF converted out of
+Blender names its meshes `Object_N` and puts FLOOR/WALL/ROOF on the node
+above, which is the only way to tell a room from what is standing in it — and
+registers everything else as its own kit at the size it already is, since the
+scene is modelled to scale.
+
+Which piece is which is not recorded anywhere, so they are **used by size
+rather than by name**, which is both honest and sufficient: a 1.4 m-wide,
+0.6 m-tall object is seating whatever the modeller called it; a 1.8 m-tall,
+0.4 m-wide one stands in a corner; a 0.2 m one goes on a counter. Thirty
+pieces, placed inside the fitted rooms against the back wall and clear of the
+glass, and on the majlis terrace.
+
+**A metadata bug found on the way.** `routeProp` was sizing every asset from
+the index, and the index records accessor min/max — which ignores node
+transforms. An FBX or Blender conversion keeps all of its scale there, so the
+interior was recorded as 0.2 m across and the people as 82 × 108 × 195 m.
+Props now measure themselves from the geometry that actually loaded, which the
+loader has already baked `matrixWorld` into. Immune to metadata drift by
+construction.
+
+33 assets, 200 MB served, 26.2 M triangles in 174 draw calls, scale audit
+green, walk cycle green.
+
+**On the 130 MB.** That was never a limit — it was the measured size at the
+time. The only thing size costs here is that the district module awaits its
+assets before first paint, which is a loading-order bug rather than a budget:
+the fix is to let the map render and collect the props inside the dive veil.
+That is the next change, and it removes size from the decision entirely.

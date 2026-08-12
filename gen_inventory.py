@@ -32,6 +32,8 @@ DESC = {
     'lagoon_b': 'vernacular block, arcaded ground floor', 'extra': 'three-storey vernacular building',
     'people10': 'ten standing figures', 'people5s': 'five seated figures',
     'mashrabiya': 'teak mashrabiya screen panel',
+    'ghscene': 'furnished residential interior — 30 pieces of real furniture',
+    'diorama': 'district diorama from the original render',
 }
 # kits that are generated but deliberately not routed, and why
 UNROUTED = {
