@@ -595,3 +595,47 @@ them into gaps; the next step is to invert that, letting the scans take the
 public frontages and leaving the procedural grammar for the backs and the
 outer fabric where nobody stands. That is a structural change, not a tuning
 pass, and it is the honest next round.
+
+## Round 25 — the scans take the street
+
+The structural change the last round called for. `buildFabricProps` used to
+sprinkle scanned buildings into whatever gaps the procedural block pass
+happened to leave; that was backwards, and it was the ceiling on how the
+district looked. Every façade you could walk up to was assembled from two
+dozen boxes, and no surface law fixes architecture that is actually made of
+blocks.
+
+The order is now inverted. `buildScanFabric` runs **before** the blocks, walks
+every public street in the plan, and lines both sides with scanned buildings
+back to back along the frontage. Each one registers its footprint in
+`SCANSITES`; `block()` returns immediately for any plot whose centre has been
+claimed. The procedural grammar still builds the backs, the side streets and
+the outer fabric — everywhere nobody stands — which is what it was always good
+enough for.
+
+Three things had to be got right for it to work at all:
+
+- **A reservation pass.** Everything the plan places by hand — the canopy, the
+  plaza, the souq, the water court, the colonnade court, the jamaa precinct,
+  the majlis, the tram alignment, the channel and every road corridor — is
+  reserved before anything claims a site. Without it the scans would have
+  landed on the set pieces, which are built later and would have grown through
+  them.
+- **The road buffer was rejecting the frontage itself.** Roads were reserved at
+  half-width + 5 m while buildings stand at half-width + depth/2 + 4.5, which
+  put every façade's near edge just inside its own street's exclusion zone: the
+  first run placed five buildings in the entire district. At + 1.5 m — the kerb
+  rather than the frontage — it places seventy.
+- **A backing mass.** A scan is a façade, not a building: where it does not
+  reach the back of its site a plain volume is carried behind it so the block
+  reads solid from the air, without asking a scanned elevation to be a whole
+  building.
+
+Then the LOD radii had to come in hard — with seventy of them the near tier
+was 45.8 M triangles on its own. At 55–110 m depending on the building, the
+scene is 28.8 M in 182 draw calls.
+
+`shots/scanstreet.png` is the evidence and it is worth keeping: the left side
+of that frame is scanned — arched shopfronts, balconies, mouldings, real window
+reveals, bougainvillea over a tiled roof — and the right side is the old
+grammar. One frame, both, side by side.

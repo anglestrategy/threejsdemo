@@ -57,6 +57,8 @@ function block(x0, z0, x1, z1, o) {
   const w = x1 - x0, d = z1 - z0;
   if (w < 5 || d < 5) return;
   const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  // a scanned building has already claimed this frontage
+  if (inScanSite(cx, cz)) return;
   const gy = terrainY(cx, cz);
   const floors = o.floors || 2;
   const fh = o.floorH || 3.55;

@@ -823,105 +823,142 @@ function buildRoundabout() {
    the block pass has already registered, so a prop only ever lands in a gap
    that was genuinely empty — which also means the seed decides where they go
    and the world stays identical between reloads.                          */
-function buildFabricProps() {
-  CURCHUNK = 'fabprops';
-  const a = ACC.arch;
+/* ==================================================== THE SCANNED STREET ==
+   This used to sprinkle scanned buildings into whatever gaps the procedural
+   block pass happened to leave. That was backwards, and it was the ceiling on
+   how the district looked: every façade you could walk up to was assembled
+   from two dozen boxes — 0.9 m floor slab bands, stepped crenellated
+   parapets, box corbels — and no surface law fixes architecture that is
+   actually made of blocks.
 
-  /* returns true and places if the footprint is clear */
-  const tryPlace = (kit, x, z, hw, hd, rot, top, plinth) => {
-    if (!MODEL_ROUTE[kit]) return false;
-    const c = Math.abs(Math.cos(rot)), s = Math.abs(Math.sin(rot));
-    const ex = hw * c + hd * s, ez = hw * s + hd * c;
-    // four corners and the centre, all of which have to miss everything
-    for (const p of [[0, 0], [-ex, -ez], [ex, -ez], [-ex, ez], [ex, ez]]) {
-      if (nearBuilding(x + p[0], z + p[1], 2.5)) return false;
+   So the order is inverted. This runs BEFORE the blocks, walks every public
+   street in the walkable core, and lines it with scanned buildings, plot by
+   plot, back to back along the frontage. The block pass then skips any plot
+   whose centre has been claimed. The procedural grammar still builds the
+   backs, the side streets and the outer fabric — everywhere nobody stands —
+   which is what it was always good enough for.
+
+   The scans keep their own proportions: a building is scaled uniformly to a
+   storey height and laid along the frontage, never stretched to fill a plot.
+   Where it does not reach the back of its site a plain mass is carried behind
+   it, so the block reads solid from the roofs without a scanned façade being
+   asked to be a whole building.                                            */
+const SCANSITES = [];
+const RESERVED = [];
+
+function reserve(x0, z0, x1, z1) {
+  RESERVED.push({ x0: Math.min(x0, x1), x1: Math.max(x0, x1),
+    z0: Math.min(z0, z1), z1: Math.max(z0, z1) });
+}
+function inRect(list, x, z) {
+  for (let i = 0; i < list.length; i++) {
+    const r = list[i];
+    if (x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1) return true;
+  }
+  return false;
+}
+const inReserved = (x, z) => inRect(RESERVED, x, z);
+const inScanSite = (x, z) => inRect(SCANSITES, x, z);
+
+/* everything the plan places by hand, kept clear before anything claims it */
+function planReserved() {
+  const CP = PLAN.canopy, S1 = PLAN.souq, T = PLAN.tensile, J = PLAN.jamaa;
+  reserve(CP.x0 - 14, CP.z0 - 14, CP.x1 + 14, CP.z1 + 14);
+  reserve(PLAN.plaza.x0 - 10, PLAN.plaza.z0 - 10, PLAN.plaza.x1 + 10, PLAN.plaza.z1 + 10);
+  reserve(S1.x0 - 12, S1.z0 - 20, S1.x1 + 12, S1.z1 + 26);
+  reserve(T.x0 - 20, T.z0 - 22, T.x1 + 20, T.z1 + 20);
+  reserve(PLAN.court.x0 - 18, PLAN.court.z0 - 18, PLAN.court.x1 + 18, PLAN.court.z1 + 18);
+  reserve(J.x - 46, J.z - 50, J.x + 46, J.z + 50);
+  reserve(PLAN.majlis.x - 30, PLAN.majlis.z - 28, PLAN.majlis.x + 30, PLAN.majlis.z + 28);
+  reserve(-118, TRAM.z - 24, 118, TRAM.z + 24);
+  reserve(-118, -118, 118, -66);
+  reserve(PLAN.water.x - 16, -90, PLAN.water.x + 16, 580);
+  for (const r of ROADS) {
+    const w = r[4] / 2 + 1.5;   // the kerb, not the frontage: buildings stand at r/2 + depth/2 + 4.5 and were being rejected by their own street
+    reserve(Math.min(r[0], r[2]) - w, Math.min(r[1], r[3]) - w,
+      Math.max(r[0], r[2]) + w, Math.max(r[1], r[3]) + w);
+  }
+}
+
+/* the scanned buildings, with their real footprint at the height they are
+   placed at — measured off the contact sheet, not guessed */
+const SCANBLD = [
+  { kit: 'arcadeblk', h: 11.0, w: 28.6, d: 16.0, top: 11.0, w8: 3 },
+  { kit: 'shophouse', h: 12.0, w: 42.5, d: 10.4, top: 12.4, w8: 3 },
+  { kit: 'resblock', h: 15.0, w: 13.7, d: 13.6, top: 15.4, w8: 3 },
+  { kit: 'townhouse', h: 11.5, w: 13.0, d: 12.3, top: 11.9, w8: 4 },
+  { kit: 'townhouse2', h: 13.0, w: 20.4, d: 13.8, top: 13.4, w8: 3 },
+  { kit: 'bluehall', h: 16.0, w: 52.8, d: 32.6, top: 16.4, w8: 1 },
+];
+
+function buildScanFabric() {
+  CURCHUNK = 'scanfab';
+  planReserved();
+  const avail = SCANBLD.filter((b) => MODEL_ROUTE[b.kit]);
+  if (!avail.length) return 0;
+  const pool = [];
+  for (const b of avail) for (let i = 0; i < b.w8; i++) pool.push(b);
+  const a = ACC.arch;
+  let n = 0;
+
+  const place = (b, x, z, ang, backTo) => {
+    const c = Math.abs(Math.cos(ang)), sn = Math.abs(Math.sin(ang));
+    const ex = (b.w / 2) * c + (b.d / 2) * sn, ez = (b.w / 2) * sn + (b.d / 2) * c;
+    for (const p of [[0, 0], [-ex, -ez], [ex, -ez], [-ex, ez], [ex, ez], [ex, 0], [-ex, 0]]) {
+      if (inReserved(x + p[0], z + p[1]) || inScanSite(x + p[0], z + p[1])) return false;
     }
-    for (const b of WATERBODIES) {
-      if (x + ex > b.x0 - 3 && x - ex < b.x1 + 3 && z + ez > b.z0 - 3 && z - ez < b.z1 + 3) return false;
-    }
-    for (const r of ROADS) {
-      const dx = r[2] - r[0], dz = r[3] - r[1], l2 = dx * dx + dz * dz;
-      const t = clamp(((x - r[0]) * dx + (z - r[1]) * dz) / l2, 0, 1);
-      if (Math.hypot(x - (r[0] + t * dx), z - (r[1] + t * dz)) < r[4] / 2 + Math.max(ex, ez) * 0.72) return false;
+    for (const wb of WATERBODIES) {
+      if (x + ex > wb.x0 - 4 && x - ex < wb.x1 + 4 && z + ez > wb.z0 - 4 && z - ez < wb.z1 + 4) return false;
     }
     const gy = terrainY(x, z);
-    if (plinth !== false) {
-      a.add(G_BOXT, xf(x, gy - 0.55, z, rot, hw * 2 + 1.6, 0.72, hd * 2 + 1.6),
-        K.sandDk, S.ASHLAR, 0.88);
+    a.add(G_BOXT, xf(x, gy - 0.62, z, ang, b.w + 1.4, 0.78, b.d + 1.4), K.sandDk, S.ASHLAR, 0.88);
+    inst(b.kit, xf(x, gy + 0.16, z, ang));
+    // a plain mass carried behind the façade so the block reads solid from
+    // the air without the scan being asked to be a whole building
+    if (backTo > 2) {
+      const bx = x - Math.sin(ang) * (b.d / 2 + backTo / 2);
+      const bz = z - Math.cos(ang) * (b.d / 2 + backTo / 2);
+      if (!inReserved(bx, bz)) {
+        addMass(a, bx, terrainY(bx, bz), bz, ang, b.w * 0.94, b.top * 0.92, backTo,
+          K.sandDk, S.RENDER, 0.72, 0.1);
+        occluder(bx, bz, b.w / 2, backTo / 2, gy + b.top * 0.92);
+      }
     }
-    platform(x - ex, z - ez, x + ex, z + ez, gy + 0.17);
-    inst(kit, xf(x, gy + 0.17, z, rot));
-    collider(x, z, hw, hd, rot, gy + top);
-    occluder(x, z, hw, hd, gy + top);
+    platform(x - ex, z - ez, x + ex, z + ez, gy + 0.16);
+    collider(x, z, b.w / 2 - 0.4, b.d / 2 - 0.4, ang, gy + b.top);
+    occluder(x, z, b.w / 2, b.d / 2, gy + b.top);
+    SCANSITES.push({ x0: x - ex - 2, x1: x + ex + 2, z0: z - ez - 2, z1: z + ez + 2 });
+    n++;
     return true;
   };
 
-  /* ---- apartment blocks in the residential quarters ------------------- */
-  let res = 0;
-  for (const Z of [PLAN.resN, PLAN.resS, PLAN.resW]) {
-    for (let x = Z.x0 + 24; x < Z.x1 - 24; x += 41) {
-      for (let z = Z.z0 + 24; z < Z.z1 - 24; z += 41) {
-        if (!chance(0.34)) continue;
-        const rot = Math.round(rnd() * 4) * (Math.PI / 2);
-        if (tryPlace('resblock', x + rr(-6, 6), z + rr(-6, 6), 7.0, 6.9, rot, 15.4)) res++;
-      }
-    }
-  }
-
-  /* ---- shophouse rows facing the boulevards --------------------------- */
-  let shop = 0;
+  /* line every public street in the core, both sides, back to back */
   for (const r of ROADS) {
     if (r[5] !== 0) continue;
     const dx = r[2] - r[0], dz = r[3] - r[1];
     const len = Math.hypot(dx, dz);
     const ux = dx / len, uz = dz / len, nx = uz, nz = -ux;
     const ang = Math.atan2(ux, uz) + Math.PI / 2;
-    for (let t = 60; t < len - 60; t += 74) {
-      for (const side of [-1, 1]) {
-        if (!chance(0.36)) continue;
-        const off = r[4] / 2 + 13.5;
-        const px = r[0] + ux * t + nx * off * side, pz = r[1] + uz * t + nz * off * side;
-        if (Math.abs(pz - TRAM.z) < 22) continue;
-        if (tryPlace('shophouse', px, pz, 21.3, 5.2, ang, 12.4)) shop++;
+    for (const side of [-1, 1]) {
+      let t = 40;
+      while (t < len - 40) {
+        const b = pick(pool);
+        const off = r[4] / 2 + b.d / 2 + 4.5;
+        const px = r[0] + ux * (t + b.w / 2) + nx * off * side;
+        const pz = r[1] + uz * (t + b.w / 2) + nz * off * side;
+        // only inside the plan's own bounds, and only where a walker goes
+        if (px > PLAN.bounds.x0 + 40 && px < PLAN.bounds.x1 - 40 &&
+            pz > PLAN.bounds.z0 + 40 && pz < PLAN.bounds.z1 - 40 &&
+            place(b, px, pz, ang + (side > 0 ? Math.PI : 0), rr(6, 17))) {
+          t += b.w + rr(1.2, 5.0);
+        } else {
+          t += 11;
+        }
       }
     }
   }
-
-  /* ---- the blue hall: two of them, wherever the plan has room --------- */
-  let hall = 0;
-  const HALLS = [[PLAN.comm.x0 + 60, PLAN.comm.z1 - 46], [PLAN.enter.x1 - 52, PLAN.enter.z1 - 44],
-  [PLAN.resN.x0 + 90, PLAN.resN.z0 + 44], [PLAN.comm.x1 - 40, PLAN.comm.z0 + 50]];
-  for (const h of HALLS) {
-    if (hall >= 2) break;
-    if (tryPlace('bluehall', h[0], h[1], 26.4, 16.3, Math.round(rnd() * 2) * Math.PI, 16.4)) hall++;
-  }
-
-  /* ---- the two vernacular blocks -------------------------------------- */
-  let town = 0;
-  for (const Z of [PLAN.resN, PLAN.resS, PLAN.resW, PLAN.enter, PLAN.comm]) {
-    for (let x = Z.x0 + 30; x < Z.x1 - 30; x += 57) {
-      for (let z = Z.z0 + 30; z < Z.z1 - 30; z += 57) {
-        if (!chance(0.30)) continue;
-        const two = chance(0.42);
-        const rot = Math.round(rnd() * 4) * (Math.PI / 2);
-        if (tryPlace(two ? 'townhouse2' : 'townhouse', x + rr(-8, 8), z + rr(-8, 8),
-          two ? 9.2 : 6.3, two ? 6.2 : 5.9, rot, two ? 13.2 : 11.7)) town++;
-      }
-    }
-  }
-
-  /* ---- single sails over the café spill on the souq -------------------- */
-  let sails = 0;
-  const S1 = PLAN.souq, sp = PLAN.spineX;
-  for (let z = S1.z0 + 8; z < S1.z1 - 8; z += rr(15, 26)) {
-    const side = chance(0.5) ? 1 : -1;
-    const px = sp + side * rr(6.5, 8.5), pz = z;
-    if (insideSolid(px, pz, terrainY(px, pz) + 1.2)) continue;
-    inst('sail1', xf3(px, terrainY(px, pz) + 4.4, pz, 0, rnd() * 6.28, 0,
-      1.0 + rnd() * 0.5, 0.9, 1.0 + rnd() * 0.5));
-    sails++;
-  }
-  INSTCOUNT.fabprops = res + shop + hall + sails + town;
+  INSTCOUNT.scanfab = n;
+  return n;
 }
 
 /* ======================================================= SCANNED PEOPLE ==
@@ -1079,6 +1116,7 @@ function* buildSteps() {
   yield 'ground'; buildGround();
   yield 'water'; buildWater();
   yield 'roads'; buildRoads();
+  yield 'scanfab'; buildScanFabric();
   yield 'blocks-a'; buildBlocks();
   yield 'canopy'; buildCanopy();
   yield 'towers'; buildTowers();
@@ -1089,7 +1127,6 @@ function* buildSteps() {
   yield 'landmarks'; buildLandmarks();
   yield 'transit'; buildTransit();
   yield 'roundabout'; buildRoundabout();
-  yield 'fabprops'; buildFabricProps();
   yield 'planting'; buildPlanting();
   yield 'green'; buildGreen();
   yield 'identity'; buildIdentity();

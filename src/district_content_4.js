@@ -1078,7 +1078,7 @@ function defineKit() {
   routeProp('wshrub', 'watershrub', 1.45, { near: 40 });
   routeProp('slimtree', 'lagoon_a', 6.20, { near: 70 });
   routeProp('jamaa', 'mosque', PLAN.jamaa.h, { jitter: false });
-  routeProp('arcadeblk', 'arcade', 11.0, { jitter: false , near: 170 });
+  routeProp('arcadeblk', 'arcade', 11.0, { jitter: false , near: 62 });
 
   /* ---- the masterplan set ----------------------------------------------
      Generated from the two site aerials rather than from a street-level
@@ -1088,9 +1088,9 @@ function defineKit() {
   routeProp('canopypav', 'canopypav', 15.0, { jitter: false });
   routeProp('tram', 'tram', 3.6, { jitter: false });
   routeProp('tramstop', 'tramstop', 3.4, { jitter: false });
-  routeProp('shophouse', 'shophouse', 12.0, { near: 150 });
-  routeProp('bluehall', 'bluehall', 16.0, { jitter: false , near: 260 });
-  routeProp('resblock', 'resblock', 15.0, { near: 150 });
+  routeProp('shophouse', 'shophouse', 12.0, { near: 62 });
+  routeProp('bluehall', 'bluehall', 16.0, { jitter: false , near: 110 });
+  routeProp('resblock', 'resblock', 15.0, { near: 55 });
   routeProp('fountain', 'fountain', 2.46, { jitter: false });
   routeProp('obelisk', 'obelisk', 12.0, { jitter: false });
   routeProp('sail1', 'sail1', 5.0, { near: 60 });
@@ -1101,8 +1101,8 @@ function defineKit() {
      floors, not the unclassified rock masses the broken output made them look
      like, and the street bench is a bench. */
   routeProp('bench3', 'bench2', 0.62, { near: 26 });
-  routeProp('townhouse', 'extra', 11.5, { near: 150 });
-  routeProp('townhouse2', 'lagoon_b', 13.0, { near: 150 });
+  routeProp('townhouse', 'extra', 11.5, { near: 55 });
+  routeProp('townhouse2', 'lagoon_b', 13.0, { near: 60 });
   routeProp('majlisset', 'majlisset', 0.80, { near: 30 });
 
   /* the furnished interior, split into its pieces. Anything over 2.4 m is
