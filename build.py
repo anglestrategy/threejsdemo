@@ -31,17 +31,19 @@ head = open(p('src/shell_head.html'), encoding='utf-8').read()
 tail = open(p('src/shell_tail.html'), encoding='utf-8').read()
 mods = json.load(open(p('src/vendor_mods.json'), encoding='utf-8'))
 main = open(p('src/main.js'), encoding='utf-8').read()
+main_src = main   # kept raw: the shared-helper block is lifted out of it below
 
 if '/*@IMAGES@*/' not in main:
     sys.exit('main.js is missing the /*@IMAGES@*/ marker')
 
+district_src = open(p('src/district.js'), encoding='utf-8').read()
+if '/*@DISTRICT_CONTENT@*/' in district_src:
+    parts = sorted(f for f in os.listdir(p('src')) if f.startswith('district_content'))
+    district_src = district_src.replace(
+        '/*@DISTRICT_CONTENT@*/',
+        '\n'.join(open(p('src', f), encoding='utf-8').read() for f in parts))
 if '/*@DISTRICT@*/' in main:
-    d = open(p('src/district.js'), encoding='utf-8').read()
-    if '/*@DISTRICT_CONTENT@*/' in d:
-        parts = sorted(f for f in os.listdir(p('src')) if f.startswith('district_content'))
-        d = d.replace('/*@DISTRICT_CONTENT@*/',
-                      '\n'.join(open(p('src', f), encoding='utf-8').read() for f in parts))
-    main = main.replace('/*@DISTRICT@*/', d)
+    main = main.replace('/*@DISTRICT@*/', district_src)
 
 # every large payload, by the marker that stands in for it
 PAYLOADS = [
@@ -166,7 +168,29 @@ for f in os.listdir(p('src/gpu')):
     if f.endswith('.js'):
         shutil.copyfile(p('src/gpu', f), p('dist/gpu', f))
 
-for page in ('gpuprobe.html', 'gpuscene.html'):
+# The district, on this renderer. Assembled the same way app.js is — the same
+# `/*@DISTRICT@*/` include and the same payload fetches — because it IS the same
+# district: `src/district.js` is shared source and the only renderer-specific
+# thing in it is the material factory behind `CITY_MATERIALS`.
+gapp = open(p('src/gpuapp.js'), encoding='utf-8').read()
+# The noise generator and the small pure helpers, lifted verbatim out of
+# main.js between its two sentinel comments rather than copied. The district
+# calls fbm/ridged/nz/sstep/clamp/mix directly, and a second copy of a SEEDED
+# noise generator is not a duplication risk in the abstract — it is a
+# guarantee that the two builds eventually generate different cities and that
+# the difference gets read as a rendering difference in a side-by-side.
+_hb = main_src.index('/*@SHARED_HELPERS_BEGIN@*/')
+_he = main_src.index('/*@SHARED_HELPERS_END@*/')
+gapp = gapp.replace('/*@SHARED_HELPERS@*/', main_src[_hb:_he])
+if '/*@DISTRICT@*/' in gapp:
+    gapp = gapp.replace('/*@DISTRICT@*/', district_src)
+for marker, name, _path in PAYLOADS:
+    if marker in gapp:
+        gapp = gapp.replace(marker, "await (await fetch('assets/%s.json')).json()" % name)
+check(gapp)
+open(p('dist/gpuapp.js'), 'w', encoding='utf-8').write(gapp)
+
+for page in ('gpuprobe.html', 'gpuscene.html', 'gpuapp.html'):
     src_html = open(p('src', page), encoding='utf-8').read()
     src_html = re.sub(r'<script type="importmap">.*?</script>',
                       '<script type="importmap">'

@@ -36,7 +36,10 @@
       lets it do both.
    ========================================================================== */
 
-import { Color, Vector3 } from 'three';
+import {
+  Color, Vector3, Data3DTexture, RGBAFormat, UnsignedByteType, LinearFilter,
+  ClampToEdgeWrapping,
+} from 'three';
 import {
   Fn, float, vec3, vec4, texture3D, positionWorld, cameraPosition, normalWorld,
   dot, max, pow, mix, exp, length, normalize, uniform, clamp, fog,
@@ -49,26 +52,100 @@ import {
  * @param P       { step, ystep, ny, y0, nx, nz, x0, z0 } — the bake's own grid
  */
 export function probeIrradiance(skyTex, gndTex, P) {
-  const org = uniform(vec3(P.x0, P.y0, P.z0));
-  const inv = uniform(vec3(
-    1 / (P.step * (P.nx - 1)),
-    1 / (P.ystep * (P.ny - 1)),
-    1 / (P.step * (P.nz - 1)),
-  ));
+  const f = probeField();
+  f.set(skyTex, gndTex, P);
+  return f.node;
+}
 
-  return Fn(() => {
-    /* the grid is in world metres; the texture is 0..1 on each axis, and the
-       clamp is what stops a walker leaning out past the last probe and
-       reading the wrap */
-    const p = clamp(positionWorld.sub(org).mul(inv), 0.0, 1.0).toVar();
-    const sky = texture3D(skyTex, p).toVar();
-    const gnd = texture3D(gndTex, p).toVar();
+/**
+ * The same sampling, but with the grid supplied AFTER the material is built.
+ *
+ * This is the shape the district actually needs. The bake runs during content
+ * generation, well after the two materials exist, and in the WebGL2 build it
+ * reaches back through `material.userData.u.uProbeSky.value = …` and five
+ * siblings. A TSL `uniform()` node has exactly that `.value` shape, so the
+ * WebGPU material can present the same seven handles under the same names and
+ * the bake wires itself up with no renderer-specific code on either side. The
+ * alternative — passing the textures at construction — would have meant
+ * rebuilding both materials after the bake, which means rebuilding the node
+ * graph and losing every compiled pipeline mid-load.
+ */
+export function probeField() {
+  /* The two textures are `Texture3DNode`s built once around a placeholder.
+     A TextureNode is a UniformNode, so it already has the `.value` the
+     district's bake writes to, and `.sample(uv)` clones with a `referenceNode`
+     back to the base — so the clone inside the Fn keeps reading whatever the
+     base currently holds. Rebuilding the node when the bake lands would mean
+     rebuilding the graph and losing the compiled pipeline. */
+  const u = {
+    uProbeSky: texture3D(placeholder3D()),
+    uProbeGnd: texture3D(placeholder3D()),
+    uProbeOrg: uniform(new Vector3()),
+    uProbeStp: uniform(new Vector3(1, 1, 1)),
+    uProbeDim: uniform(new Vector3(1, 1, 1)),
+    uProbeOn: uniform(float(0)),
+  };
+
+  /* Three things in here are not obvious and all three are transcribed from
+     the GLSL rather than reinvented, because each one is a category error if
+     it drifts:
+
+     1. **The axes are swizzled.** The bake writes the grid with world Y as the
+        texture's depth axis: `pc = vec3(pc.x, pc.z, pc.y)`. Sample it xyz and
+        every probe is read from the wrong place — which does not look like a
+        bug, it looks like the lighting is subtly wrong everywhere.
+
+     2. **Texel centres, clamped half a texel in.** `(pc + 0.5) / dim`, bounded
+        to `[0.5/dim, 1 - 0.5/dim]`. Normalising to 0..1 instead puts the outer
+        half-texel of every face outside the first and last probe, and a walker
+        leaning against the edge of the grid reads the wrap.
+
+     3. **The stored values are sRGB** and decoded with pow 2.2. The bake packs
+        into UnsignedByte for size; skipping the decode leaves the indirect
+        term washed out and too flat, which reads as "the GI is weak" and is
+        really "the GI is in the wrong space". */
+  const node = Fn(() => {
+    const dim = u.uProbeDim.toVar();
+    const pc0 = positionWorld.sub(u.uProbeOrg).div(u.uProbeStp).toVar();
+    const pc = vec3(pc0.x, pc0.z, pc0.y).toVar();          // world Y is depth
+    const half = vec3(0.5).div(dim).toVar();
+    const p = clamp(pc.add(0.5).div(dim), half, vec3(1.0).sub(half)).toVar();
+    const sky = pow(u.uProbeSky.sample(p).rgb, vec3(2.2)).toVar();
+    const gnd = pow(u.uProbeGnd.sample(p).rgb, vec3(2.2)).toVar();
     /* a surface facing up sees the sky half of its probe, one facing down
        sees the ground half, and the horizon is the blend — the same
        hemisphere split the bake stored them under */
-    const up = normalWorld.y.mul(0.5).add(0.5).toVar();
-    return mix(gnd.rgb, sky.rgb, up);
+    const up = clamp(normalWorld.y.mul(0.5).add(0.5), 0.0, 1.0).toVar();
+    return mix(gnd, sky, up).mul(u.uProbeOn);
   })();
+
+  const set = (skyTex, gndTex, P) => {
+    u.uProbeSky.value = skyTex;
+    u.uProbeGnd.value = gndTex;
+    u.uProbeOrg.value.set(P.x0, P.y0, P.z0);
+    u.uProbeStp.value.set(P.step, P.ystep, P.step);
+    u.uProbeDim.value.set(P.nx, P.nz, P.ny);
+    u.uProbeOn.value = 1;
+  };
+
+  return { node, u, set };
+}
+
+/* A 1x1x1 mid-grey stand-in, so the node has a bindable texture from the
+   moment it is built. Without one the material cannot compile until the bake
+   finishes, and the bake runs a couple of seconds into content generation —
+   which would mean a district that is invisible until it is complete. */
+let _ph = null;
+function placeholder3D() {
+  if (!_ph) {
+    _ph = new Data3DTexture(new Uint8Array([128, 128, 128, 255]), 1, 1, 1);
+    _ph.format = RGBAFormat;
+    _ph.type = UnsignedByteType;
+    _ph.minFilter = _ph.magFilter = LinearFilter;
+    _ph.wrapS = _ph.wrapT = _ph.wrapR = ClampToEdgeWrapping;
+    _ph.needsUpdate = true;
+  }
+  return _ph;
 }
 
 /* ----------------------------------------------------------------- the fog */
@@ -133,5 +210,10 @@ export const ATMOS = {
   fogDensity: 0.00145,
   fogScaleH: 150,
   sun: [-0.9232, 0.3420, -0.1754],   // 20 degrees, WSW
-  environmentIntensity: 0.42,
+  environmentIntensity: 0.42,   // scene.environmentIntensity, for the IBL
+  /* the probe field's own gain. NOT environmentIntensity — the WebGL2
+     build carries both, `uProbeInt` at 1.05 on the indirect term and 0.42
+     on the environment map, and collapsing them into one number quietly
+     halves every bounce in the district. */
+  probeIntensity: 1.05,
 };

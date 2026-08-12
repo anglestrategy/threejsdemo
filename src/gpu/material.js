@@ -21,7 +21,7 @@
    the figures animate without a skeleton, and it survives the port intact.
    ========================================================================== */
 
-import { Color } from 'three';
+import { Color, Vector2 } from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
   Fn, float, vec3, vec4, attribute, positionWorld, normalWorld, cameraPosition,
@@ -31,7 +31,7 @@ import {
 import {
   srfH, triplanarUV, reliefNormal, reliefNormalStaged, reliefNormalWorld,
 } from './surface.js';
-import { directionalFog, probeIrradiance, ATMOS } from './atmosphere.js';
+import { directionalFog, probeField, ATMOS } from './atmosphere.js';
 
 /**
  * @param opts.probes   { skyTex, gndTex, P } or null
@@ -136,21 +136,26 @@ export function makeCityMaterial(opts = {}) {
   })();
 
   let irradiance = null;
-  if (opts.probes) {
-    const p = opts.probes;
-    irradiance = probeIrradiance(p.skyTex, p.gndTex, p.P)
-      .mul(ATMOS.environmentIntensity);
+  let probeU = {};
+  if (opts.probes !== false) {
+    /* Built unconditionally, with a 1x1x1 placeholder inside it. The district
+       bakes its probe grid a couple of seconds into content generation and
+       writes it back through `userData.u.uProbe*.value`; deferring the node
+       until the bake would mean rebuilding the graph and throwing away every
+       compiled pipeline mid-load, and gating on `opts.probes` would mean the
+       district could not wire itself up at all. `uProbeOn` is 0 until the bake
+       lands, so the term contributes nothing until it is real. */
+    const f = probeField();
+    probeU = f.u;
+    irradiance = f.node.mul(ATMOS.probeIntensity);
     mat.aoNode = null;
+    if (opts.probes) f.set(opts.probes.skyTex, opts.probes.gndTex, opts.probes.P);
   }
   /* a shop interior is lit by its own ceiling, not by the sky: one added
      term, and the reason the fitted rooms read through the glass at dusk */
-  if (opts.roomAdd) {
-    const add = uniform(new Color(...opts.roomAdd));
-    irradiance = irradiance ? irradiance.add(add) : add;
-  }
-  if (irradiance) {
-    mat.emissiveNode = irradiance.mul(albedoOf()).mul(INV_PI);
-  }
+  const uRoomAdd = uniform(new Color(...(opts.roomAdd || [0, 0, 0])));
+  irradiance = irradiance ? irradiance.add(uRoomAdd) : uRoomAdd;
+  mat.emissiveNode = irradiance.mul(albedoOf()).mul(INV_PI);
 
   /* ---- fog -------------------------------------------------------------
      Applied on the material's own output rather than through scene.fogNode,
@@ -164,8 +169,27 @@ export function makeCityMaterial(opts = {}) {
      fragment, so mixing fog into it discarded every bit of shading. It belongs
      on the scene: `scene.fogNode = cityFogNode()`. */
 
-  mat.userData.u = { uAmp };
+  /* The contract `district.js` writes through, unchanged from the WebGL2
+     build: the probe bake sets six of these and the clock sets `uTime` every
+     frame, both by `userData.u.<name>.value = …`. A TSL uniform node has that
+     shape, so the seam needs no adapter — which is the whole reason the
+     district's generation code can be shared rather than forked. */
+  mat.userData.u = {
+    uAmp,
+    uTime: uTime(),
+    uWind: uniform(new Vector2(0.85, 0.32)),
+    uRoomAdd,
+    ...probeU,
+  };
   return mat;
+}
+
+/* One clock for every material built in a session, so `PROBE_MATS` writing the
+   same value to twenty handles costs one uniform upload rather than twenty. */
+let _uTime = null;
+function uTime() {
+  if (!_uTime) _uTime = uniform(float(0));
+  return _uTime;
 }
 
 /* The same law with the ceiling switched on. In the WebGL2 build this needed

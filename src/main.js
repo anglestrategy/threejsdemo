@@ -94,6 +94,7 @@ const SEED = QA.seed;
 const T0 = performance.now(); const TM = {}; const mark = (k) => { TM[k] = Math.round(performance.now() - T0); };
 const rng = mulberry32(SEED);
 
+/*@SHARED_HELPERS_BEGIN@*/
 /* ------------------------------------------------------- simplex noise (2D) */
 const NoiseGen = (function () {
   const r = mulberry32(SEED ^ 0x9e3779b9);
@@ -139,6 +140,7 @@ function ridged(x, y, oct) {
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 function sstep(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 const mix = (a, b, t) => a + (b - a) * t;
+/*@SHARED_HELPERS_END@*/
 
 /* ============================================================== 1. GEOMETRY
    Parse the Kingdom outline, build an exact signed-distance field, and

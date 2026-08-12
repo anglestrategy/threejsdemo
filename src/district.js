@@ -787,7 +787,31 @@ const SURF_GLSL = `
   }
 `;
 
+/* ---------------------------------------------------------- the material seam
+   Everything below this line builds geometry, and geometry is renderer-
+   agnostic: the road grid, the reservations, the scan fabric, the LOD radii
+   and every instance matrix are the same whether a WebGL2 program or a TSL
+   node graph shades them. The only renderer-specific thing in the district is
+   these two factories.
+
+   `MATERIALS` is the seam. Undefined — which is the case for the WebGL2 build
+   and will stay that way — the district builds exactly what it always built,
+   byte for byte. Defined, by the WebGPU shell in `src/gpuapp.js`, the same
+   generation code is shaded by `src/gpu/material.js` instead.
+
+   Doing it this way rather than forking the district was not a close call: the
+   district is 350 KB of placement decisions that took the whole project to
+   get right, and a fork of it would start diverging on the first bug fixed in
+   one copy and not the other. */
+const MATERIALS = (typeof CITY_MATERIALS !== 'undefined') ? CITY_MATERIALS : null;
+
 function makeCityMaterial(cacheKey) {
+  /* Still pushed to PROBE_MATS, and the alternative shape of the seam is worse:
+     the probe bake and the clock both write through `userData.u.<name>.value`,
+     and a TSL `uniform()` node has exactly that shape. So the WebGPU material
+     presents the same seven handles and the bake wires itself up with no
+     renderer-specific code on either side of the seam. */
+  if (MATERIALS) { const m = MATERIALS.city(cacheKey); PROBE_MATS.push(m); return m; }
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.86, metalness: 0.0, envMapIntensity: 1.0,
   });
@@ -1050,6 +1074,7 @@ function makeCityMaterial(cacheKey) {
    masked rather than blended: an alpha-sorted leaf card is a leaf card that
    flickers as you walk past it. */
 function makeModelMaterial(src, foliage) {
+  if (MATERIALS) { const m = MATERIALS.model(src, foliage); PROBE_MATS.push(m); return m; }
   const mat = new THREE.MeshStandardMaterial({
     map: src.map || null, normalMap: foliage ? null : (src.normalMap || null),
     roughnessMap: foliage ? null : (src.roughnessMap || null),
