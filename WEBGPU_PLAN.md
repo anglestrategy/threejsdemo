@@ -48,3 +48,35 @@ Everything currently injected through `onBeforeCompile`, in dependency order:
 5. walk cycle, water, reflection
 6. colour script + post stack
 7. side-by-side against the WebGL2 build on all six bookmarks; switch only if better
+
+## Step 0 result — the foundation works, with one environment caveat
+
+`dist/gpuprobe.html` stands up `WebGPURenderer`, loads a meshopt-compressed
+asset from the shipped library through the vendored GLTFLoader, and renders it.
+Run it with `node tests/_gpu.mjs` (WebGPU) or `node tests/_gpu.mjs "?forcegl=1"`
+(WebGL2 backend).
+
+**WebGPU initialises in this container** — the probe reports `renderer: WebGPU`,
+not a fallback — but rendering then throws:
+
+    createView: Failed to read the 'swizzle' property from
+    GPUTextureViewDescriptor: not of type GPUTextureComponentSwizzle
+
+That is version skew between three r185's `WebGPUBackend._getRenderPassDescriptor`
+and this container's Chromium/Dawn, not anything in this build. **On the
+WebGL2 backend the same page renders clean: `ok: true`, no page errors.**
+
+So the working method is: author in TSL, verify headless on the WebGL2 backend
+(TSL compiles to GLSL there), and let real hardware take the WebGPU path. Every
+screenshot gate keeps working. What cannot be verified here is anything
+WebGPU-exclusive at runtime — compute passes, and possibly TRAA/SSGI if their
+nodes require the WebGPU backend. That has to be checked node by node rather
+than assumed, and any node that will not run on the WebGL2 backend is a thing
+only the human's machine can sign off.
+
+Three vendoring traps, all fixed, all of which fail as bare 404s:
+- GLTFLoader imports `../utils/BufferGeometryUtils.js` and `SkeletonUtils.js`
+  by *relative* path; an import map cannot remap a relative specifier, so they
+  are served at `dist/utils/` where the resolution actually lands.
+- `three.webgpu.js` imports `./three.core.js` beside itself.
+- the TSL display nodes import both `three/tsl` and `three/webgpu`.
