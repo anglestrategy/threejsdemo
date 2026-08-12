@@ -534,3 +534,31 @@ time. The only thing size costs here is that the district module awaits its
 assets before first paint, which is a loading-order bug rather than a budget:
 the fix is to let the map render and collect the props inside the dive veil.
 That is the next change, and it removes size from the decision entirely.
+
+## Round 23 — load order, and samples per pixel
+
+**The map no longer waits for the district.** The district module was awaiting
+its assets at module scope, so two hundred megabytes the map does not use held
+first paint. The fetch still starts when the app starts; `enter()` collects it,
+and `goShot` awaits `enter` — which meant threading `async` through both goShots
+and the QA boot, and finding on the way that the QA `?shot=` path was snapshotting
+an empty scene because main's `goShot` was not awaiting the district's.
+Map boot under SwiftShader: **50 s → 4.9 s.** Any remaining wait now happens
+inside the dive veil, which is already up and already white.
+
+**Supersampling instead of TAA.** The shimmer this scene will produce is
+geometric, not edge aliasing: a date palm at eighty metres is three hundred
+bladed leaflets landing on sub-pixel triangles, and no morphological
+post-filter can recover detail the rasteriser never resolved. FXAA smooths a
+silhouette; only more samples per pixel stop the crawl. The internal buffer is
+now rendered at 1.3× display resolution and downsampled on present — real
+supersampling at 1.7× fill, which is the right trade now that quality is the
+constraint. `?ss=1` turns it off, `?ss=1.6` doubles down; the device pixel
+ratio is still capped at 2 first so a 3× phone screen does not multiply into
+nine times the work.
+
+Proper TAA — motion vectors, reprojection, neighbourhood clamping — remains
+the better answer for a scene with this much sub-pixel detail, and remains
+unbuilt: it cannot be validated without a GPU, and shipping an unvalidated
+temporal filter into a scene full of animated water and moving people is how
+you get ghosting nobody can reproduce. Logged as the open item it is.

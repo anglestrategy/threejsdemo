@@ -81,6 +81,7 @@ const QA = {
      matters at this hour because the canopy soffit and the west faces are
      both near white; VSM buys soft shadow edges cheaply but bleeds light
      through thin geometry, of which a date palm crown is entirely made. */
+  ss: QP.has('ss') ? Math.max(0.5, Math.min(2.0, parseFloat(QP.get('ss')) || 1)) : 0,
   tone: QP.get('tone') || '',
   shadowType: QP.get('shadow') || '',
   /* ?shop=N stands the camera in front of the Nth fitted shop, facing in. The
@@ -598,7 +599,20 @@ const POSTER = {
 camera.position.copy(POSTER.pos);
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', stencil: false });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+/* Supersampling. The shimmer this scene will produce is geometric, not
+   edge aliasing: a date palm at eighty metres is three hundred bladed
+   leaflets landing on sub-pixel triangles, and no post-process morphological
+   filter can recover detail the rasteriser never resolved. FXAA smooths the
+   silhouette; only more samples per pixel stop the crawl.
+
+   So the internal buffer is rendered above display resolution and the browser
+   downsamples on present — real supersampling, at a cost of SS squared in
+   fill. 1.3 is 1.7x, which is the right trade now that quality is the
+   constraint; `?ss=1` turns it off and `?ss=1.6` doubles down. The device
+   pixel ratio is still capped at 2 first, so a 3x phone screen does not
+   multiply into nine times the work. */
+const SS = QA.ss || 1.3;
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2) * SS);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = QA.tone === 'agx' && THREE.AgXToneMapping ? THREE.AgXToneMapping : THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.00;
@@ -2268,11 +2282,12 @@ let sceneState = 'map';
    returns to exactly the frame they left */
 const CITY_RETURN = { pos: new THREE.Vector3(), tgt: new THREE.Vector3() };
 
-function goShot(id, instant) {
+async function goShot(id, instant) {
   const s = SHOT_BY_ID[id];
   if (!s) return false;
   if (s.scene === 'city') {
-    if (SCENES.city) { SCENES.city.goShot(s, instant); return true; }
+    // the district's own goShot may have to collect its assets first
+    if (SCENES.city) { await SCENES.city.goShot(s, instant); return true; }
     const c = CITIES.find(x => x.name === 'Al Khobar');
     const sh = cityShot(c, false);
     if (instant) { camera.position.copy(sh.pos); controls.target.copy(sh.tgt); controls.update(); }
@@ -2411,7 +2426,7 @@ controls.addEventListener('start', markIdle);
 
 /* --------------------------------------------------------- QA boot routing */
 let qaFree = false;
-(function qaBoot() {
+await (async function qaBoot() {
   if (QA.cam && QA.cam.length >= 3) {
     // an explicit pose overrides the map's authored orbit envelope
     qaFree = true;
@@ -2419,7 +2434,7 @@ let qaFree = false;
     controls.minDistance = 2; controls.maxDistance = 2600;
     const pos = new THREE.Vector3(QA.cam[0], QA.cam[1], QA.cam[2]);
     if (QA.scene === 'city' && SCENES.city) {
-      SCENES.city.enter({ instant: true, pose: { pos: QA.cam.slice(0, 3), yaw: QA.cam[3] || 0, pitch: QA.cam[4] || 0, mode: QA.walk ? 'walk' : 'fly' } });
+      await SCENES.city.enter({ instant: true, pose: { pos: QA.cam.slice(0, 3), yaw: QA.cam[3] || 0, pitch: QA.cam[4] || 0, mode: QA.walk ? 'walk' : 'fly' } });
     } else {
       camera.position.copy(pos);
       controls.target.copy(mapPoseTo(pos, QA.cam[3] || 0, QA.cam[4] || -20, QA.cam[5] || 90));
@@ -2429,20 +2444,20 @@ let qaFree = false;
     return;
   }
   if (QA.shop >= 0 && SCENES.city) {
-    SCENES.city.enter({ instant: true });
+    await SCENES.city.enter({ instant: true });
     const all = SCENES.city.shops().filter((s) => s.fitted);
     const s = all[QA.shop % Math.max(1, all.length)];
     if (s) {
       const sn = Math.sin(s.ang), cs = Math.cos(s.ang);
-      SCENES.city.enter({ instant: true, pose: {
+      await SCENES.city.enter({ instant: true, pose: {
         pos: [s.x - sn * QA.shopd, s.y + 1.55, s.z - cs * QA.shopd],
         yaw: s.ang * 180 / Math.PI, pitch: 2, mode: 'walk' } });
       console.log('shop ' + (QA.shop % all.length) + '/' + all.length + ' ' + s.trade);
     }
     hideIntro(); markIdle(); return;
   }
-  if (QA.shot) { goShot(QA.shot, true); hideIntro(); markIdle(); return; }
-  if (QA.scene === 'city' && SCENES.city) { SCENES.city.enter({ instant: true }); hideIntro(); markIdle(); }
+  if (QA.shot) { await goShot(QA.shot, true); hideIntro(); markIdle(); return; }
+  if (QA.scene === 'city' && SCENES.city) { await SCENES.city.enter({ instant: true }); hideIntro(); markIdle(); }
 })();
 
 /* ================================================================ 15. LOOP */

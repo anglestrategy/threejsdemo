@@ -375,7 +375,8 @@ const MODELS = {};
 /* The props are files on the wire, so the fetch starts here and is collected
    at the bottom of this module — everything between is decode and setup that
    would otherwise be waiting on the network for no reason. */
-const PROPS_READY = loadProps();
+let PROPS_DONE = false;
+const PROPS_READY = loadProps().then(() => { PROPS_DONE = true; });
 
 /* ================================================= IRRADIANCE PROBES ==
    The difference between "lit by three lights" and "rendered" is that in a
@@ -1608,8 +1609,15 @@ function beginBuild() {
 }
 
 const _lookTmp = new THREE.Vector3();
-function enter(opts) {
+/* Collected here rather than at module scope. The district's assets are two
+   hundred megabytes and the map does not need one byte of them, so holding
+   first paint until they arrive was simply the wrong order: the fetch starts
+   when the app starts, the map renders as soon as it is built, and the wait —
+   if there is any left by then — happens inside the dive veil, which is
+   already up and already white. */
+async function enter(opts) {
   opts = opts || {};
+  if (!PROPS_DONE) { await PROPS_READY; PROPS_DONE = true; }
   controls.enabled = false;
   const pose = opts.pose || POSTER_CITY;
   if (opts.instant || QA.noveil) {
@@ -1738,11 +1746,13 @@ function diveUpdate(dt) {
 }
 
 /* ------------------------------------------------------------ public API */
-function goShot(s, instant) {
+/* async for the same reason `enter` is: the first jump into the city may have
+   to collect the district's assets, and everything downstream of that has to
+   wait for it rather than snapshot an empty scene */
+async function goShot(s, instant) {
   const pose = poseOfShot(s);
   if (sceneState !== 'city') {
-    if (instant) enter({ instant: true, pose });
-    else enter({ pose });
+    await enter(instant ? { instant: true, pose } : { pose });
   } else {
     applyPose(pose);
   }
@@ -1961,8 +1971,6 @@ function insideSolid(x, z, feetY) {
   }
   return false;
 }
-
-await PROPS_READY;
 
 return {
   enter, exit, goShot, update, hudInfo,
