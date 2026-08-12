@@ -655,6 +655,152 @@ function buildLandmarks() {
   }
 }
 
+/* ============================================================== TRANSIT ==
+   The site aerials show something the plan never had: a light rail running
+   the length of the main boulevard, under the gold canopy, with a centre
+   platform where the canopy is widest. It is the reason the canopy is where
+   it is, and without it the canopy was a very large parasol over nothing.
+
+   The alignment is the median of Canopy Boulevard. The canopy already spans
+   it — z=104 falls inside the canopy's own footprint — so the tram runs in
+   the shade for the whole width of the plaza, exactly as drawn.           */
+const TRAM = { z: 104, x0: -400, x1: 400, gauge: 3.1, sep: 9.2, plat: { x: 4, len: 68 } };
+
+function buildTransit() {
+  CURCHUNK = 'transit';
+  const a = ACC.arch, f = ACC.fine;
+  const T = TRAM;
+  const gy = terrainY(0, T.z);
+
+  // the track slab, then two pairs of rail
+  a.add(G_BOXT, xf((T.x0 + T.x1) / 2, gy + 0.02, T.z, 0, T.x1 - T.x0, 0.10, T.sep + 3.4),
+    0x4c4a46, S.CONCRETE, 0.82);
+  for (const s of [-1, 1]) {
+    for (const r of [-T.gauge / 2, T.gauge / 2]) {
+      a.add(G_BOXT, xf((T.x0 + T.x1) / 2, gy + 0.12, T.z + s * T.sep / 2 + r, 0,
+        T.x1 - T.x0, 0.14, 0.14), 0x8e8b84, S.METAL, 1.0);
+    }
+    // sleepers, only where a walker can see them
+    for (let x = -220; x <= 220; x += 2.4) {
+      a.add(G_BOXT, xf(x, gy + 0.04, T.z + s * T.sep / 2, 0, 0.28, 0.09, T.gauge + 0.9),
+        0x5d564c, S.CONCRETE, 0.9);
+    }
+  }
+  // catenary masts down the centre reserve, with the wire between them
+  for (let x = T.x0 + 20; x <= T.x1 - 20; x += 28) {
+    if (Math.abs(x - T.plat.x) < T.plat.len / 2 + 6) continue;
+    const g = terrainY(x, T.z);
+    f.add(G_CYLT, xf(x, g, T.z, 0, 0.24, 8.2, 0.24), 0x9aa0a2, S.METAL, 0.95);
+    for (const s of [-1, 1]) {
+      f.add(G_BOXT, xf(x, g + 7.6, T.z + s * T.sep / 4, 0, 0.12, 0.12, T.sep / 2),
+        0x9aa0a2, S.METAL, 0.95);
+      f.add(G_BOXT, xf(x + 14, g + 6.9, T.z + s * T.sep / 2, 0, 28, 0.055, 0.055),
+        0x6d6a63, S.METAL, 0.8);
+    }
+  }
+
+  /* ---- the platform ---------------------------------------------------- */
+  const P = T.plat, pgy = terrainY(P.x, T.z);
+  a.add(G_BOXT, xf(P.x, pgy, T.z, 0, P.len, 0.34, T.sep - T.gauge - 0.6),
+    K.travert, S.TRAVERTINE, 1.06);
+  platform(P.x - P.len / 2, T.z - (T.sep - T.gauge) / 2 + 0.3,
+    P.x + P.len / 2, T.z + (T.sep - T.gauge) / 2 - 0.3, pgy + 0.34);
+  // the tactile edge strip each side
+  for (const s of [-1, 1]) {
+    a.add(G_BOXT, xf(P.x, pgy + 0.34, T.z + s * ((T.sep - T.gauge) / 2 - 0.42), 0,
+      P.len, 0.03, 0.5), 0xd9c98c, S.CONCRETE, 1.1);
+  }
+  for (let i = 0; i < 3; i++) {
+    const px = P.x - P.len / 2 + P.len * (i + 0.5) / 3;
+    inst('tramstop', xf(px, pgy + 0.34, T.z, 0));
+    PRACTICALS.push({ x: px, y: pgy + 3.2, z: T.z, c: 0xffe6c0, i: 5.5, r: 16 });
+  }
+  for (const s of [-1, 1]) {
+    inst('kiosk', xf(P.x + s * (P.len / 2 - 6), pgy + 0.34, T.z, s > 0 ? 0 : Math.PI));
+    inst('bench', xf(P.x + s * 12, pgy + 0.34, T.z + 1.4, Math.PI));
+    inst('bench', xf(P.x + s * 12, pgy + 0.34, T.z - 1.4, 0));
+    inst('binbank', xf(P.x + s * 19, pgy + 0.34, T.z, rnd() * 6.28));
+  }
+
+  /* ---- the gold pavilion over the stop ---------------------------------
+     The plaza canopy already covers this stretch, but the aerials give the
+     stop its own deeper roof where the two meet. It sits below the canopy's
+     soffit so the two read as one structure seen end-on.                  */
+  inst('canopypav', xf(P.x, pgy, T.z, 0, 1.35, 1, 1.0));
+
+  /* ---- the vehicles ---------------------------------------------------- */
+  const RAIL = [[P.x - 12, -1], [P.x + 96, 1], [P.x - 168, 1], [P.x + 214, -1]];
+  for (const v of RAIL) {
+    const g = terrainY(v[0], T.z + v[1] * T.sep / 2);
+    inst('tram', xf(v[0], g + 0.20, T.z + v[1] * T.sep / 2, v[1] > 0 ? 0 : Math.PI));
+  }
+
+  // the boulevard's own trees keep off the alignment; these are the ones that
+  // frame it instead, in the double row the aerials show
+  for (let x = T.x0 + 30; x <= T.x1 - 30; x += 11.5) {
+    if (Math.abs(x - P.x) < P.len / 2 + 4) continue;
+    for (const s of [-1, 1]) {
+      const pz = T.z + s * (T.sep / 2 + 8.5);
+      if (insideSolid(x, pz, terrainY(x, pz) + 1)) continue;
+      inst('palm', xf3(x + rr(-1.4, 1.4), terrainY(x, pz), pz, 0, rnd() * 6.28, 0,
+          0.92 + rnd() * 0.26, 0.94 + rnd() * 0.3, 0.92 + rnd() * 0.26), 0xffffff);
+    }
+  }
+}
+
+/* ============================================================ ROUNDABOUT ==
+   The arrival monument from the second aerial: a broad water bowl with an
+   obelisk standing in it, at the junction the district is entered from. */
+function buildRoundabout() {
+  CURCHUNK = 'roundabout';
+  const a = ACC.arch;
+  const RX = -88, RZ = -96, R = 17.5;      // West Avenue x South Boulevard
+  const gy = terrainY(RX, RZ);
+  // the island: a raised paved disc the roads pass around
+  for (let i = 0; i < 40; i++) {
+    const A0 = i / 40 * 6.2831853, A1 = (i + 1) / 40 * 6.2831853;
+    const mx = (Math.cos(A0) + Math.cos(A1)) / 2, mz = (Math.sin(A0) + Math.sin(A1)) / 2;
+    const seg = 2 * R * Math.sin(Math.PI / 40);
+    a.add(G_BOXT, xf(RX + mx * R * 0.995, gy - 0.1, RZ + mz * R * 0.995,
+      Math.atan2(mx, mz), 0.9, 0.44, seg + 0.3), K.travDk, S.TRAVERTINE, 0.96);
+  }
+  paved(ACC.ground, RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, 0.30, K.travert, 1.04);
+  platform(RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, gy + 0.30);
+  hole(RX - R, RZ - R, RX + R, RZ + R);
+
+  inst('fountain', xf(RX, gy + 0.30, RZ, 0));
+  {
+    const wr = 12.2, wy = gy + 1.05;
+    const wg = new THREE.CircleGeometry(wr, 56);
+    wg.rotateX(-Math.PI / 2); wg.translate(RX, wy, RZ);
+    const fl = new Float32Array(wg.attributes.position.count); fl.fill(0.06);
+    wg.setAttribute('aFlow', new THREE.BufferAttribute(fl, 1));
+    const wacc = new Acc();
+    wacc.add(wg, xf(0, 0, 0), 0xffffff, 0, 1);
+    const wm = new THREE.Mesh(wacc.geometry(), waterMat);
+    WATERMESHES.push(wm); wm.renderOrder = 4;
+    cityRoot.add(wm); DISPOSE.push(wm.geometry);
+    WATERBODIES.push({ x0: RX - wr, x1: RX + wr, z0: RZ - wr, z1: RZ + wr, y: wy, depth: 0.5, flow: 0 });
+    for (let i = 0; i < 26; i++) {
+      const A1 = rnd() * 6.2831853, rr3 = Math.sqrt(rnd()) * (wr - 1.5);
+      JETS.push({ x: RX + Math.cos(A1) * rr3, y: wy, z: RZ + Math.sin(A1) * rr3,
+        ph: rnd() * 6.28, h: 1.1 + rnd() * 2.6 });
+    }
+  }
+  inst('obelisk', xf(RX, gy + 0.62, RZ, 0.24));
+  collider(RX, RZ, 2.2, 2.2, 0, gy + 13);
+  for (let i = 0; i < 10; i++) {
+    const A0 = i / 10 * 6.2831853 + 0.31;
+    inst('uplight', xf(RX + Math.cos(A0) * (R - 4.5), gy + 0.34, RZ + Math.sin(A0) * (R - 4.5)), 0xffc98a);
+  }
+  PRACTICALS.push({ x: RX, y: gy + 4, z: RZ, c: 0xffd9a8, i: 9, r: 30 });
+  for (let i = 0; i < 14; i++) {
+    const A0 = i / 14 * 6.2831853 + 0.11;
+    const px = RX + Math.cos(A0) * (R + 6.5), pz = RZ + Math.sin(A0) * (R + 6.5);
+    inst('palm', xf3(px, terrainY(px, pz), pz, 0, rnd() * 6.28, 0, 1, 1.05 + rnd() * 0.3, 1), 0xffffff);
+  }
+}
+
 /* =========================================================== BUILD ORDER */
 function* buildSteps() {
   yield 'env'; buildEnvironment();
@@ -671,6 +817,8 @@ function* buildSteps() {
   yield 'court'; buildCourtyard();
   yield 'tensile'; buildTensile();
   yield 'landmarks'; buildLandmarks();
+  yield 'transit'; buildTransit();
+  yield 'roundabout'; buildRoundabout();
   yield 'planting'; buildPlanting();
   yield 'green'; buildGreen();
   yield 'identity'; buildIdentity();

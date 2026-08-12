@@ -507,7 +507,7 @@ const waterMat = new THREE.ShaderMaterial({
   transparent: true,
   uniforms: {
     uTime: { value: 0 }, uSun: { value: CSUN.clone() },
-    uDeep: { value: C(K.waterDk) }, uShal: { value: C(0x2f8f92) },
+    uDeep: { value: C(0x10565f) }, uShal: { value: C(0x3fb9ae) },
     uSky: { value: C(0x7c8fc4) }, uWarm: { value: C(0xffc98a) },
     uFogColor: { value: C(0x62789f) }, uFogWarm: { value: C(0xe6bd92) }, uFogD: { value: CITY_FOG },
     uRefl: { value: null }, uReflMtx: { value: new THREE.Matrix4() },
@@ -585,10 +585,23 @@ const waterMat = new THREE.ShaderMaterial({
     }`,
 });
 
-const WATER_RUNS = [
-  [PLAN.water.x, -70, PLAN.water.x, 560, PLAN.water.w, 1],   // the main channel
-  [PLAN.water.x, 250, 268, 250, 4.6, 1],                     // the eastern branch
-];
+const WATER_RUNS = (function () {
+  const R = [
+    [PLAN.water.x, -70, PLAN.water.x, 560, PLAN.water.w, 1],   // the main channel
+    [PLAN.water.x, 250, 268, 250, 4.6, 1],                     // the eastern branch
+  ];
+  /* The signature of the reference aerials is not one channel down the middle
+     — it is a turquoise rill tracing every public edge, in runs that stop short
+     of each other so you can always walk between them. Four of them frame the
+     canopy plaza, broken either side of the souq's own axis. */
+  const P = PLAN.plaza, sp = PLAN.spineX;
+  for (const sx of [-1, 1]) R.push([sx * 118, P.z0 - 6, sx * 118, P.z1 + 6, 3.0, 1]);
+  for (const z of [P.z0 - 2, P.z1 + 6]) {
+    R.push([-96, z, sp - 11, z, 3.0, 1]);
+    R.push([sp + 11, z, 96, z, 3.0, 1]);
+  }
+  return R;
+})();
 /* registered first, so every paver and the desert apron cut round them */
 function planWater() {
   for (const r of WATER_RUNS) {

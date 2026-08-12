@@ -15,8 +15,40 @@ from scipy.spatial import cKDTree
 import fast_simplification
 
 REL = 'https://github.com/anglestrategy/threejsdemo/releases/download/glb/'
+ZIP = REL + 'glbs.zip'
 OUT = 'dist/assets/props'
 TMP = 'work/user/dl.glb'
+
+# The second batch arrived as one 706 MB zip. Its central directory says where
+# every member's bytes start, so each one is pulled out with two range requests
+# and inflated here — the other 600 MB never crosses the wire.
+ZIDX = {}
+if os.path.exists('work/zipindex.json'):
+    ZIDX = {e['name']: e for e in json.load(open('work/zipindex.json'))}
+
+
+def zfetch(member, dest):
+    import zlib
+    e = ZIDX.get(member)
+    if not e:
+        return False
+
+    def rng(a, b):
+        return subprocess.run(['curl', '-sSL', '-H', 'Range: bytes=%d-%d' % (a, b), ZIP],
+                              capture_output=True).stdout
+    # the local header's extra field is not the central directory's, so it has
+    # to be read rather than assumed
+    lh = rng(e['lho'], e['lho'] + 29)
+    if lh[:4] != b'PK\x03\x04':
+        return False
+    nl, el = struct.unpack('<HH', lh[26:30])
+    off = e['lho'] + 30 + nl + el
+    raw = rng(off, off + e['csize'] - 1)
+    if len(raw) < e['csize']:
+        return False
+    data = zlib.decompress(raw, -15) if e['method'] == 8 else raw
+    open(dest, 'wb').write(data)
+    return True
 
 # file -> (key, triangle budget, texture size, what it is for)
 PROPS = [
@@ -38,6 +70,21 @@ PROPS = [
     ('Meshy_AI_waterside_shrubs_3d_0812054531_image-to-3d-texture.glb',    'watershrub', 9000, 1024),
     ('Meshy_AI__0812054904_texture.glb',                                   'lagoon_a',  6000, 1024),
     ('Meshy_AI__0812055014_texture.glb',                                   'lagoon_b',  24000, 1024),
+    # the masterplan set, from the two aerial renders. Budgets are set from how
+    # many of each the plan places: one canopy pavilion can afford 45 k, a palm
+    # that goes down three hundred and thirty times cannot afford a tenth of it.
+    ('Meshy_AI_golden_canopy_pavilio_0812060405_image-to-3d-texture.glb', 'canopypav', 45000, 2048),
+    ('Meshy_AI_palm_tree_masterplan__0812060509_image-to-3d-texture.glb', 'palm2',      8000, 1024),
+    ('Meshy_AI_light_rail_tram_3d_0812060436_image-to-3d-texture.glb',    'tram',      30000, 2048),
+    ('Meshy_AI_tram_stop_shelter_3d_0812060457_image-to-3d-texture.glb',  'tramstop',  12000, 1024),
+    ('Meshy_AI_arcade_shophouse_row__0812060413_image-to-3d-texture.glb', 'shophouse', 20000, 2048),
+    ('Meshy_AI_blue_roofed_building__0812060516_image-to-3d-texture.glb', 'bluehall',  30000, 2048),
+    ('Meshy_AI_residential_apartment_0812060442_image-to-3d-texture.glb', 'resblock',  16000, 2048),
+    ('Meshy_AI_roundabout_fountain_p_0812060423_image-to-3d-texture.glb', 'fountain',  20000, 1024),
+    ('Meshy_AI_roundabout_obelisk_mo_0812060524_image-to-3d-texture.glb', 'obelisk',   14000, 1024),
+    ('Meshy_AI_single_shade_sail_3d_0812060450_image-to-3d-texture.glb',  'sail1',      4000, 1024),
+    ('Meshy_AI_small_kiosk_booth_3d_0812060504_image-to-3d-texture.glb',  'kiosk',      6000, 1024),
+    ('Meshy_AI_street_bench_3d_0812060429_image-to-3d-texture.glb',       'bench2',     2200, 1024),
 ]
 
 
@@ -185,8 +232,12 @@ for fn, key, budget, tex in PROPS:
     if key in index and os.path.exists(os.path.join(OUT, key + '.glb')):
         print('==', key, '(cached)'); continue
     print('==', key)
-    r = subprocess.run(['curl', '-sSL', '-o', TMP, REL + fn], capture_output=True)
-    if r.returncode != 0 or not os.path.exists(TMP):
+    if fn in ZIDX:
+        ok = zfetch(fn, TMP)
+    else:
+        r = subprocess.run(['curl', '-sSL', '-o', TMP, REL + fn], capture_output=True)
+        ok = r.returncode == 0 and os.path.exists(TMP)
+    if not ok:
         print('   fetch failed'); continue
     try:
         doc, buf = read_glb(TMP)

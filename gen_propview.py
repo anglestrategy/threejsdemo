@@ -80,7 +80,11 @@ let f = 0; window.__frames = 0;
                    'hammock': 1.1, 'evpoint': 1.5, 'solar': 0.35, 'trellis': 2.6,
                    'extra': 6.0, 'mosque': 26.0, 'arcade': 11.0, 'majlisset': 0.8,
                    'carpet': 0.05, 'bunting': 0.5, 'watershrub': 1.4,
-                   'lagoon_a': 6.0, 'lagoon_b': 7.0}))
+                   'lagoon_a': 6.0, 'lagoon_b': 7.0,
+                   'canopypav': 15.0, 'palm2': 9.5, 'tram': 3.6, 'tramstop': 3.4,
+                   'shophouse': 12.0, 'bluehall': 16.0, 'resblock': 15.0,
+                   'fountain': 3.0, 'obelisk': 12.0, 'sail1': 5.0,
+                   'kiosk': 3.0, 'bench2': 0.85}))
 
 os.makedirs('dist', exist_ok=True)
 open('dist/props.html', 'w').write(html)

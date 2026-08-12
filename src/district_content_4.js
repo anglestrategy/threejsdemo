@@ -965,4 +965,21 @@ function defineKit() {
   routeProp('slimtree', 'lagoon_a', 6.20);
   routeProp('jamaa', 'mosque', PLAN.jamaa.h, { jitter: false });
   routeProp('arcadeblk', 'arcade', 11.0, { jitter: false });
+
+  /* ---- the masterplan set ----------------------------------------------
+     Generated from the two site aerials rather than from a street-level
+     render, so these are the pieces that were missing at plan scale: the
+     transit spine under the gold canopy, the roundabout monument, and a
+     street architecture that repeats without repeating. */
+  routeProp('canopypav', 'canopypav', 15.0, { jitter: false });
+  routeProp('tram', 'tram', 3.6, { jitter: false });
+  routeProp('tramstop', 'tramstop', 3.4, { jitter: false });
+  routeProp('shophouse', 'shophouse', 12.0);
+  routeProp('bluehall', 'bluehall', 16.0, { jitter: false });
+  routeProp('resblock', 'resblock', 15.0);
+  routeProp('fountain', 'fountain', 2.46, { jitter: false });
+  routeProp('obelisk', 'obelisk', 12.0, { jitter: false });
+  routeProp('sail1', 'sail1', 5.0);
+  routeProp('kiosk', 'kiosk', 3.0);
+  // palm2 and bench2 are generated but not routed: see DELTA.md
 }
