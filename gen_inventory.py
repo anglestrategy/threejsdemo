@@ -28,8 +28,8 @@ DESC = {
     'watershrub': 'waterside shrub clump', 'carpet': 'outdoor carpet / rug',
     'bunting': 'string-light bunting', 'sail1': 'single shade sail',
     'bench2': 'street bench (variant)', 'majlisset': 'majlis lounge seating',
-    'palm2': 'date palm', 'lagoon_a': 'slender lagoon-scene tree',
-    'lagoon_b': 'lagoon-scene structure', 'extra': 'lagoon-scene rock mass',
+    'palm2': 'date palm', 'lagoon_a': 'slender street tree',
+    'lagoon_b': 'vernacular block, arcaded ground floor', 'extra': 'three-storey vernacular building',
     'people10': 'ten standing figures', 'people5s': 'five seated figures',
     'mashrabiya': 'teak mashrabiya screen panel',
 }
@@ -84,8 +84,8 @@ body = [
     '',
     '**%d assets, %.1f MB served.**' % (len(idx), tot_kb / 1024),
     '',
-    'Generated but not sited, and why:',
-    '',
+    ('Generated but not sited: none — every asset in the release is placed.'
+     if not UNROUTED else 'Generated but not sited, and why:'), '',
 ] + ['- `%s` — %s' % (k, r) for k, r in UNROUTED.items() if k in idx]
 
 md = open('STATUS.md', encoding='utf-8').read()
