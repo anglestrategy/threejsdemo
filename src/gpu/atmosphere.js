@@ -36,9 +36,10 @@
       lets it do both.
    ========================================================================== */
 
+import { Color, Vector3 } from 'three';
 import {
   Fn, float, vec3, vec4, texture3D, positionWorld, cameraPosition, normalWorld,
-  dot, max, pow, mix, exp, length, normalize, uniform, clamp,
+  dot, max, pow, mix, exp, length, normalize, uniform, clamp, fog,
 } from 'three/tsl';
 
 /* -------------------------------------------------------------- the probes */
@@ -79,14 +80,28 @@ export function probeIrradiance(skyTex, gndTex, P) {
  * @param opts.scaleH   Aerosol scale height in metres
  */
 export function directionalFog(opts) {
-  const uCool = uniform(opts.cool);
-  const uWarm = uniform(opts.warm);
-  const uSun = uniform(opts.sun);
+  /* uniform() infers its type from the JS value it is handed. A raw 0x7286a8
+     is a Number, which it reads as a float and then fails on with
+     `Uniform "null" not implemented`; the hex has to arrive as a Color and the
+     direction as a Vector3 for the vec3 uniforms to be declared at all. */
+  const uCool = uniform(new Color(opts.cool));
+  const uWarm = uniform(new Color(opts.warm));
+  const uSun = uniform(new Vector3(...opts.sun).normalize());
   const uDensity = uniform(float(opts.density));
   const uScaleH = uniform(float(opts.scaleH));
 
-  /** returns vec4(fogColour.rgb, fogFactor) */
-  return Fn(() => {
+  /* `scene.fogNode` is not a (colour, factor) pair and it is not a modifier —
+     it IS the final fragment. three.webgpu.js:21903:
+
+         output.assign( outputNode );          // the lit result goes in here
+         outputNode = vec4( fogNode.toVar() ); // and the fog node replaces it
+
+     so a fog node has to read the lit fragment back off the `output` accessor
+     and return the whole mixed vec4. Returning vec4(colour, factor) painted
+     flat fog over the entire frame — the panels read 17 with everything else
+     already working. `fog(colour, factor)` is three's own helper for exactly
+     this and it is what does the mix; this function supplies its two halves. */
+  const colorAndFactor = Fn(() => {
     const toFrag = positionWorld.sub(cameraPosition).toVar();
     const dist = length(toFrag).toVar();
     const dir = normalize(toFrag).toVar();
@@ -105,6 +120,8 @@ export function directionalFog(opts) {
     const f = float(1).sub(exp(d.mul(d).mul(hFall).negate())).toVar();
     return vec4(col, clamp(f, 0.0, 1.0));
   })();
+
+  return fog(colorAndFactor.rgb, colorAndFactor.a);
 }
 
 /* The values the WebGL2 build arrived at by measurement, kept here so the two

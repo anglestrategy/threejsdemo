@@ -94,19 +94,32 @@ Three vendoring traps, all fixed, all of which fail as bare 404s:
       split by hemisphere, and directional fog whose density falls off with
       altitude. The probe *bake* is plain JavaScript against the occluder
       boxes and is renderer-agnostic — it is not ported, it is reused.
-- [~] **3 — the material.** `src/gpu/material.js`. Compiles, links and renders
-      with no page errors — and comes out **black**. See "Step 3: black
-      panels" below. This is where the port actually is.
+- [x] **3 — the material.** `src/gpu/material.js`. All eleven surface classes
+      light, with the per-class relief visible in the readings. Four faults,
+      none of them in the surface law: a duplicated three.js module instance,
+      TSL hoisting a shared var's init into the first `If` branch, `fogNode`
+      replacing the fragment rather than modifying it, and `uniform()` needing
+      a `Color`/`Vector3` rather than a hex Number. See "Bisect attempt 7".
 - [ ] 4 — CSM, then TRAA
 - [ ] 5 — SSGI, GTAO
 - [ ] 6 — walk cycle, water, planar reflection
 - [ ] 7 — colour script + post stack, then the six-bookmark side-by-side
 
-**Everything through step 2 is syntax-checked and unverified in-scene.** Nothing
-is wired into a material yet, so none of it has rendered a pixel. That is stated
-plainly rather than implied, and step 3 is where it stops being true.
+## Step 3: black panels — RESOLVED at attempt 7
 
-## Step 3: black panels — an open, reproducible fault
+Seven attempts, and the record of all of them is kept below rather than
+summarised away: five of the seven narrowed onto something that turned out to
+be false, and a plan file that only records the successful path invites the
+same wrong turns next time. Read the last section first; the earlier ones are
+there so their hypotheses are not re-tried.
+
+**Every reading taken before attempt 7 is void**, because the duplicated module
+instance made the material's behaviour depend on build order rather than on the
+node graph. That is why the earlier tables disagree with one another.
+
+The original statement of the fault follows.
+
+### The fault as first stated
 
 `dist/gpuprobe.html?forcegl=1&panels=1` stands eleven panels, one per surface
 class, in front of the tram. The stock glTF material on the tram renders
@@ -347,3 +360,100 @@ Suspect 3 is the interesting one: if nested `If` ladders cannot be consumed by
 `normalMap`, the fix is to compute the three heights in a plain `Fn` that
 returns them, and do the differencing outside — which is a structural change to
 `reliefNormal` rather than a one-liner, and worth knowing before writing it.
+
+### Bisect attempt 7 — SOLVED. Two real faults, and neither was in the port.
+
+Both were found by reading rather than guessing, and one method change found
+them: **the harness was passing `stdio: 'ignore'`.** Six attempts of "black or
+not black" when the page had been printing the answer to the console the whole
+time and the harness was discarding it. That word is gone and the first error
+now prints beside every reading.
+
+**Fault A — three.js was instantiated twice.** The first line of the console:
+
+    THREE.TSL: No stack defined for assign operation.
+      at MeshStandardNodeMaterial.setupDiffuseColor (three__webgpu.js:21635)
+      at GLSLNodeBuilder.prebuild                   (three.js:53542)
+
+Two different files in one stack. `dist/gpuvendor/three.js` and
+`three__webgpu.js` were **byte-identical copies** (same md5) served at two URLs,
+because the import map pointed `three` at one and `three/webgpu` at the other.
+A browser instantiates a module once per URL, so `currentStack` — which `Fn()`
+sets and every `assign` reads — existed twice. The renderer's NodeBuilder set
+it in one module's scope; `MeshStandardNodeMaterial`'s whole lighting model
+ran in the other, found `null`, and built to nothing. Twenty-odd assigns
+discarded, silently, per material.
+
+Fix: one entry per module instance. `three/webgpu` now resolves to
+`./gpuvendor/three.js` and the duplicate file is deleted. **Rule: never map a
+package to two paths.** Every reading taken before this is void, which is why
+the earlier tables disagree with each other.
+
+**Fault B — TSL emits a shared var's initialisation at its FIRST USE, and the
+first use was inside a branch.** With the module unified, the picture was clean
+and damning: `plain` and `all off` lit at 176, and the moment `colorNode` came
+on **only panel 0** survived — class 0 is the `If` body, classes 1–10 are the
+`ElseIf` bodies.
+
+Dumping the generated fragment shader (`tests/_shaderdump.mjs`, via
+`renderer.debug.getShaderAsync`) showed it outright:
+
+    if ( ( cls < 0.5 ) ) {
+        normalView  = NORMAL_normalView;                      // <- in here
+        normalWorld = normalize( vec4( normalView, 0 ) * cameraViewMatrix );
+        uv = ...;                                             // triplanarUV
+    } else if ( ( cls < 1.5 ) ) {
+        normalWorld = normalize( vec4( normalView, 0 ) * cameraViewMatrix );
+                              //   ^ never assigned on this path
+
+`q` arrives as `triplanarUV(positionWorld, normalWorld)` and its first use was
+inside branch 0, so the builder pinned `normalWorld`'s (and `normalView`'s)
+initialisation there. Every other branch normalised a zero vector, got NaN,
+and NaN albedo reads as a black panel.
+
+Fix: `srfH`, `triplanarUV`, `triplanarFrame` and `reliefNormalStaged` all
+materialise their parameters with `.toVar()` **above** their first `If`.
+
+> **Rule, and it generalises to every branching node in this port: an `Fn` that
+> branches must materialise its parameters before its first `If`.** Otherwise
+> the first branch captures their initialisation and the rest read
+> uninitialised memory. This is the single most expensive thing learned in the
+> port and it is not in the docs.
+
+**Fault C — `scene.fogNode` is the fragment, not a modifier.** Found the same
+way (21903):
+
+    output.assign( outputNode );           // the lit result goes in here
+    outputNode = vec4( fogNode.toVar() );  // and the fog node REPLACES it
+
+Returning `vec4(colour, factor)` painted flat fog over the whole frame. The fog
+node has to read the lit fragment back off the `output` accessor and return the
+finished vec4; `fog(colour, factor)` is three's own helper that does the mix,
+so `directionalFog()` now supplies its two halves and returns `fog(...)`.
+
+**Fault D — `uniform()` infers its type from the JS value.** A raw `0x7286a8`
+is a Number, read as a float, and then `Uniform "null" not implemented`. Hex
+colours have to arrive as `Color` and directions as `Vector3`.
+
+**`normalMap()` was the wrong door all along**, and reading 16626 says why:
+
+    let normalMap = this.node.mul( 2.0 ).sub( 1.0 );
+
+it expects a *packed* 0..1 texel and unpacks it, then puts the result through
+`TBNViewMatrix`, which wants a geometry tangent attribute the instanced city
+meshes do not carry. `normalNode` on its own is consumed in place of
+`materialNormal`, whose default is `normalView` — a plain signed **view-space**
+normal. So the world-space triplanar frame the WebGL2 build already builds is
+right, and the only thing the port adds is `.transformDirection(cameraViewMatrix)`.
+
+**Result — step 3 is done.** All eleven classes light, with per-class variation
+visible in the readings (BRICK reads darker than RENDER because of the mortar
+recess, which is the surface law working):
+
+| case | reading across the eleven class panels |
+|---|---|
+| plain (stock material) | 177 … 176 |
+| all off | 176 … 175 |
+| + colorNode | 162 149 155 159 159 155 157 163 160 155 160 |
+| + roughnessNode | same |
+| + relief normal (full) | 164 148 134 156 156 155 159 161 160 151 159 |

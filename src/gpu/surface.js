@@ -97,7 +97,31 @@ export const fb3 = Fn(([p0]) => {
    is therefore a real dimension, which is the whole reason the scale errors
    in this law were findable by measuring rather than by eye.
    -------------------------------------------------------------------------- */
-export const srfH = Fn(([q, s]) => {
+export const srfH = Fn(([q0, s0]) => {
+  /* Both parameters are materialised HERE, above the ladder, and this is not
+     tidiness — it is the whole reason the classes past ASHLAR rendered black.
+
+     TSL emits a shared node's initialisation at its FIRST USE. `q` arrives as
+     `triplanarUV(positionWorld, normalWorld)`, and its first use used to be
+     inside the `If(s < 0.5)` body, so the builder wrote
+
+         if ( cls < 0.5 ) {
+             normalView  = ...;                 // <- initialised in here
+             normalWorld = normalize( ... );
+             uv = ...;
+         } else if ( cls < 1.5 ) {
+             normalWorld = normalize( vec4( normalView, 0 ) * viewMatrix );
+                                       //   ^ never assigned on this path
+
+     Every branch but the first read an unassigned `normalView`, normalised
+     a zero vector, and got NaN — which propagates to the albedo and reads as
+     a black panel. One `.toVar()` above the branch pins the assignment to the
+     unconditional scope and all twelve classes light.
+
+     The rule this cost four rounds to learn: an Fn that branches must
+     materialise its parameters before its first If. */
+  const q = q0.toVar();
+  const s = s0.toVar();
   const out = vec3(0, 1, 0.5).toVar();     // height, cavity, grain
 
   /* ---- 0 ASHLAR: 225 mm courses, 420-840 mm blocks, 16 mm recessed joint */
@@ -252,7 +276,9 @@ export const srfH = Fn(([q, s]) => {
    along. Working in world space means the perturbed normal comes out ready to
    use, with no model matrix in the fragment shader.
    -------------------------------------------------------------------------- */
-export const triplanarUV = Fn(([wp, wn]) => {
+export const triplanarUV = Fn(([wp0, wn0]) => {
+  // both above the branch — see the note on srfH
+  const wp = wp0.toVar(), wn = wn0.toVar();
   const a = abs(wn).toVar();
   const uv = vec2(0, 0).toVar();
   If(a.y.greaterThan(max(a.x, a.z)), () => {
@@ -270,7 +296,8 @@ export const triplanarUV = Fn(([wp, wn]) => {
    made the first TSL panels render black — a tangent-space vector assigned
    straight to `normalNode` is not a normal, and every face reads as facing
    away from the light. */
-export const triplanarFrame = Fn(([wn]) => {
+export const triplanarFrame = Fn(([wn0]) => {
+  const wn = wn0.toVar();          // above the branch — see the note on srfH
   const a = abs(wn).toVar();
   const t = vec3(1, 0, 0).toVar();
   If(a.y.greaterThan(max(a.x, a.z)), () => {
@@ -289,6 +316,36 @@ export const triplanarFrame = Fn(([wn]) => {
    left everything past the middle of a 200 m street as flat paint carrying a
    per-block albedo pattern. 70 to 300 m, and the samples were always taken
    either way. */
+/* staged variants, so the fault can be walked to a line rather than guessed.
+   stage 1: constant — proves the wrapper
+   stage 2: gradient, no normalize
+   stage 3: one srfH call instead of three (constant gradient)
+   stage 0/default: the real thing */
+export const reliefNormalStaged = Fn(([uv0, s0, dist0, amp0, stage, wn0]) => {
+  // materialised above the ladder, for the reason recorded on srfH
+  const uv = uv0.toVar(), s = s0.toVar(), dist = dist0.toVar(), amp = amp0.toVar();
+  const wn = wn0.toVar();
+  const out = vec3(0, 0, 1).toVar();
+  If(stage.equal(2), () => {
+    const e = float(0.006).add(dist.mul(0.00035)).toVar();
+    const h0 = srfH(uv, s).toVar();
+    const hx = srfH(uv.add(vec2(e, 0)), s).toVar();
+    const hy = srfH(uv.add(vec2(0, e)), s).toVar();
+    const k = amp.div(e).toVar();
+    out.assign(vec3(hx.x.sub(h0.x).mul(k).negate(),
+      hy.x.sub(h0.x).mul(k).negate(), 1.0));      // no normalize
+  }).ElseIf(stage.equal(3), () => {
+    const h0 = srfH(uv, s).toVar();               // one call, not three
+    out.assign(vec3(h0.x.mul(0.1), h0.y.mul(0.1), 1.0).normalize());
+  });
+  /* framed into world space by the same triplanar basis the real one uses, so
+     a stage reading can be compared against the full path without the space
+     being one of the differences */
+  const T = triplanarFrame(wn).toVar();
+  const B = wn.cross(T).normalize().toVar();
+  return T.mul(out.x).add(B.mul(out.y)).add(wn.mul(out.z)).normalize();
+});
+
 export const reliefNormal = Fn(([uv, s, dist, amp]) => {
   const e = float(0.006).add(dist.mul(0.00035)).toVar();
   const h0 = srfH(uv, s).toVar();

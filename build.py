@@ -127,6 +127,52 @@ shell += ('<script type="importmap">' + json.dumps({'imports': imports}) + '</sc
           '<script type="module" src="./app.js"></script>\n</body>\n</html>\n')
 open(p('dist/index.html'), 'w', encoding='utf-8').write(shell)
 
+# ---- the WebGPU / TSL build ----------------------------------------------
+# Standing beside the WebGL2 build rather than replacing it — see WEBGPU_PLAN.md.
+# This ran as loose shell commands for a while, which meant the only copy of the
+# probe page and the vendored WebGPU modules lived in dist/, and dist/ is
+# ignored: one container restart from gone.
+gmods = json.load(open(p('src/vendor_gpu.json'), encoding='utf-8'))
+os.makedirs(p('dist/gpuvendor'), exist_ok=True)
+os.makedirs(p('dist/gpu'), exist_ok=True)
+os.makedirs(p('dist/utils'), exist_ok=True)
+for d_ in ('gpuvendor', 'gpu'):
+    for f in os.listdir(p('dist', d_)):
+        if os.path.isfile(p('dist', d_, f)):
+            os.remove(p('dist', d_, f))
+
+gimports = {}
+for key, b64 in gmods.items():
+    data = base64.b64decode(b64)
+    if key.startswith('utils/'):
+        # GLTFLoader imports these by RELATIVE path (`../utils/…`), and an
+        # import map cannot remap a relative specifier. They have to sit where
+        # the resolution actually lands, not where a map points.
+        open(p('dist', key), 'wb').write(data)
+        continue
+    fn = key.replace('/', '__') + ('' if key.endswith('.js') else '.js')
+    open(p('dist/gpuvendor', fn), 'wb').write(data)
+    if key != 'three.core.js':          # imported by ./three.core.js, beside it
+        gimports[key] = './gpuvendor/' + fn
+
+# ONE url per module instance. `three` and `three/webgpu` used to be two
+# byte-identical copies under two paths; a browser instantiates a module once
+# per URL, so `currentStack` — which Fn() sets and every assign reads — existed
+# twice, and MeshStandardNodeMaterial's entire lighting model built to nothing.
+gimports['three/webgpu'] = './gpuvendor/three.js'
+for k in ('TRAANode', 'SSGINode', 'GTAONode', 'BloomNode'):
+    gimports['three/addons/tsl/display/%s.js' % k] = './gpuvendor/addons__%s.js' % k
+
+for f in os.listdir(p('src/gpu')):
+    if f.endswith('.js'):
+        shutil.copyfile(p('src/gpu', f), p('dist/gpu', f))
+
+probe = open(p('src/gpuprobe.html'), encoding='utf-8').read()
+probe = re.sub(r'<script type="importmap">.*?</script>',
+               '<script type="importmap">' + json.dumps({'imports': gimports})
+               + '</script>', probe, count=1, flags=re.S)
+open(p('dist/gpuprobe.html'), 'w', encoding='utf-8').write(probe)
+
 total = sum(os.path.getsize(os.path.join(r, f))
             for r, _, fs in os.walk(dist) for f in fs)
 src_only = re.sub(r'data:image/\w+;base64,[A-Za-z0-9+/=]+', '<img>', main)

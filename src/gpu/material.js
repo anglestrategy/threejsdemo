@@ -24,10 +24,12 @@
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
   Fn, float, vec3, vec4, attribute, positionWorld, normalWorld, cameraPosition,
-  length, floor, mix, clamp, uniform, vertexColor, max, normalMap,
+  cameraViewMatrix, length, floor, mix, clamp, uniform, vertexColor, max,
 } from 'three/tsl';
 
-import { srfH, triplanarUV, reliefNormal } from './surface.js';
+import {
+  srfH, triplanarUV, reliefNormal, reliefNormalStaged, reliefNormalWorld,
+} from './surface.js';
 import { directionalFog, probeIrradiance, ATMOS } from './atmosphere.js';
 
 /**
@@ -64,28 +66,40 @@ export function makeCityMaterial(opts = {}) {
   /* ---- normal ---------------------------------------------------------- */
   // world-space, framed by the triplanar tangent basis — see surface.js
   if (!opts.noNormal) {
-    /* three.webgpu.js:21712 consumes normalNode in place of materialNormal,
-       and its documented feed (16566) is normalMap(...), whose input is a
-       TANGENT-SPACE normal. The first version had the right space; the
-       triplanar world frame and the view transform both moved away from it. */
-    /* nc=1 feeds normalMap a flat tangent-space normal. If that is black too,
-       normalMap is unusable in this setup; if it lights, reliefNormal's output
-       is the fault. One flag, and it splits the remaining question in two. */
-    mat.normalNode = opts.normalConst
-      ? normalMap(vec3(0, 0, 1))
-      : normalMap(Fn(() => reliefNormal(uvOf(), clsOf(), distOf(), uAmp))());
+    /* normalMap() is the wrong door for this. three.webgpu.js:16626 opens with
+         let normalMap = this.node.mul( 2.0 ).sub( 1.0 );
+       — it expects a PACKED 0..1 texel and unpacks it — and then puts the
+       result through TBNViewMatrix, which wants a geometry tangent attribute
+       the instanced city meshes do not carry.
+
+       `normalNode` itself (21712, `setupNormal`) is consumed in place of
+       `materialNormal`, whose default is `normalView`: a plain VIEW-space
+       normal, signed, no unpacking, no tangent frame. That is the door. The
+       WebGL2 build already built its own world-space triplanar frame, so the
+       only thing the port adds is the world -> view rotation, and
+       `cameraViewMatrix` is exactly the matrix three itself uses for the round
+       trip (15379: normalWorld = normalView transformed by its inverse). */
+    const stage = opts.normalStage || 0;
+    const wn = opts.normalConst
+      ? normalWorld
+      : (stage
+        ? reliefNormalStaged(uvOf(), clsOf(), distOf(), uAmp, float(stage), normalWorld)
+        : reliefNormalWorld(uvOf(), clsOf(), distOf(), uAmp, normalWorld));
+    mat.normalNode = wn.transformDirection(cameraViewMatrix).normalize();
   }
 
   /* ---- albedo ----------------------------------------------------------
      Two terms, both from the height field: the recesses go darker because
      less light reaches them, and each block carries its own tone so a wall
      is coursed stone rather than one colour behind a joint pattern. */
-  mat.colorNode = Fn(() => {
-    const h = srfH(uvOf(), clsOf()).toVar();     // (height, cavity, grain)
-    const base = (opts.flatColor ? vec3(0.78) : vertexColor()).toVar();
-    const shaded = base.mul(mix(float(0.62), float(1.0), h.y)).toVar();
-    return shaded.mul(mix(float(0.90), float(1.10), h.z));
-  })();
+  if (!opts.noColor) {
+    mat.colorNode = Fn(() => {
+      const h = srfH(uvOf(), clsOf()).toVar();     // (height, cavity, grain)
+      const base = (opts.flatColor ? vec3(0.78) : vertexColor()).toVar();
+      const shaded = base.mul(mix(float(0.62), float(1.0), h.y)).toVar();
+      return shaded.mul(mix(float(0.90), float(1.10), h.z));
+    })();
+  }
 
   /* ---- roughness -------------------------------------------------------
      Up in the recesses. Without this the joints read wet, which is the
