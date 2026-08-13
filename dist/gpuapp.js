@@ -2607,8 +2607,21 @@ function routeSceneParts(key, prefix, opts) {
   return kits;
 }
 
+/* The far level is for things genuinely out on the perimeter, and nothing
+   else. It used to be chosen off per-asset radii of 55-90 m, which put the
+   decimated level on buildings a hundred metres away — in full view, filling
+   the frame, and visibly destroyed. Every asset now keeps its full geometry
+   anywhere in the walkable district; only the ring beyond LOD_FULL drops. */
+const LOD_FULL = 340;
 function modelLOD(r, x, z) {
-  return 0;
+  if (r.parts.length < 2) return 0;
+  const rad = Math.max(r.near, LOD_FULL);
+  let best = 1e9;
+  for (const p of NEARFIELD) {
+    const d = (x - p[0]) * (x - p[0]) + (z - p[1]) * (z - p[1]);
+    if (d < best) best = d;
+  }
+  return best <= rad * rad ? 0 : r.parts.length - 1;
 }
 
 /* a stable per-instance hash off the world position — see routePropSet */
@@ -3812,8 +3825,18 @@ function block(x0, z0, x1, z1, o) {
     brick: [K.brick, K.brickDk, K.brickLt, 0x9c6a4a, 0xab7c5a],
     trav:  [K.travert, K.travDk, 0xdfd2b6, 0xcdbb9c, 0xd4c3a4],
   };
-  const fam = style === 'brick' ? 'brick' : (style === 'trav' || style === 'office') ? 'trav' : 'sand';
+  /* Material was fixed per quarter, so every building in the souq was the same
+     render and every building on the boulevard the same travertine — which is
+     the single loudest reason a generated street reads as generated. A real
+     street is not one quarry: roughly one building in four takes a neighbouring
+     stone, and the quarter still reads as itself because the rest hold. */
+  const fam0 = style === 'brick' ? 'brick' : (style === 'trav' || style === 'office') ? 'trav' : 'sand';
+  const fam = style === 'office' || !chance(0.26) ? fam0
+    : (fam0 === 'sand' ? 'trav' : fam0 === 'trav' ? 'sand' : pick(['sand', 'brick']));
   const baseCol = pick(PAL[fam]);
+  /* and the bay rhythm varies per building rather than being one constant for
+     the whole district: 3.15 m everywhere is what made every facade a grid */
+  const bayJit = 0.85 + rnd() * 0.34;
   const surfBody = style === 'brick' ? S.BRICK : (fam === 'trav' ? S.TRAVERTINE : S.RENDER);
   const surfBase = style === 'brick' ? S.BRICK : S.ASHLAR;
   const tone = 0.90 + rnd() * 0.22;
@@ -3857,7 +3880,7 @@ function block(x0, z0, x1, z1, o) {
        side of the same block. On a thin infill block the two rooms otherwise
        overlap and one shop's back wall stands in the other one's window. */
     const avail = (S4.ax === 1 ? d : w) / 2 - 0.35;
-    elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail);
+    elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail, bayJit, si);
   }
 
   // ---- parapet all round
@@ -3865,6 +3888,14 @@ function block(x0, z0, x1, z1, o) {
   const pstyle = o.parapet || (style === 'brick' ? 'crenel' : (fam === 'trav' ? 'step' : (chance(0.5) ? 'crenel' : 'step')));
   const ph = o.parapetH || (style === 'office' ? 0.95 : 1.15);
   if (detail > 0) {
+    /* A cornice under the parapet. The wall used to run straight into the
+       coping with nothing proud of it, so the top of every building died into
+       the sky on a single flat line and the facade never cast a shadow across
+       its own head. Two courses, the upper one wider, is the whole trick. */
+    if (style !== 'office') {
+      a.add(G_BOXT, xf(cx, top - 0.30, cz, 0, w + 0.30, 0.16, d + 0.30), pcol, surfBase, shade * 1.00);
+      a.add(G_BOXT, xf(cx, top - 0.14, cz, 0, w + 0.56, 0.18, d + 0.56), pcol, surfBase, shade * 1.10);
+    }
     for (const S4 of SIDES) parapet(a, S4.x0, S4.z0, S4.x1, S4.z1, top, ph, pcol, surfBody, shade * 1.04, pstyle);
   } else {
     for (const S4 of SIDES) wallSeg(a, S4.x0, S4.z0, S4.x1, S4.z1, top, top + 0.7, 0.3, pcol, surfBody, shade * 1.02);
@@ -3877,12 +3908,12 @@ function block(x0, z0, x1, z1, o) {
 }
 
 /* --------------------------------------------------------- one elevation */
-function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail) {
+function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail, bayJit, si) {
   const a = ACC.arch, f = ACC.fine;
   const ux = (S4.x1 - S4.x0) / len, uz = (S4.z1 - S4.z0) / len;
   const ang = Math.atan2(S4.x1 - S4.x0, S4.z1 - S4.z0);
   const nx = S4.nx, nz = S4.nz;
-  const bayW = style === 'office' ? 2.55 : (style === 'souq' ? 3.5 : 3.15);
+  const bayW = (style === 'office' ? 2.55 : (style === 'souq' ? 3.5 : 3.15)) * (bayJit || 1);
   const nb = Math.max(1, Math.round(len / bayW));
   const bw = len / nb;
   const pierW = style === 'office' ? 0.34 : 0.62;
@@ -3953,17 +3984,45 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
     const isTop = fl === floors - 1;
     if (lvl === 0) continue;
     if (style === 'office') { officeBand(S4, y, fh, len, nb, bw, ang, nx, nz, ux, uz, fl, floors, baseCol, shade, lvl); continue; }
+    /* Each floor sets its own sill and head. A single pair of constants for
+       every storey of every building is a spreadsheet, not a facade: upper
+       storeys are shorter than the piano nobile in every street in the
+       reference set. */
+    const sillF = 0.95 + (isTop ? 0.16 : 0.0) + rnd() * 0.22;
+    const headF = fh - 0.75 - rnd() * 0.20;
     for (let b = 0; b < nb; b++) {
       const t = (b + 0.5) * bw;
       const p = at(t, 0);
-      a.add(G_BOXT, xf(at(b * bw + pierW / 2, 0)[0], y, at(b * bw + pierW / 2, 0)[1], ang, pierW, fh, 0.5), baseCol, surfBody, shade);
-      const ow = bw - pierW, sill = 0.95, head = fh - 0.75;
+      /* chamfered, like the ground-floor piers. These were the one run of
+         plain boxes left on the facade and they read as cardboard beside the
+         arrised stonework directly under them. */
+      addMass(a, at(b * bw + pierW / 2, 0)[0], y, at(b * bw + pierW / 2, 0)[1], ang, pierW, fh, 0.5, baseCol, surfBody, shade, 0.03);
+      const ow = bw - pierW, sill = sillF, head = headF;
       a.add(G_BOXT, xf(p[0], y, p[1], ang, ow, sill, 0.52), baseCol, surfBody, shade * 0.97);
       a.add(G_BOXT, xf(p[0], y + head, p[1], ang, ow, fh - head, 0.52), baseCol, surfBody, shade * 0.97);
       if (lvl >= 2) {
+        /* not every bay is a window. A blank bay is what a stair, a flue or a
+           party wall looks like from the street, and a facade without any is
+           the giveaway that nobody lives behind it. */
+        if (chance(0.13)) {
+          a.add(G_BOXT, xf(p[0], y + sill, p[1], ang, ow, head - sill, 0.52), baseCol, surfBody, shade * 0.95);
+          continue;
+        }
         const r = rnd();
         const kind = (pub >= 2 && r < 0.30) ? 'mashrabiya' : (r < 0.46 ? 'shutter' : 'window');
-        openingKit(p[0], y + sill, p[1], ang, ow * 0.86, head - sill, kind, style);
+        /* set into a real reveal rather than flush with the wall. The opening
+           used to sit on the wall plane, so it had no shadow of its own and
+           every window in the district read as a decal. RD is the depth of the
+           jamb; the two returns are what actually cast. */
+        const RD = 0.22;
+        openingKit(p[0] - nx * RD, y + sill, p[1] - nz * RD, ang, ow * 0.86, head - sill, kind, style);
+        const jw = ow * 0.07;
+        for (const s of [-1, 1]) {
+          const jp = at(t + s * (ow * 0.86 * 0.5 + jw * 0.5), -RD * 0.5);
+          a.add(G_BOXT, xf(jp[0], y + sill, jp[1], ang, jw, head - sill, RD), baseCol, surfBase, shade * 0.82);
+        }
+        // the head of the reveal, which throws the line down the glass
+        a.add(G_BOXT, xf(at(t, -RD * 0.5)[0], y + head - 0.02, at(t, -RD * 0.5)[1], ang, ow * 0.86 + jw * 2, 0.10, RD), baseCol, surfBase, shade * 0.80);
         // projecting sill and a lintel with a shadow line
         a.add(G_BOXT, xf(at(t, -0.24)[0], y + sill - 0.10, at(t, -0.24)[1], ang, ow + 0.3, 0.14, 0.5), baseCol, surfBase, shade * 1.06);
       }
@@ -4227,8 +4286,16 @@ function buildBlocks() {
     for (const p of plots) {
       // the majlis block is placed by hand: nothing may overlap its plot
       if (p[0] < MJ.x1 && p[2] > MJ.x0 && p[1] < MJ.z1 && p[3] > MJ.z0) continue;
+      /* This quarter used to be brick end to end — a quarter of a kilometre
+         of red masonry, which is the loudest thing in the district and is in
+         none of the reference renders. The reference streets are sandstone
+         and limestone with brick as an accent, and the brick hotel and cinema
+         that stand here can only read as set pieces if the fabric around them
+         is not the same material. Brick is now roughly one plot in three. */
+      const brickHere = chance(0.34);
       block(p[0], p[1], p[2], p[3], {
-        floors: ri(2, 5), floorH: 3.6 + rnd() * 0.35, style: 'brick', detail: 2,
+        floors: ri(2, 5), floorH: 3.6 + rnd() * 0.35,
+        style: brickHere ? 'brick' : (chance(0.5) ? 'sand' : 'trav'), detail: 2,
         parapet: chance(0.7) ? 'crenel' : 'step', green: chance(0.4),
       });
     }
@@ -7706,7 +7773,12 @@ function buildScanFabric() {
           pz > PLAN.bounds.z0 + 40 && pz < PLAN.bounds.z1 - 40;
         const face = ang + (side > 0 ? Math.PI : 0);
         if (inBounds && place(b, px, pz, face, rr(6, 17))) {
-          t += b.w + rr(1.2, 5.0);
+          /* Shoulder to shoulder, the way a street is actually built. Every
+             building used to be set 1.2-5 m off its neighbour, which is a
+             suburb: a town terrace runs continuous and breaks only where an
+             alley or a gate goes through it. Most joints now close up, and
+             one in six opens into a real gap wide enough to walk down. */
+          t += b.w + (chance(0.17) ? rr(3.5, 8.0) : rr(0.1, 0.9));
           continue;
         }
         /* the second rank: a courtyard block set back behind the frontage,

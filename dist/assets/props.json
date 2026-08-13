@@ -13,7 +13,7 @@
   "src_tris": 1977736
  },
  "mosque": {
-  "v": 3,
+  "v": 4,
   "file": "assets/props/mosque.glb",
   "tris": 399994,
   "w": 1.40591299533844,
@@ -75,21 +75,21 @@
   }
  },
  "shophouse": {
-  "v": 3,
+  "v": 4,
   "file": "assets/props/shophouse.glb",
-  "tris": 199998,
-  "w": 1.9010460376739502,
-  "height": 0.5363830029964447,
-  "depth": 0.4646670073270798,
-  "base": -0.26889199018478394,
-  "kb": 9039,
+  "tris": 899996,
+  "w": 1.901144027709961,
+  "height": 0.536421000957489,
+  "depth": 0.46487800776958466,
+  "base": -0.26892998814582825,
+  "kb": 13149,
   "tex": 4096,
   "source": "Meshy_AI_arcade_shophouse_row__0812060413_image-to-3d-texture.glb",
   "src_tris": 1988150,
   "lod1": {
    "file": "assets/props/shophouse_lod1.glb",
-   "tris": 19998,
-   "kb": 2336
+   "tris": 89996,
+   "kb": 2893
   }
  },
  "resblock": {
