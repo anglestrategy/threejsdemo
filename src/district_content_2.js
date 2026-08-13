@@ -110,7 +110,13 @@ function block(x0, z0, x1, z1, o) {
      hollowed to the depth of a shop, and `elevation` fills that gap back in on
      any side that turns out not to have a shopfront on it. */
   const inset = detail > 0 ? 0.62 : 0.0;
-  const gh0 = style === 'office' ? fh * 1.5 : fh;
+  /* A modern block carries a tall ground floor — the colonnaded frontages in
+     the references are close to double height, which is what lets a shopfront
+     read as a shopfront from across a square. This must stay in step with the
+     matching line in elevation(): the core is hollowed to gh0 and the
+     elevation fills that same opening, so if the two disagree the shopfronts
+     open into solid stone. */
+  const gh0 = (style === 'office' || modern) ? fh * 1.5 : fh;
   const hollow = detail > 0 ? Math.min(SHOP_DEPTH, Math.min(w, d) / 2 - 0.2) : inset;
   addMass(a, cx, gy + gh0, cz, 0, Math.max(1, w - inset * 2), Math.max(0.1, floors * fh - gh0),
     Math.max(1, d - inset * 2), baseCol, surfBody, shade * 0.68, 0.08);
@@ -215,7 +221,7 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
      public frontage is a shopfront, which is what the references show. */
   const shopfront = (style === 'souq' && pub >= 1) || (style === 'brick' && pub >= 2)
     || (style === 'office' && pub >= 1) || (modern && pub >= 1);
-  const gh = style === 'office' ? fh * 1.5 : fh;
+  const gh = (style === 'office' || modern) ? fh * 1.5 : fh;   // must match gh0 in block()
   /* the block hollowed its whole ground floor to make room for shops. A side
      that has none has to put the mass back, or its windows look into a void. */
   if (!shopfront || lvl < 2) {
