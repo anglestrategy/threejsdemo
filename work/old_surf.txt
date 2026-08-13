@@ -1,0 +1,170 @@
+const SURF_GLSL = `
+  float h11(float p){ p=fract(p*0.1031); p*=p+33.33; p*=p+p; return fract(p); }
+  float h21(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+  float vn2(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+    return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y); }
+  float fb2(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<4;i++){ s+=a*vn2(p); p*=2.03; a*=0.52; } return s; }
+  float fb3(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<3;i++){ s+=a*vn2(p); p*=2.11; a*=0.5; } return s; }
+`;
+
+function makeCityMaterial() {
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.86, metalness: 0.0, envMapIntensity: 1.0,
+  });
+  mat.userData.u = { uTime: { value: 0 }, uWind: { value: new THREE.Vector2(0.85, 0.32) } };
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = mat.userData.u.uTime;
+    sh.uniforms.uWind = mat.userData.u.uWind;
+    sh.vertexShader = `attribute float aSurf; varying float vSurf; varying vec3 vWP; varying vec3 vONrm;
+      uniform float uTime; uniform vec2 uWind;
+      float wh(vec3 p){ return fract(sin(dot(p,vec3(12.99,78.23,37.71)))*43758.5453); }\n` +
+      sh.vertexShader
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+          vSurf = aSurf; vONrm = normalize(normal);
+          /* THE WORLD MOVES: anything tagged foliage or fabric leans with the
+             wind, amplitude rising with its height above its own origin, so a
+             palm crown swings and its trunk does not. */
+          if (aSurf > 9.5) {
+            vec3 anchor = vec3(0.0);
+            #ifdef USE_INSTANCING
+              anchor = instanceMatrix[3].xyz;
+            #endif
+            float lift = max(position.y, 0.0);
+            float ph = wh(floor(anchor*0.7) + vec3(3.1));
+            float amp = (aSurf > 10.5 ? 0.055 : 0.020) * lift;
+            float g = sin(uTime*1.35 + ph*62.8) * 0.6 + sin(uTime*2.9 + ph*31.4) * 0.4;
+            float gust = 0.65 + 0.35*sin(uTime*0.31 + ph*12.0);
+            transformed.x += uWind.x * amp * g * gust;
+            transformed.z += uWind.y * amp * g * gust;
+            transformed.y -= abs(g) * amp * 0.22;
+          }
+          vWP = (modelMatrix * vec4(transformed,1.0)).xyz;`);
+    sh.fragmentShader = `varying float vSurf; varying vec3 vWP; varying vec3 vONrm;
+      float gRough; float gMetal;\n` + SURF_GLSL +
+      sh.fragmentShader
+        .replace('void main() {', 'void main() {\n gRough = roughness; gMetal = metalness;')
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = gRough;')
+        .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n metalnessFactor = gMetal;')
+        .replace('#include <color_fragment>', `#include <color_fragment>
+      {
+        vec3 N = normalize(vONrm);
+        vec3 aN = abs(N);
+        // triplanar coordinates: the dominant axis wins, so coursing runs
+        // horizontally on every wall no matter which way it faces
+        vec2 uvw = aN.y > max(aN.x, aN.z) ? vWP.xz
+                 : (aN.x > aN.z ? vec2(vWP.z, vWP.y) : vec2(vWP.x, vWP.y));
+        float s = vSurf;
+        float rough = gRough;
+        vec3 alb = diffuseColor.rgb;
+
+        // ---- macro band: 2-50 m drift so no material ever tiles
+        float macro = fb2(vWP.xz * 0.045) * 0.62 + fb3(vWP.xz * 0.011) * 0.38;
+        alb *= 0.86 + 0.30 * macro;
+
+        // ---- meso band per surface class
+        if (s < 0.5) {                                   // ASHLAR: random coursing
+          float course = 0.225;
+          float row = floor(uvw.y / course);
+          float off = h11(row * 7.13) * 0.9;
+          float bl = 0.42 + h11(row * 3.7 + 11.0) * 0.42;
+          float col = floor((uvw.x + off) / bl);
+          float jx = fract((uvw.x + off) / bl), jy = fract(uvw.y / course);
+          float joint = smoothstep(0.0, 0.075, jx) * smoothstep(1.0, 0.925, jx)
+                      * smoothstep(0.0, 0.14, jy) * smoothstep(1.0, 0.86, jy);
+          float stone = h21(vec2(col, row) * 1.37);
+          alb *= (0.82 + 0.32 * stone) * (0.42 + 0.58 * joint);
+          alb *= 0.94 + 0.14 * fb2(uvw * 6.5);
+          rough = 0.80 + 0.16 * stone;
+        } else if (s < 1.5) {                            // RENDER: mud plaster
+          float t = fb2(uvw * 2.6) * 0.6 + fb2(uvw * 11.0) * 0.4;
+          alb *= 0.90 + 0.20 * t;
+          // rain streaking below the parapet and around openings
+          float streak = fb2(vec2(uvw.x * 9.0, uvw.y * 0.35));
+          alb *= 1.0 - 0.13 * smoothstep(0.45, 0.95, streak) * smoothstep(4.5, 0.6, uvw.y);
+          rough = 0.90 + 0.08 * t;
+        } else if (s < 2.5) {                            // BRICK
+          float ch = 0.082, cw = 0.24;
+          float row = floor(uvw.y / ch);
+          float sft = mod(row, 2.0) * 0.5 * cw;
+          float jx = fract((uvw.x + sft) / cw), jy = fract(uvw.y / ch);
+          float mortar = smoothstep(0.0, 0.10, jx) * smoothstep(1.0, 0.90, jx)
+                       * smoothstep(0.0, 0.17, jy) * smoothstep(1.0, 0.83, jy);
+          float bk = h21(vec2(floor((uvw.x + sft) / cw), row) * 1.91);
+          alb *= (0.76 + 0.42 * bk) * (0.60 + 0.40 * mortar);
+          alb = mix(alb, alb * vec3(1.05, 0.98, 0.92), bk);
+          rough = 0.86 + 0.10 * bk;
+        } else if (s < 3.5) {                            // TIMBER
+          float grain = fb2(vec2(uvw.x * 2.0, uvw.y * 46.0));
+          float board = floor(uvw.y * 5.2);
+          alb *= 0.82 + 0.30 * grain + 0.10 * h11(board * 5.1);
+          rough = 0.62 + 0.22 * grain;
+        } else if (s < 4.5) {                            // TRAVERTINE
+          float band = fb2(vec2(uvw.x * 0.8, uvw.y * 7.5));
+          float slab = floor(uvw.y / 1.15);
+          float sjx = fract(uvw.x / 2.3), sjy = fract(uvw.y / 1.15);
+          float j = smoothstep(0.0, 0.02, sjx) * smoothstep(1.0, 0.98, sjx)
+                  * smoothstep(0.0, 0.04, sjy) * smoothstep(1.0, 0.96, sjy);
+          alb *= (0.90 + 0.18 * band + 0.06 * h11(slab * 2.7)) * (0.80 + 0.20 * j);
+          rough = 0.52 + 0.20 * band;
+        } else if (s < 5.5) {                            // CONCRETE / white
+          float t = fb2(uvw * 3.4);
+          alb *= 0.93 + 0.12 * t;
+          alb *= 1.0 - 0.10 * smoothstep(0.6, 1.0, fb2(vec2(uvw.x * 7.0, uvw.y * 0.5)));
+          rough = 0.72 + 0.14 * t;
+        } else if (s < 6.5) {                            // METAL
+          // anodised, not chromed: a brushed surface with a visible grain so
+          // the canopy facets separate from each other
+          rough = 0.30 + 0.30 * fb2(uvw * 26.0) + 0.10 * fb2(uvw * 3.0);
+          gMetal = 0.44;
+          alb *= 0.90 + 0.20 * fb2(uvw * 5.0);
+        } else if (s < 7.5) {                            // PAVING: irregular flags
+          vec2 c = vWP.xz;
+          vec2 warp = vec2(fb3(c * 0.28), fb3(c * 0.28 + 19.0)) - 0.5;
+          vec2 q = c * 1.35 + warp * 1.30;
+          vec2 ci = floor(q); vec2 cf = fract(q);
+          float best = 9.0, second = 9.0; vec2 bid = vec2(0.0);
+          for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+            vec2 g = vec2(float(i), float(j));
+            vec2 o = vec2(h21(ci + g), h21(ci + g + 41.7));
+            float d = length(g + o - cf);
+            if (d < best) { second = best; best = d; bid = ci + g; }
+            else if (d < second) second = d;
+          }
+          float edge = smoothstep(0.0, 0.055, second - best);
+          float slab = h21(bid * 1.13);
+          alb *= (0.86 + 0.26 * slab) * (0.38 + 0.62 * edge);
+          alb *= 0.95 + 0.12 * fb2(c * 3.2);
+          rough = 0.70 + 0.22 * slab - 0.30 * (1.0 - edge);
+        } else if (s < 8.5) {                            // SAND
+          float d = fb2(vWP.xz * 0.09) * 0.7 + fb2(vWP.xz * 0.9) * 0.3;
+          alb *= 0.86 + 0.28 * d;
+          rough = 0.95;
+        } else if (s < 9.5) {                            // ASPHALT
+          float g = fb2(vWP.xz * 2.6) * 0.6 + fb2(vWP.xz * 14.0) * 0.4;
+          alb *= 0.82 + 0.26 * g;
+          rough = 0.78 + 0.16 * g;
+        } else if (s < 10.5) {                           // FABRIC
+          float w = fb2(uvw * 22.0);
+          alb *= 0.94 + 0.12 * w;
+          rough = 0.88;
+        } else {                                         // FOLIAGE
+          float t = fb2(uvw * 3.0) * 0.55 + h21(floor(vWP.xz * 6.0)) * 0.45;
+          alb *= 0.92 + 0.55 * t;
+          // leaves are thin: they carry light through, so the shaded side of a
+          // canopy stays green instead of going to black
+          alb += vec3(0.055, 0.085, 0.030) * (0.4 + 0.6 * t);
+          rough = 0.90;
+        }
+
+        // ---- micro band: hue and value jitter, everywhere, at 6-40 cm
+        float micro = fb3(vWP.xz * 3.7 + vWP.y * 2.1);
+        alb *= 0.955 + 0.09 * micro;
+        // ground-contact weathering: every vertical surface darkens and
+        // desaturates in the first 900 mm, warmer where the ground bounces
+        float lowT = smoothstep(1.0, 0.05, vWP.y) * (1.0 - aN.y);
+        alb = mix(alb, alb * vec3(0.80, 0.78, 0.72), lowT * (0.30 + 0.35 * fb2(vec2(vWP.x, vWP.z) * 1.7)));
+
+        diffuseColor.rgb = alb;
+        gRough = clamp(rough, 0.05, 1.0);
+      }`);
+  };

@@ -1,0 +1,171 @@
+/* ========================================================== NAVIGATION == */
+const NAV = {
+  mode: 'fly',
+  pos: new THREE.Vector3(26, 6.2, -128),
+  vel: new THREE.Vector3(),
+  yaw: 0, pitch: 0,
+  yawV: 0, pitchV: 0,
+  keys: {},
+  active: false,
+  locked: false,
+  eye: 1.68,
+  groundY: 0,
+  onGround: false,
+  bob: 0,
+};
+const KEYMAP = {
+  KeyW: 'f', KeyS: 'b', KeyA: 'l', KeyD: 'r', KeyQ: 'dn', KeyE: 'up',
+  ArrowUp: 'f', ArrowDown: 'b', ArrowLeft: 'l', ArrowRight: 'r',
+  Space: 'up', ShiftLeft: 'run', ShiftRight: 'run',
+};
+
+function navPose() {
+  return {
+    pos: NAV.pos.toArray().map(v => +v.toFixed(2)),
+    yaw: +THREE.MathUtils.radToDeg(NAV.yaw).toFixed(1),
+    pitch: +THREE.MathUtils.radToDeg(NAV.pitch).toFixed(1),
+    mode: NAV.mode,
+  };
+}
+
+function applyPose(p) {
+  NAV.pos.fromArray(p.pos);
+  NAV.yaw = THREE.MathUtils.degToRad(p.yaw || 0);
+  NAV.pitch = THREE.MathUtils.degToRad(p.pitch || 0);
+  NAV.vel.set(0, 0, 0);
+  setMode(p.mode || 'fly', true);
+  syncCam();
+}
+
+function syncCam() {
+  cityCam.position.copy(NAV.pos);
+  cityCam.rotation.set(0, 0, 0);
+  cityCam.rotateY(NAV.yaw + Math.PI);     // yaw 0 = looking toward +Z
+  cityCam.rotateX(NAV.pitch);
+}
+
+function setMode(m, silent) {
+  NAV.mode = m;
+  if (m === 'walk') {
+    const g = groundAt(NAV.pos.x, NAV.pos.z, NAV.pos.y);
+    NAV.pos.y = g + NAV.eye;
+    NAV.pitch = clamp(NAV.pitch, -0.95, 0.95);
+  }
+  if (ui.cityMode) ui.cityMode.textContent = m === 'walk' ? 'WALK' : 'FLY';
+  if (ui.cityHint) {
+    ui.cityHint.innerHTML = m === 'walk'
+      ? '<b>W A S D</b> walk · <b>mouse</b> look · <b>Shift</b> run · <b>F</b> fly · <b>Esc</b> map'
+      : '<b>W A S D</b> fly · <b>Q E</b> down / up · <b>mouse</b> look · <b>Shift</b> boost · <b>F</b> walk · <b>Esc</b> map';
+  }
+  if (!silent) showToast(m === 'walk' ? 'Walking' : 'Flying');
+}
+
+function navUpdate(dt) {
+  if (!NAV.active) return;
+  const k = NAV.keys;
+  const run = k.run ? 1 : 0;
+  const spd = NAV.mode === 'walk' ? (1.55 + run * 2.35) : (17 + run * 46);
+  const fwd = (k.f ? 1 : 0) - (k.b ? 1 : 0);
+  const str = (k.r ? 1 : 0) - (k.l ? 1 : 0);
+  const vert = (k.up ? 1 : 0) - (k.dn ? 1 : 0);
+
+  const cy = Math.cos(NAV.yaw), sy = Math.sin(NAV.yaw);
+  const cp = Math.cos(NAV.pitch), sp = Math.sin(NAV.pitch);
+  let dx, dy, dz;
+  if (NAV.mode === 'fly') {
+    dx = sy * cp * fwd + cy * str;
+    dy = sp * fwd + vert;
+    dz = cy * cp * fwd - sy * str;
+  } else {
+    dx = sy * fwd + cy * str;
+    dy = 0;
+    dz = cy * fwd - sy * str;
+  }
+  const l = Math.hypot(dx, dy, dz);
+  if (l > 0.0001) { dx /= l; dy /= l; dz /= l; }
+  const target = V.set(dx * spd, dy * spd, dz * spd);
+  const damp = NAV.mode === 'walk' ? 13.5 : 5.2;
+  NAV.vel.lerp(target, Math.min(1, dt * damp));
+
+  const px0 = NAV.pos.x, pz0 = NAV.pos.z;
+  NAV.pos.addScaledVector(NAV.vel, dt);
+
+  if (NAV.mode === 'walk') {
+    const feet = NAV.pos.y - NAV.eye;
+    const r = resolve(NAV.pos.x, NAV.pos.z, 0.42, feet);
+    NAV.pos.x = r[0]; NAV.pos.z = r[1];
+    /* Belt and braces. Relaxation clears the plan to three points in 340k, all
+       of them where two footprints overlap at a corner; refusing any step that
+       still lands inside makes it impossible rather than merely unlikely. */
+    if (insideSolid(NAV.pos.x, NAV.pos.z, feet)) {
+      NAV.pos.x = px0; NAV.pos.z = pz0; NAV.vel.x *= 0.15; NAV.vel.z *= 0.15;
+    }
+    // you do not walk on water: if the step lands in a channel or a pool with
+    // no deck above it, it is refused
+    for (let i = 0; i < WATERBODIES.length; i++) {
+      const b = WATERBODIES[i];
+      if (NAV.pos.x > b.x0 - 0.3 && NAV.pos.x < b.x1 + 0.3 && NAV.pos.z > b.z0 - 0.3 && NAV.pos.z < b.z1 + 0.3
+          && groundAt(NAV.pos.x, NAV.pos.z, feet) < b.y + 0.45) {
+        NAV.pos.x = px0; NAV.pos.z = pz0; NAV.vel.x *= 0.2; NAV.vel.z *= 0.2; break;
+      }
+    }
+    const g = groundAt(NAV.pos.x, NAV.pos.z, NAV.pos.y - NAV.eye);
+    NAV.groundY = g;
+    const want = g + NAV.eye;
+    NAV.pos.y += (want - NAV.pos.y) * Math.min(1, dt * 14);
+    const moving = Math.hypot(NAV.vel.x, NAV.vel.z);
+    NAV.bob += dt * moving * 2.15;
+    NAV.pos.y += Math.sin(NAV.bob * 2) * 0.021 * clamp(moving / 2, 0, 1);
+  } else {
+    // never let the flier sink through the ground
+    const g = groundAt(NAV.pos.x, NAV.pos.z) + 1.1;
+    if (NAV.pos.y < g) { NAV.pos.y = g; if (NAV.vel.y < 0) NAV.vel.y = 0; }
+    NAV.pos.y = Math.min(NAV.pos.y, 620);
+  }
+  const B = PLAN.bounds;
+  NAV.pos.x = clamp(NAV.pos.x, B.x0 - 60, B.x1 + 60);
+  NAV.pos.z = clamp(NAV.pos.z, B.z0 - 60, B.z1 + 60);
+
+  // damped look
+  NAV.yaw += NAV.yawV * dt; NAV.pitch += NAV.pitchV * dt;
+  NAV.yawV *= Math.pow(0.0008, dt); NAV.pitchV *= Math.pow(0.0008, dt);
+  NAV.pitch = clamp(NAV.pitch, -1.35, 1.35);
+  syncCam();
+}
+
+/* --------------------------------------------------------------- input */
+function onKeyDown(e) {
+  if (!NAV.active) return;
+  const a = KEYMAP[e.code];
+  if (a) { NAV.keys[a] = 1; e.preventDefault(); }
+  if (e.code === 'KeyF') { setMode(NAV.mode === 'fly' ? 'walk' : 'fly'); e.preventDefault(); }
+}
+function onKeyUp(e) {
+  const a = KEYMAP[e.code];
+  if (a) { NAV.keys[a] = 0; }
+}
+addEventListener('keydown', onKeyDown);
+addEventListener('keyup', onKeyUp);
+addEventListener('blur', () => { NAV.keys = {}; });
+
+let dragging = false, lastX = 0, lastY = 0;
+function onPointerDown(e) {
+  if (!NAV.active) return;
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  if (!NAV.locked && renderer.domElement.requestPointerLock) {
+    try { renderer.domElement.requestPointerLock(); } catch (err) { }
+  }
+}
+function onPointerUp() { dragging = false; }
+function onPointerMove(e) {
+  if (!NAV.active) return;
+  let mx = 0, my = 0;
+  if (NAV.locked) { mx = e.movementX || 0; my = e.movementY || 0; }
+  else if (dragging) { mx = e.clientX - lastX; my = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; }
+  else return;
+  NAV.yawV += -mx * 0.085;
+  NAV.pitchV += -my * 0.085;
+}
+document.addEventListener('pointerlockchange', () => {
+  NAV.locked = document.pointerLockElement === renderer.domElement;
+})

@@ -1,0 +1,128 @@
+[
+ {
+  "name": "Meshy_AI_bollard_traffic_post__0812130956_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 74208270,
+  "usize": 98348728,
+  "lho": 0
+ },
+ {
+  "name": "__MACOSX/._Meshy_AI_bollard_traffic_post__0812130956_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 728,
+  "usize": 982,
+  "lho": 74208413
+ },
+ {
+  "name": "Meshy_AI_curb_gutter_edge_3d_0812130913_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 82812043,
+  "usize": 106772168,
+  "lho": 74209295
+ },
+ {
+  "name": "__MACOSX/._Meshy_AI_curb_gutter_edge_3d_0812130913_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 724,
+  "usize": 980,
+  "lho": 157021479
+ },
+ {
+  "name": "Meshy_AI_street_lamppost_3d_0812130902_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 25147921,
+  "usize": 30248540,
+  "lho": 157022355
+ },
+ {
+  "name": "__MACOSX/._Meshy_AI_street_lamppost_3d_0812130902_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 722,
+  "usize": 979,
+  "lho": 182170416
+ },
+ {
+  "name": "Meshy_AI_traffic_signal_pole_3_0812130857_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 29751405,
+  "usize": 38569032,
+  "lho": 182171289
+ },
+ {
+  "name": "__MACOSX/._Meshy_AI_traffic_signal_pole_3_0812130857_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 726,
+  "usize": 982,
+  "lho": 211922837
+ },
+ {
+  "name": "Meshy_AI_sidewalk_paver_segmen_0812130848_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 72920715,
+  "usize": 100400800,
+  "lho": 211923717
+ },
+ {
+  "name": "__MACOSX/._Meshy_AI_sidewalk_paver_segmen_0812130848_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 726,
+  "usize": 982,
+  "lho": 284844575
+ },
+ {
+  "name": "Meshy_AI_pedestrian_signal_pol_0812130836_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 38777607,
+  "usize": 49519260,
+  "lho": 284845455
+ },
+ {
+  "name": "__MACOSX/._Meshy_AI_pedestrian_signal_pol_0812130836_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 724,
+  "usize": 982,
+  "lho": 323623205
+ },
+ {
+  "name": "Meshy_AI_straight_road_segment_0812130817_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 74750669,
+  "usize": 102606620,
+  "lho": 323624083
+ },
+ {
+  "name": "__MACOSX/._Meshy_AI_straight_road_segment_0812130817_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 724,
+  "usize": 982,
+  "lho": 398374895
+ },
+ {
+  "name": "Meshy_AI_road_intersection_seg_0812130807_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 79292525,
+  "usize": 105277064,
+  "lho": 398375773
+ },
+ {
+  "name": "__MACOSX/._Meshy_AI_road_intersection_seg_0812130807_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 728,
+  "usize": 982,
+  "lho": 477668441
+ },
+ {
+  "name": "Meshy_AI_manhole_drain_grate_3_0812130756_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 80841881,
+  "usize": 105403696,
+  "lho": 477669323
+ },
+ {
+  "name": "__MACOSX/._Meshy_AI_manhole_drain_grate_3_0812130756_image-to-3d-texture.glb",
+  "method": 8,
+  "csize": 725,
+  "usize": 982,
+  "lho": 558511347
+ }
+]
