@@ -25,7 +25,15 @@ for (const [n, pose] of [
   ['aerial ', [120, 150, 120, 200 * D, -40 * D]],
 ]) {
   await p.evaluate((q) => window.__scenes.city.debug.sim([], 1 / 60, 1, q), pose);
-  await p.waitForTimeout(2500);
+  /* Wait for the renderer to actually finish a NEW frame at the new pose.
+     A fixed sleep is not enough: one frame of this district on a software
+     rasteriser takes longer than any sleep worth writing, so a timed wait
+     reads the frame drawn at the PREVIOUS camera position. That is what
+     produced three byte-identical readings and read as "nothing culls". */
+  {
+    const f0 = await p.evaluate(() => window.__perf().frame);
+    await p.waitForFunction((f) => window.__perf().frame > f + 1, f0, { timeout: T, polling: 500 });
+  }
   const r = await p.evaluate(() => {
     const s = window.__scenes.city;
     let inst = 0, tris = 0;

@@ -75,7 +75,15 @@ for (const [name, pose] of VIEWS) {
   }, pose);
   // several frames so the reading is a settled frame at the new pose, not the
   // one still being drawn from the old one
-  await page.waitForTimeout(2200);
+  /* Wait for the renderer to actually finish a NEW frame at the new pose.
+     A fixed sleep is not enough: one frame of this district on a software
+     rasteriser takes longer than any sleep worth writing, so a timed wait
+     reads the frame drawn at the PREVIOUS camera position. That is what
+     produced three byte-identical readings and read as "nothing culls". */
+  {
+    const f0 = await page.evaluate(() => window.__perf().frame);
+    await page.waitForFunction((f) => window.__perf().frame > f + 1, f0, { timeout: GATE_TMO, polling: 500 });
+  }
   const p = await page.evaluate(() => (window.__perf ? window.__perf() : null));
   rows.push(p ? { name, ...p } : { name, calls: -1, triangles: -1 });
 }
