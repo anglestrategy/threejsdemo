@@ -426,7 +426,30 @@ function officeBand(S4, y, fh, len, nb, bw, ang, nx, nz, ux, uz, fl, floors, bas
 
 /* window / shutter / mashrabiya kit — instanced, so 3000 of them are cheap */
 function openingKit(x, y, z, ang, w, h, kind, style) {
+  /* A wide opening is a run of panes, not one pane stretched.
+     The window kit is a unit square carrying a frame, two jambs and exactly
+     one vertical mullion. Scaled to a 4.35 m modern bay that mullion becomes
+     160 mm of solid metal, the jambs 320 mm, and four metres of curtain wall
+     gets a single division down the middle — which reads as a cartoon window
+     blown up, and is worse the wider the bay. Widening the bays for the
+     downtown made this visible, so the opening is now subdivided into panes
+     of a real size and each one gets its own frame at its own proportions. */
+  if (kind === 'window' && w > 2.0) {
+    const n = Math.max(2, Math.round(w / 1.45));
+    const pw = w / n;
+    const sx = Math.sin(ang), sz = Math.cos(ang);   // along the wall
+    for (let i = 0; i < n; i++) {
+      const t = -w / 2 + pw * (i + 0.5);
+      openingKit(x + sx * t, y, z + sz * t, ang, pw, h, '_pane', style);
+    }
+    return;
+  }
   const sc = xf3(x, y, z, 0, ang + Math.PI / 2, 0, w, h, 1);
+  if (kind === '_pane') {
+    inst('window', sc, pick([0x2a3540, 0x27313b, 0x323d47]));
+    if (chance(0.42)) inst('winglow', sc, pick([0xffcf94, 0xffdcae, 0xf7be7c]));
+    return;
+  }
   if (kind === 'mashrabiya') {
     inst('mashrabiya', sc, 0xffffff);
     inst('mashframe', sc, pick([K.timberDk, 0x4a2f1a, 0x63421f]));
