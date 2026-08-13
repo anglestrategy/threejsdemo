@@ -720,9 +720,19 @@ function outerFabric() {
       const czL = (B.z1 - B.z0) / 2 + 60;
       const dist = Math.max(Math.abs(cx) - cxL, Math.abs(cz - czC) - czL);
       if (rnd() < sstep(-40, 220, dist) * 0.85) continue;      // thins outward
+      /* The background town was built at detail 0 past forty metres — massing
+         boxes with no facade grammar at all — which was defensible when the
+         plan was 940 m across and you rarely saw it. Halving the district put
+         it in shot: the reference aerials show a city with real elevations
+         running to the horizon, not a field of blocks. The nearest ring now
+         gets the full grammar, the next the medium one, and only genuinely
+         distant work stays massing. It still thins outward, so this is paid
+         for out of the plots that were culled rather than added on top. */
       block(p[0], p[1], p[2], p[3], {
-        floors: ri(1, 3), floorH: 3.2, style: 'sand',
-        detail: dist < 40 ? 1 : 0, collide: false, green: chance(0.2),
+        floors: ri(1, 3), floorH: 3.2,
+        style: chance(0.45) ? 'trav' : 'sand',
+        detail: dist < 30 ? 2 : (dist < 130 ? 1 : 0),
+        collide: false, green: chance(0.2),
       });
     }
   }
