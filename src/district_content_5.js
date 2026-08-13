@@ -51,6 +51,13 @@ function buildPlanting() {
           // understory. A street tree standing alone in paving is a diagram;
           // the reference streets all have something green at ankle height.
           if (chance(0.55)) inst('shrub', xf3(px + nx * s * 1.3, gy, pz + nz * s * 1.3, 0, rnd() * 6.28, 0, 1.25, 0.85, 1.25), pick([K.leaf, K.leafDk, K.leafLt]));
+          /* A ring bench round some of them. Both tree-seat assets were
+             generated and routed and never placed, and a seat built around a
+             tree is the piece of street furniture people actually use. */
+          else if ((MODEL_ROUTE.treeseat || MODEL_ROUTE.treeseat2) && chance(0.20)) {
+            inst(MODEL_ROUTE.treeseat2 && chance(0.5) ? 'treeseat2' : 'treeseat',
+              xf(px, gy, pz, rnd() * 6.28), pick([0xd6c6a8, 0xcbbb9c, 0xc2b08e]));
+          }
         }
         // street lights on a slower, offset rhythm
         if (i % 2 === 0 && chance(0.8)) {
