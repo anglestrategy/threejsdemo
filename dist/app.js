@@ -6084,6 +6084,14 @@ function block(x0, z0, x1, z1, o) {
   /* and the bay rhythm varies per building rather than being one constant for
      the whole district: 3.15 m everywhere is what made every facade a grid */
   const bayJit = 0.85 + rnd() * 0.34;
+  /* MODERN vs VERNACULAR. The whole district spoke one language — crenellated
+     parapets, mashrabiya screens, small punched openings — which is right for
+     the souq and wrong for everywhere the reference renders actually look.
+     Those are a modern downtown: flat parapets, wide bays, tall glazed
+     colonnades. The souq keeps the vernacular; the downtown and commercial
+     quarters get the language they are drawn in. */
+  const modern = o.modern === undefined
+    ? (style === 'office' || style === 'trav') : o.modern;
   const surfBody = style === 'brick' ? S.BRICK : (fam === 'trav' ? S.TRAVERTINE : S.RENDER);
   const surfBase = style === 'brick' ? S.BRICK : S.ASHLAR;
   const tone = 0.90 + rnd() * 0.22;
@@ -6101,7 +6109,13 @@ function block(x0, z0, x1, z1, o) {
      hollowed to the depth of a shop, and `elevation` fills that gap back in on
      any side that turns out not to have a shopfront on it. */
   const inset = detail > 0 ? 0.62 : 0.0;
-  const gh0 = style === 'office' ? fh * 1.5 : fh;
+  /* A modern block carries a tall ground floor — the colonnaded frontages in
+     the references are close to double height, which is what lets a shopfront
+     read as a shopfront from across a square. This must stay in step with the
+     matching line in elevation(): the core is hollowed to gh0 and the
+     elevation fills that same opening, so if the two disagree the shopfronts
+     open into solid stone. */
+  const gh0 = (style === 'office' || modern) ? fh * 1.5 : fh;
   const hollow = detail > 0 ? Math.min(SHOP_DEPTH, Math.min(w, d) / 2 - 0.2) : inset;
   addMass(a, cx, gy + gh0, cz, 0, Math.max(1, w - inset * 2), Math.max(0.1, floors * fh - gh0),
     Math.max(1, d - inset * 2), baseCol, surfBody, shade * 0.68, 0.08);
@@ -6127,12 +6141,15 @@ function block(x0, z0, x1, z1, o) {
        side of the same block. On a thin infill block the two rooms otherwise
        overlap and one shop's back wall stands in the other one's window. */
     const avail = (S4.ax === 1 ? d : w) / 2 - 0.35;
-    elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail, bayJit, si);
+    elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail, bayJit, si, modern);
   }
 
   // ---- parapet all round
   const pcol = fam === 'brick' ? K.brickLt : (fam === 'trav' ? K.travert : K.sandLt);
-  const pstyle = o.parapet || (style === 'brick' ? 'crenel' : (fam === 'trav' ? 'step' : (chance(0.5) ? 'crenel' : 'step')));
+  /* a battlement on a downtown office block is a category error, and it was
+     on every third one of them */
+  const pstyle = modern ? 'step'
+    : (o.parapet || (style === 'brick' ? 'crenel' : (fam === 'trav' ? 'step' : (chance(0.5) ? 'crenel' : 'step'))));
   const ph = o.parapetH || (style === 'office' ? 0.95 : 1.15);
   if (detail > 0) {
     /* A cornice under the parapet. The wall used to run straight into the
@@ -6177,20 +6194,33 @@ function block(x0, z0, x1, z1, o) {
 }
 
 /* --------------------------------------------------------- one elevation */
-function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail, bayJit, si) {
+function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail, bayJit, si, modern) {
   const a = ACC.arch, f = ACC.fine;
   const ux = (S4.x1 - S4.x0) / len, uz = (S4.z1 - S4.z0) / len;
   const ang = Math.atan2(S4.x1 - S4.x0, S4.z1 - S4.z0);
   const nx = S4.nx, nz = S4.nz;
-  const bayW = (style === 'office' ? 2.55 : (style === 'souq' ? 3.5 : 3.15)) * (bayJit || 1);
+  /* A modern block is a colonnade: wide bays between slim piers, carrying a
+     tall opening. The vernacular is the opposite — narrow bays, deep piers,
+     small openings — and building the whole district to the second set of
+     numbers is why the downtown blocks read as a fort rather than as the
+     stone-and-glass frontages in the references. */
+  const bayW = (modern ? 4.35 : (style === 'souq' ? 3.5 : 3.15)) * (bayJit || 1);
   const nb = Math.max(1, Math.round(len / bayW));
   const bw = len / nb;
-  const pierW = style === 'office' ? 0.34 : 0.62;
+  const pierW = modern ? 0.40 : (style === 'office' ? 0.34 : 0.62);
+  // how much of the bay between piers is actually opening
+  const owF = modern ? 0.94 : 0.86;
   const at = (t, off) => [S4.x0 + ux * t + nx * (off || 0), S4.z0 + uz * t + nz * (off || 0)];
 
   // ---- ground floor
-  const shopfront = (style === 'souq' && pub >= 1) || (style === 'brick' && pub >= 2) || (style === 'office' && pub >= 1);
-  const gh = style === 'office' ? fh * 1.5 : fh;
+  /* `modern` had to join this test. Mixing the downtown quarter's materials
+     moved two thirds of its plots off `brick` onto sand and travertine, and
+     since neither qualified here the whole quarter quietly lost its
+     ground-floor retail — a downtown of blank plinths. Any modern block on a
+     public frontage is a shopfront, which is what the references show. */
+  const shopfront = (style === 'souq' && pub >= 1) || (style === 'brick' && pub >= 2)
+    || (style === 'office' && pub >= 1) || (modern && pub >= 1);
+  const gh = (style === 'office' || modern) ? fh * 1.5 : fh;   // must match gh0 in block()
   /* the block hollowed its whole ground floor to make room for shops. A side
      that has none has to put the mass back, or its windows look into a void. */
   if (!shopfront || lvl < 2) {
@@ -6237,6 +6267,60 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         inst('wlantern', xf(lp[0], gy + 2.85, lp[1], ang + Math.PI / 2), 0xffd9a4);
         PRACTICALS.push({ x: lp[0] - nx * 0.3, y: gy + 2.85, z: lp[1] - nz * 0.3, c: 0xffc98a, i: 2.6, r: 8.5 });
       }
+      /* A fabric awning over the shopfront. There is no awning anywhere in the
+         87-asset library and none in the district, and it is on the hotel and
+         half the frontages in every downtown reference — the one piece of
+         colour in an otherwise stone street, and the thing that puts a band of
+         shade over the café tables underneath. Built here rather than
+         generated because it is four boxes: a sloped canopy on a front rail,
+         two side cheeks and a valance. */
+      if (chance(0.46) && ow > 1.8) {
+        const AC = pick([0x9d4a3c, 0xb5613f, 0x7a5b3a, 0x4f5f52, 0x8e6a3e, 0xa8503f]);
+        /* springs from above the head, but never higher than an awning goes.
+           A double-height modern shopfront puts oh at 4.25 m, and 90% of that
+           is a canopy at nearly four metres — over the heads of the people it
+           is meant to shade, which is not what it looks like in any of the
+           references. */
+        const ah = gy + Math.min(oh * 0.90, 3.35);
+        const proj = 1.55;
+        /* Stepped rather than tilted. xf3 composes its Euler as XYZ, so a roll
+           term here would be applied about the world axis and not about the
+           canopy's own length once the yaw has turned it — a tilt whose
+           direction depends on which way the elevation faces. Four short
+           horizontal treads stepping down as they project read as the same
+           slope from the street and cannot be wrong by an axis. */
+        const NS = 4;
+        for (let k = 0; k < NS; k++) {
+          const t0 = proj * (k / NS), t1 = proj * ((k + 1) / NS);
+          const mp = at(t, -(t0 + t1) / 2);
+          f.add(G_BOXT, xf(mp[0], ah - 0.10 - k * 0.14, mp[1], ang,
+            ow + 0.24, 0.055, t1 - t0), AC, S.FABRIC, shade * (1.04 - k * 0.03));
+        }
+        // the front rail it hangs off, and the valance below it
+        const fp = at(t, -proj);
+        f.add(G_BOXT, xf(fp[0], ah - 0.10 - (NS - 1) * 0.14, fp[1], ang, ow + 0.28, 0.07, 0.09), K.steelDk, S.METAL, 0.95);
+        f.add(G_BOXT, xf(fp[0], ah - 0.36 - (NS - 1) * 0.14, fp[1], ang, ow + 0.24, 0.26, 0.045), AC, S.FABRIC, shade * 0.94);
+        /* and a cheek at each end, closing it against the wall. G_BOXT is
+           base-at-origin, so this y is the bottom of the cheek: it has to
+           start at the front edge of the canopy and rise to the back one, or
+           it stands proud above the fabric it is supposed to close. */
+        const cy0 = ah - 0.10 - (NS - 1) * 0.14;
+        for (const s2 of [-1, 1]) {
+          const cp = at(t + s2 * (ow + 0.2) / 2, -proj / 2);
+          f.add(G_BOXT, xf(cp[0], cy0, cp[1], ang, 0.04, (NS - 1) * 0.14 + 0.055, proj), AC, S.FABRIC, shade * 0.88);
+        }
+      }
+      /* The glazed vitrine, standing in the opening in front of the lit room.
+         The asset exists for exactly this — the comment where it was routed
+         says so — and it had never been placed anywhere. Scaled uniformly off
+         its 3.30 m fit height so it keeps its proportions rather than being
+         stretched to the bay, and only where the bay is wide enough to take
+         it without fouling the piers. */
+      if (MODEL_ROUTE.vitrine && ow > 2.0 && oh > 2.0) {
+        const vs = oh / 3.30;
+        const vp = at(t, -0.10);
+        inst('vitrine', xf3(vp[0], gy + 0.12, vp[1], 0, ang + Math.PI / 2, 0, vs, vs, vs), 0xffffff);
+      }
       // a step and a threshold slab
       a.add(G_BOXT, xf(at(t, -1.35)[0], gy - 0.06, at(t, -1.35)[1], ang, ow + 0.6, 0.14, 1.0), 0xc9b795, S.TRAVERTINE, shade * 0.95);
     } else {
@@ -6247,7 +6331,7 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
       a.add(G_BOXT, xf(p[0], gy + head, p[1], ang, ow, gh - head, 0.42), baseCol, surfBase, shade * 0.88);
       if (lvl >= 2) {
         if (isDoor) inst('door', xf(at(t, -0.30)[0], gy, at(t, -0.30)[1], ang + Math.PI / 2), pick([0x6b4526, 0x54361d, 0x7d5730]));
-        else openingKit(p[0], gy + sill, p[1], ang, ow * 0.86, head - sill, 'window', style);
+        else openingKit(p[0], gy + sill, p[1], ang, ow * owF, head - sill, 'window', style);
       }
     }
   }
@@ -6266,8 +6350,13 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
        every storey of every building is a spreadsheet, not a facade: upper
        storeys are shorter than the piano nobile in every street in the
        reference set. */
-    const sillF = 0.95 + (isTop ? 0.16 : 0.0) + rnd() * 0.22;
-    const headF = fh - 0.75 - rnd() * 0.20;
+    /* A modern floor is mostly glass: the sill drops to a spandrel rail and
+       the head goes almost to the slab, which is the proportion in every
+       reference elevation. The vernacular keeps its deep wall above and below
+       the opening. */
+    const sillF = modern ? (0.42 + rnd() * 0.12)
+      : (0.95 + (isTop ? 0.16 : 0.0) + rnd() * 0.22);
+    const headF = modern ? (fh - 0.34 - rnd() * 0.10) : (fh - 0.75 - rnd() * 0.20);
     for (let b = 0; b < nb; b++) {
       const t = (b + 0.5) * bw;
       const p = at(t, 0);
@@ -6282,25 +6371,28 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         /* not every bay is a window. A blank bay is what a stair, a flue or a
            party wall looks like from the street, and a facade without any is
            the giveaway that nobody lives behind it. */
-        if (chance(0.13)) {
+        if (chance(modern ? 0.05 : 0.13)) {
           a.add(G_BOXT, xf(p[0], y + sill, p[1], ang, ow, head - sill, 0.52), baseCol, surfBody, shade * 0.95);
           continue;
         }
         const r = rnd();
-        const kind = (pub >= 2 && r < 0.30) ? 'mashrabiya' : (r < 0.46 ? 'shutter' : 'window');
+        /* mashrabiya on a downtown office block is the same category error as
+           the battlement above it */
+        const kind = modern ? 'window'
+          : ((pub >= 2 && r < 0.30) ? 'mashrabiya' : (r < 0.46 ? 'shutter' : 'window'));
         /* set into a real reveal rather than flush with the wall. The opening
            used to sit on the wall plane, so it had no shadow of its own and
            every window in the district read as a decal. RD is the depth of the
            jamb; the two returns are what actually cast. */
         const RD = 0.22;
-        openingKit(p[0] - nx * RD, y + sill, p[1] - nz * RD, ang, ow * 0.86, head - sill, kind, style);
+        openingKit(p[0] - nx * RD, y + sill, p[1] - nz * RD, ang, ow * owF, head - sill, kind, style);
         const jw = ow * 0.07;
         for (const s of [-1, 1]) {
-          const jp = at(t + s * (ow * 0.86 * 0.5 + jw * 0.5), -RD * 0.5);
+          const jp = at(t + s * (ow * owF * 0.5 + jw * 0.5), -RD * 0.5);
           a.add(G_BOXT, xf(jp[0], y + sill, jp[1], ang, jw, head - sill, RD), baseCol, surfBase, shade * 0.82);
         }
         // the head of the reveal, which throws the line down the glass
-        a.add(G_BOXT, xf(at(t, -RD * 0.5)[0], y + head - 0.02, at(t, -RD * 0.5)[1], ang, ow * 0.86 + jw * 2, 0.10, RD), baseCol, surfBase, shade * 0.80);
+        a.add(G_BOXT, xf(at(t, -RD * 0.5)[0], y + head - 0.02, at(t, -RD * 0.5)[1], ang, ow * owF + jw * 2, 0.10, RD), baseCol, surfBase, shade * 0.80);
         // projecting sill and a lintel with a shadow line
         a.add(G_BOXT, xf(at(t, -0.24)[0], y + sill - 0.10, at(t, -0.24)[1], ang, ow + 0.3, 0.14, 0.5), baseCol, surfBase, shade * 1.06);
         /* A split unit under the window on the quieter elevations. Every
@@ -6314,7 +6406,7 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         // a juliet rail across the opening, on the streets that show
         if (MODEL_ROUTE.balcrail && pub >= 1 && chance(0.26)) {
           const rp = at(t, -0.40);
-          inst('balcrail', xf3(rp[0], y + sill + 0.02, rp[1], 0, ang + Math.PI / 2, 0, ow * 0.86 / 1.6, 1, 1), pick([0x3c3a36, 0x4a463f, 0x2e2c29]));
+          inst('balcrail', xf3(rp[0], y + sill + 0.02, rp[1], 0, ang + Math.PI / 2, 0, ow * owF / 1.6, 1, 1), pick([0x3c3a36, 0x4a463f, 0x2e2c29]));
         }
       }
     }
@@ -6382,7 +6474,30 @@ function officeBand(S4, y, fh, len, nb, bw, ang, nx, nz, ux, uz, fl, floors, bas
 
 /* window / shutter / mashrabiya kit — instanced, so 3000 of them are cheap */
 function openingKit(x, y, z, ang, w, h, kind, style) {
+  /* A wide opening is a run of panes, not one pane stretched.
+     The window kit is a unit square carrying a frame, two jambs and exactly
+     one vertical mullion. Scaled to a 4.35 m modern bay that mullion becomes
+     160 mm of solid metal, the jambs 320 mm, and four metres of curtain wall
+     gets a single division down the middle — which reads as a cartoon window
+     blown up, and is worse the wider the bay. Widening the bays for the
+     downtown made this visible, so the opening is now subdivided into panes
+     of a real size and each one gets its own frame at its own proportions. */
+  if (kind === 'window' && w > 2.0) {
+    const n = Math.max(2, Math.round(w / 1.45));
+    const pw = w / n;
+    const sx = Math.sin(ang), sz = Math.cos(ang);   // along the wall
+    for (let i = 0; i < n; i++) {
+      const t = -w / 2 + pw * (i + 0.5);
+      openingKit(x + sx * t, y, z + sz * t, ang, pw, h, '_pane', style);
+    }
+    return;
+  }
   const sc = xf3(x, y, z, 0, ang + Math.PI / 2, 0, w, h, 1);
+  if (kind === '_pane') {
+    inst('window', sc, pick([0x2a3540, 0x27313b, 0x323d47]));
+    if (chance(0.42)) inst('winglow', sc, pick([0xffcf94, 0xffdcae, 0xf7be7c]));
+    return;
+  }
   if (kind === 'mashrabiya') {
     inst('mashrabiya', sc, 0xffffff);
     inst('mashframe', sc, pick([K.timberDk, 0x4a2f1a, 0x63421f]));
@@ -6591,7 +6706,8 @@ function buildBlocks() {
       block(p[0], p[1], p[2], p[3], {
         floors: ri(2, 5), floorH: 3.6 + rnd() * 0.35,
         style: brickHere ? 'brick' : (chance(0.5) ? 'sand' : 'trav'), detail: 2,
-        parapet: chance(0.7) ? 'crenel' : 'step', green: chance(0.4),
+        // this is the downtown: it is drawn as stone and glass, not as a fort
+        modern: true, green: chance(0.4),
       });
     }
   }
@@ -6675,9 +6791,19 @@ function outerFabric() {
       const czL = (B.z1 - B.z0) / 2 + 60;
       const dist = Math.max(Math.abs(cx) - cxL, Math.abs(cz - czC) - czL);
       if (rnd() < sstep(-40, 220, dist) * 0.85) continue;      // thins outward
+      /* The background town was built at detail 0 past forty metres — massing
+         boxes with no facade grammar at all — which was defensible when the
+         plan was 940 m across and you rarely saw it. Halving the district put
+         it in shot: the reference aerials show a city with real elevations
+         running to the horizon, not a field of blocks. The nearest ring now
+         gets the full grammar, the next the medium one, and only genuinely
+         distant work stays massing. It still thins outward, so this is paid
+         for out of the plots that were culled rather than added on top. */
       block(p[0], p[1], p[2], p[3], {
-        floors: ri(1, 3), floorH: 3.2, style: 'sand',
-        detail: dist < 40 ? 1 : 0, collide: false, green: chance(0.2),
+        floors: ri(1, 3), floorH: 3.2,
+        style: chance(0.45) ? 'trav' : 'sand',
+        detail: dist < 30 ? 2 : (dist < 130 ? 1 : 0),
+        collide: false, green: chance(0.2),
       });
     }
   }
@@ -8144,6 +8270,29 @@ function defineKit() {
     kitBox(L, 0, -0.5, -0.70, 1.22, 0.68, 0.04, 0x2f2a24, S.METAL, 0.7);
     defInst('sign', combine(L));
   }
+  /* ---- freestanding signage totem ------------------------------------
+     A lit vertical panel on a plinth, standing in the paving. It is in every
+     one of the downtown reference renders — usually two or three of them
+     across a square — and the district had only the wall-mounted bracket
+     above, which is a different object doing a different job. Kept plain:
+     the display face is emissive and carries the light, the surround is dark
+     metal, and the plinth grounds it so it does not look pasted onto the
+     paving. */
+  {
+    const L = [];
+    kitBox(L, 0, 0, 0, 1.02, 0.16, 0.42, 0x2a2723, S.METAL, 0.72);        // plinth
+    kitBox(L, 0, 0.14, 0, 0.92, 2.42, 0.26, 0x33302b, S.METAL, 0.86);     // body
+    kitBox(L, 0, 0.22, -0.14, 0.80, 2.20, 0.05, 0xf2ece0, S.METAL, 1.06); // face
+    for (const s of [-1, 1]) kitBox(L, s * 0.46, 0.14, 0, 0.05, 2.42, 0.28, 0x1f1d1a, S.METAL, 0.7);
+    defInst('totem', combine(L));
+    // the display face again, emissive, so it reads as lit rather than pale
+    const E = [];
+    /* base-at-origin, like every other kit box: G_BOXT is translated +0.5 in
+       Y, so this y is the bottom of the panel and not its centre. Getting
+       that wrong floats the glow a metre above the sign it belongs to. */
+    E.push({ geo: G_BOXT, mtx: xf3(0, 0.24, -0.17, 0, 0, 0, 0.76, 2.14, 0.02), col: 0xffffff, surf: 0, shade: 1 });
+    defInst('totemlit', combine(E), { mat: emisSoftMat, shadow: false });
+  }
   /* ---- timber pergola bracket ---------------------------------------- */
   {
     const L = [];
@@ -9426,11 +9575,14 @@ function buildLife() {
       const horiz = Math.abs(r[2] - r[0]) > Math.abs(r[3] - r[1]);
       const len = horiz ? r[2] - r[0] : r[3] - r[1];
       const lane = r[4] / 2 - 1.9;                    // parked against the kerb
-      // 18 m spacing with a gap wherever the plan needs the kerb clear
-      const n = Math.floor(Math.abs(len) / 18);
+      /* 12 m spacing rather than 18, and fuller. A downtown kerb in the
+         reference aerials is close to continuous, and at one car every
+         eighteen metres on half the bays the boulevards read as a Sunday
+         morning rather than as the busiest street in Al Khobar. */
+      const n = Math.floor(Math.abs(len) / 12);
       for (let i = 0; i < n; i++) {
         for (const side of [-1, 1]) {
-          if (!chance(0.52)) continue;                // a kerb is never full
+          if (!chance(0.68)) continue;                // a kerb is never full
           const t = (i + 0.5) / n;
           const px = horiz ? mix(r[0], r[2], t) : r[0] + side * lane;
           const pz = horiz ? r[1] + side * lane : mix(r[1], r[3], t);
@@ -9446,6 +9598,31 @@ function buildLife() {
             pick([0xffffff, 0xf4f2ee, 0xe8e8ea, 0xd8dade, 0xf0eeea,
                   0x2c2e30, 0x3a3c40, 0xc9ccd2, 0x1a1c20]));
           cars++;
+        }
+      }
+      /* Traffic in the running lanes on the wide roads. Every reference aerial
+         has the boulevards carrying cars, and ours had vehicles only against
+         the kerb — a downtown with full parking bays and empty carriageways.
+         These sit in-lane on the correct side for the direction they face. */
+      if (r[4] >= 18) {
+        const m = Math.floor(Math.abs(len) / 26);
+        for (let i = 0; i < m; i++) {
+          for (const side of [-1, 1]) {
+            if (!chance(0.44)) continue;
+            const t = (i + 0.5) / m + rr(-0.012, 0.012);
+            const off = side * (r[4] / 2 - 5.6);
+            const px = horiz ? mix(r[0], r[2], t) : r[0] + off;
+            const pz = horiz ? r[1] + off : mix(r[1], r[3], t);
+            if (nearBuilding(px, pz, 1.2)) continue;
+            const gy = groundAt(px, pz);
+            if (gy < -50) continue;
+            // facing with the flow of its own side, not at random
+            const yaw = (horiz ? Math.PI / 2 : 0) + (side > 0 ? Math.PI : 0);
+            inst('car', xf(px, gy, pz, yaw + rr(-0.02, 0.02)),
+              pick([0xffffff, 0xf2f0ec, 0x2c2e30, 0x3a3c40, 0xc9ccd2,
+                    0x8e1f22, 0x1a1c20, 0xd8dade]));
+            cars++;
+          }
         }
       }
     }
@@ -9545,19 +9722,35 @@ function downtownPlaza() {
   const a = ACC.ground;
 
   // ---- the paved field, and a walkable level over the whole of it
+  /* the slab is base-at-origin and 0.14 thick, so its top is gy + 0.20 — the
+     walkable level has to be the top of it, not a number near the middle, or
+     you walk shin-deep through your own paving */
   a.add(G_BOXT, xf(mx, gy + 0.06, mz, 0, D.x1 - D.x0, 0.14, D.z1 - D.z0),
     K.paveLt || 0xc9bda4, S.PAVING, 0.98);
-  platform(D.x0, D.z0, D.x1, D.z1, gy + 0.13);
+  platform(D.x0, D.z0, D.x1, D.z1, gy + 0.20);
 
   // ---- the four buildings that make the room
-  const put = (kit, x, z, ry) => {
+  /* Placed with their solidity, not just their geometry. An `inst` on its own
+     is scenery you walk through: these need a collider so the square is a
+     room you are actually inside, an occluder so the fabric behind them is
+     not drawn through them, and a scan site so nothing else claims the
+     ground they stand on. */
+  const put = (kit, x, z, ry, hw, hd, h) => {
     if (!MODEL_ROUTE[kit]) return;
-    inst(kit, xf(x, groundAt(x, z), z, ry), 0xffffff);
+    const y = groundAt(x, z);
+    inst(kit, xf(x, y, z, ry), 0xffffff);
+    // footprint half-extents swap when the piece is turned a quarter turn
+    const turned = Math.abs(Math.sin(ry)) > 0.5;
+    const ex = turned ? hd : hw, ez = turned ? hw : hd;
+    collider(x, z, ex - 0.4, ez - 0.4, 0, y + h);
+    occluder(x, z, ex, ez, y + h);
+    platform(x - ex, z - ez, x + ex, z + ez, y + 0.16);
+    SCANSITES.push({ x0: x - ex - 2, x1: x + ex + 2, z0: z - ez - 2, z1: z + ez + 2 });
   };
-  put('cinema', D.x0 - 12, mz - 4, Math.PI / 2);        // west, facing east in
-  put('hotelcnr', D.x1 + 14, mz + 6, -Math.PI / 2);     // east, facing west in
-  put('shophouse', mx + 6, D.z0 - 16, Math.PI);         // north, facing south in
-  put('arcadeblk', mx - 30, D.z1 + 16, 0);              // south, facing north in
+  put('cinema', D.x0 - 12, mz - 4, Math.PI / 2, 21.0, 13.0, 12.5);   // west, facing east in
+  put('hotelcnr', D.x1 + 14, mz + 6, -Math.PI / 2, 11.5, 11.5, 16.5); // east, facing west in
+  put('shophouse', mx + 6, D.z0 - 16, Math.PI, 21.3, 5.2, 12.0);      // north, facing south in
+  put('arcadeblk', mx - 30, D.z1 + 16, 0, 14.3, 8.0, 11.0);           // south, facing north in
 
   // ---- public art on the centre line, which is what the eye lands on
   if (MODEL_ROUTE.artring) inst('artring', xf(mx + 8, gy + 0.13, mz - 6, 0.7), 0xffffff);
@@ -9571,6 +9764,39 @@ function downtownPlaza() {
     inst('tree', xf3(p[0], py, p[1], 0, rnd() * 6.28, 0, 1.25, 1.3, 1.25),
       pick([0xffffff, 0xe6f0d8, 0xdfe8cf]));
     if (MODEL_ROUTE.treeseat) inst('treeseat', xf(p[0], py, p[1], rnd() * 6.28), pick([0xd6c6a8, 0xcbbb9c]));
+  }
+
+  /* ---- the signage totems. Two or three stand in every reference square,
+     and they are what gives the paving a foreground object at eye height
+     between the buildings and the crowd. */
+  for (const p of [[mx - 14, mz + 18, 0.4], [mx + 34, mz - 18, 2.4], [mx - 40, mz - 12, 1.3]]) {
+    const py = groundAt(p[0], p[1]);
+    inst('totem', xf(p[0], py, p[1], p[2]), 0xffffff);
+    inst('totemlit', xf(p[0], py, p[1], p[2]), pick([0xffe6c0, 0xf4ecd8, 0xffdcae]));
+    PRACTICALS.push({ x: p[0], y: py + 1.6, z: p[1], c: 0xffe0b8, i: 1.5, r: 6.0 });
+  }
+
+  /* ---- palms standing in the paving, each with its own base. `palmpit` was
+     generated precisely so a palm could stand on hard landscape without a
+     planter being built under it, and it had never been placed. The reference
+     squares all have them: tall verticals breaking up the open field. */
+  if (MODEL_ROUTE.palmpit) {
+    for (const p of [[D.x0 + 18, D.z0 + 16], [D.x1 - 20, D.z0 + 20],
+                     [D.x0 + 22, D.z1 - 18], [D.x1 - 16, D.z1 - 22],
+                     [mx + 40, mz - 34], [mx - 46, mz + 8]]) {
+      inst('palmpit', xf3(p[0], groundAt(p[0], p[1]), p[1], 0, rnd() * 6.28, 0,
+        0.94 + rnd() * 0.22, 0.92 + rnd() * 0.3, 0.94 + rnd() * 0.22), 0xffffff);
+    }
+  }
+
+  /* ---- tiered planters marking the edge of the walking field, the other
+     asset that was generated for this and never used */
+  if (MODEL_ROUTE.planterset) {
+    for (let i = 0; i < 7; i++) {
+      const qx = mx - 52 + i * 17 + rr(-3, 3), qz = D.z1 - 12 + rr(-3, 3);
+      inst('planterset', xf3(qx, groundAt(qx, qz), qz, 0, rnd() * 6.28, 0,
+        1.0 + rnd() * 0.25, 1.0, 1.0 + rnd() * 0.25), pick([K.leaf, K.leafLt, K.leafDk]));
+    }
   }
 
   /* ---- cafe spill along the hotel frontage, which in the renders is the
@@ -10626,6 +10852,12 @@ function nearDressing() {
         else if (roll < 0.42) {
           if (MODEL_ROUTE.vinepanel) inst('vinepanel', xf(px, gy, pz, ang));
           else inst('matroll', xf3(px, gy, pz, 0, ang, 0, 1, 1, 1), 0xffffff);
+        }
+        /* the hanging rail of clothes outside a shop — generated for exactly
+           this frontage dressing and never placed anywhere */
+        else if (roll < 0.48 && MODEL_ROUTE.clothrail) {
+          inst('clothrail', xf(px, gy, pz, ang + rr(-0.15, 0.15)),
+            pick([0xd8c0a0, 0xc8b090, 0x9d5f4e, 0x6e7f8e, 0xb8a25e, 0x7c5a72]));
         }
         else if (roll < 0.53) inst('goods', xf3(px, gy, pz, 0, ang, 0, 0.9 + rnd() * 0.25, 1, 1), pick([0xd8c0a0, 0xc8b090, 0xe0cdb0, 0x9d5f4e, 0x6e7f8e, 0xb8a25e, 0x7c5a72, 0xd9d3c4]));
         else if (roll < 0.64) inst('basket', xf(px, gy, pz, rnd() * 6.28, 0.7 + rnd() * 0.4, 0.8 + rnd() * 0.5, 0.7 + rnd() * 0.4), pick([0xc9b088, 0xb59a72]));
