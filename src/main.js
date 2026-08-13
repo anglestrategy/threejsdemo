@@ -617,7 +617,7 @@ const SS = QA.ss || 1.3;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2) * SS);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = QA.tone === 'agx' && THREE.AgXToneMapping ? THREE.AgXToneMapping : THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.00;
+renderer.toneMappingExposure = 1.05;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x04101c, 1);
 /* The district's sun has always had castShadow set and a shadow box fitted to
@@ -1832,7 +1832,7 @@ const AOShader = {
     uProjInv: { value: new THREE.Matrix4() },
     uRes: { value: new THREE.Vector2(1, 1) },
     uNear: { value: 0.1 }, uFar: { value: 1000 },
-    uRadius: { value: 1.35 }, uIntensity: { value: 1.75 },
+    uRadius: { value: 1.35 }, uIntensity: { value: 1.95 },
     uTint: { value: new THREE.Color(0x574c5e) },
     uOn: { value: 0 },
   },
@@ -1974,7 +1974,7 @@ composer.addPass(dofPass);
    only genuinely over-bright pixels bloom, and they bloom gently. The previous
    0.58 / 0.70 pair (a low threshold with high strength) is what smeared the
    beacons into white. */
-const BLOOM_MAP = { s: 0.40, r: 0.62, t: 1.02 };
+const BLOOM_MAP = { s: 0.48, r: 0.62, t: 0.96 };
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), BLOOM_MAP.s, BLOOM_MAP.r, BLOOM_MAP.t);
 composer.addPass(bloom);
 
@@ -1989,8 +1989,8 @@ const GradeShader = {
     uWB: { value: new THREE.Vector3(1.038, 0.981, 0.960) },
     uShTint: { value: new THREE.Vector3(0.758, 0.914, 1.185) },
     uHiTint: { value: new THREE.Vector3(1.168, 1.011, 0.838) },
-    uShAmt: { value: 0.55 }, uHiAmt: { value: 0.425 },
-    uSat: { value: 1.075 }, uCon: { value: 1.081 },
+    uShAmt: { value: 0.55 }, uHiAmt: { value: 0.48 },
+    uSat: { value: 1.10 }, uCon: { value: 1.081 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: `

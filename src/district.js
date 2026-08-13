@@ -1326,7 +1326,7 @@ function makeModelMaterial(src, foliage, walk) {
     map: src.map || null, normalMap: foliage ? null : (src.normalMap || null),
     roughnessMap: foliage ? null : (src.roughnessMap || null),
     aoMap: foliage ? null : (src.aoMap || null),
-    color: 0xffffff, roughness: foliage ? 0.88 : 0.94, metalness: 0.0,
+    color: 0xffffff, roughness: foliage ? 0.88 : 0.82, metalness: 0.0,
     side: THREE.DoubleSide, envMapIntensity: 1.0, fog: true,
     transparent: false,
     alphaTest: src.alphaTest > 0 ? src.alphaTest : (foliage && src.map ? 0.42 : 0),
@@ -1464,25 +1464,25 @@ const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.11, 
    physically right and looks dead. At twenty the streets take long raking
    shadows and the west faces still carry the gold. */
 const CSUN = new THREE.Vector3(-0.9232, 0.3420, -0.1754).normalize();
-const cityHemi = new THREE.HemisphereLight(0x6f8ec6, 0x7d5730, 0.06);
+const cityHemi = new THREE.HemisphereLight(0x6f8ec6, 0x7d5730, 0.10);
 cityScene.add(cityHemi);
-const citySun = new THREE.DirectionalLight(0xffc596, 2.35);
+const citySun = new THREE.DirectionalLight(0xffc596, 2.75);
 citySun.position.copy(CSUN).multiplyScalar(300);
 citySun.castShadow = true;
 /* not quite to zero. A real shadow at this hour is filled by a whole sky, and
    the pillar is that nothing in this district ever goes to a grey void. */
-citySun.shadow.intensity = 0.92;
+citySun.shadow.intensity = 0.88;
 const SHADOW_MAP = 4096;
 citySun.shadow.mapSize.set(SHADOW_MAP, SHADOW_MAP);
 cityScene.add(citySun);
 cityScene.add(citySun.target);
 /* a cool counter-fill from the east sky so shadowed stone never goes grey —
    the shadow side reads blue-violet from the dusk dome, not black */
-const cityFill = new THREE.DirectionalLight(0x8aa4e8, 0.54);
+const cityFill = new THREE.DirectionalLight(0x8aa4e8, 0.70);
 cityFill.position.set(240, 130, 200);
 cityScene.add(cityFill);
 /* and a warm bounce from the paving, aimed up */
-const cityBounce = new THREE.DirectionalLight(0xff9a52, 0.74);
+const cityBounce = new THREE.DirectionalLight(0xff9a52, 0.88);
 cityBounce.position.set(40, -100, -30);
 cityScene.add(cityBounce);
 
@@ -1493,7 +1493,7 @@ cityScene.add(cityBounce);
    ever carrying more than eight dynamic lights.                           */
 const PRACTICALS = [];
 const POOL = [];
-for (let i = 0; i < 8; i++) {
+for (let i = 0; i < 12; i++) {
   const l = new THREE.PointLight(0xffc98a, 0, 26, 1.8);
   l.castShadow = false;
   cityScene.add(l);
@@ -1693,7 +1693,7 @@ function buildEnvironment() {
   const rt = pmrem.fromScene(s, 0.04);
   cityEnv = rt.texture;
   cityScene.environment = cityEnv;
-  cityScene.environmentIntensity = 0.42;
+  cityScene.environmentIntensity = 0.58;
   gm.dispose();
   ground.geometry.dispose();
   sky.geometry.dispose();
