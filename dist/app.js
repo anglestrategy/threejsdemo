@@ -3104,6 +3104,13 @@ const PLAN = {
   souq:   { x0: -74, x1: 74, z0: 132, z1: 348 },
   spineX: 4,                       // the souq's walking centreline
   enter:  { x0: 96, x1: 322, z0: 118, z1: 366 },
+  /* The downtown plaza: the one composed view in the district. The cinema and
+     the corner hotel used to stand 129 m apart with whatever the scan fabric
+     happened to drop between them; here they face each other across open
+     paving, with a colonnade block closing the north side and public art in
+     the middle, which is the arrangement in every one of the reference
+     renders. Nothing else is allowed to build inside it. */
+  dtplaza: { x0: 152, x1: 288, z0: 176, z1: 292 },
   comm:   { x0: -336, x1: -104, z0: 118, z1: 366 },
   court:  { x0: -282, x1: -166, z0: 178, z1: 282 },   // colonnade courtyard
   tensile:{ x0: -296, x1: -132, z0: -74, z1: 88 },    // shade-sail water court
@@ -6567,9 +6574,13 @@ function buildBlocks() {
     const Z = PLAN.enter;
     const plots = subdivide(Z.x0, Z.z0, Z.x1, Z.z1, 16, 40, 11);
     const MJ = { x0: PLAN.majlis.x - 22, x1: PLAN.majlis.x + 22, z0: PLAN.majlis.z - 20, z1: PLAN.majlis.z + 20 };
+    const DP = PLAN.dtplaza;
     for (const p of plots) {
       // the majlis block is placed by hand: nothing may overlap its plot
       if (p[0] < MJ.x1 && p[2] > MJ.x0 && p[1] < MJ.z1 && p[3] > MJ.z0) continue;
+      /* nor the downtown plaza, which is composed by hand and is the one view
+         in the district that has to hold up against the reference renders */
+      if (p[0] < DP.x1 + 24 && p[2] > DP.x0 - 24 && p[1] < DP.z1 + 24 && p[3] > DP.z0 - 24) continue;
       /* This quarter used to be brick end to end — a quarter of a kilometre
          of red masonry, which is the loudest thing in the district and is in
          none of the reference renders. The reference streets are sandstone
@@ -9496,11 +9507,8 @@ function buildLife() {
      the grid already makes: the hotel on the boulevard side of the entry
      court, the cinema on the entertainment edge street where the plan's own
      zoning already put leisure. */
+  downtownPlaza();
   {
-    const hx = PLAN.enter.x1 - 30, hz = PLAN.enter.z0 + 26;
-    inst('hotelcnr', xf(hx, groundAt(hx, hz), hz, -Math.PI / 2), 0xffffff);
-    const cx = 212 - 34, cz = 196;
-    inst('cinema', xf(cx, groundAt(cx, cz), cz, Math.PI / 2), 0xffffff);
     const sx = PLAN.enter.x0 + 36, sz = PLAN.enter.z1 - 60;
     inst('shopstair', xf(sx, groundAt(sx, sz), sz, 0), 0xffffff);
   }
@@ -9514,6 +9522,97 @@ function buildLife() {
   for (let i = 0; i < JETS.length; i++) inst('jet', xf(0, -999, 0), 0xcfe8ff);
   if (INST_DEF.jet) INST_DEF.jet.cull = false;
   if (INST_DEF.bird) INST_DEF.bird.cull = false;
+}
+
+/* ===================================================== THE DOWNTOWN PLAZA ==
+   The one composed view in the district, and the only place where what goes
+   where is decided rather than sampled.
+
+   The cinema and the corner hotel were the two best assets in the build and
+   they stood 129 m apart on separate streets, each swallowed by whatever the
+   scan fabric dropped around it. In every reference render they face each
+   other across open paving: cinema on one side, brick hotel on the other, a
+   colonnaded stone block closing the north, a glass pavilion on the south,
+   and public art in the middle with tree rings and cafe spill around it.
+
+   Yaw convention, confirmed against navigation: 0 faces +Z, so PI/2 faces
+   +X (east) and -PI/2 faces -X (west).                                     */
+function downtownPlaza() {
+  CURCHUNK = 'dtplaza';
+  const D = PLAN.dtplaza;
+  const mx = (D.x0 + D.x1) / 2, mz = (D.z0 + D.z1) / 2;
+  const gy = terrainY(mx, mz);
+  const a = ACC.ground;
+
+  // ---- the paved field, and a walkable level over the whole of it
+  a.add(G_BOXT, xf(mx, gy + 0.06, mz, 0, D.x1 - D.x0, 0.14, D.z1 - D.z0),
+    K.paveLt || 0xc9bda4, S.PAVING, 0.98);
+  platform(D.x0, D.z0, D.x1, D.z1, gy + 0.13);
+
+  // ---- the four buildings that make the room
+  const put = (kit, x, z, ry) => {
+    if (!MODEL_ROUTE[kit]) return;
+    inst(kit, xf(x, groundAt(x, z), z, ry), 0xffffff);
+  };
+  put('cinema', D.x0 - 12, mz - 4, Math.PI / 2);        // west, facing east in
+  put('hotelcnr', D.x1 + 14, mz + 6, -Math.PI / 2);     // east, facing west in
+  put('shophouse', mx + 6, D.z0 - 16, Math.PI);         // north, facing south in
+  put('arcadeblk', mx - 30, D.z1 + 16, 0);              // south, facing north in
+
+  // ---- public art on the centre line, which is what the eye lands on
+  if (MODEL_ROUTE.artring) inst('artring', xf(mx + 8, gy + 0.13, mz - 6, 0.7), 0xffffff);
+  if (MODEL_ROUTE.obelisk) inst('obelisk', xf(mx - 26, gy + 0.13, mz + 10, 0), 0xffffff);
+
+  /* ---- tree rings. Three of them, on the diagonal rather than in a row:
+     a bench built round a tree is the piece of furniture every one of the
+     reference plazas puts in exactly this position. */
+  for (const p of [[mx - 34, mz - 26], [mx + 26, mz + 26], [mx - 8, mz + 34]]) {
+    const py = groundAt(p[0], p[1]);
+    inst('tree', xf3(p[0], py, p[1], 0, rnd() * 6.28, 0, 1.25, 1.3, 1.25),
+      pick([0xffffff, 0xe6f0d8, 0xdfe8cf]));
+    if (MODEL_ROUTE.treeseat) inst('treeseat', xf(p[0], py, p[1], rnd() * 6.28), pick([0xd6c6a8, 0xcbbb9c]));
+  }
+
+  /* ---- cafe spill along the hotel frontage, which in the renders is the
+     busiest thing in the square: tables out under the arcade, parasols over
+     them, planting between them and the paving. */
+  for (let i = 0; i < 9; i++) {
+    const tx = D.x1 - 6 - rr(0, 5), tz = mz - 30 + i * 7.2 + rr(-1.2, 1.2);
+    const ty = groundAt(tx, tz);
+    inst('table', xf(tx, ty, tz, rnd() * 6.28), 0xe8e3d6);
+    for (let c = 0; c < 3; c++) {
+      const ca = rnd() * 6.28;
+      inst('chair', xf(tx + Math.sin(ca) * 1.0, ty, tz + Math.cos(ca) * 1.0, ca + Math.PI), 0xefeade);
+    }
+    if (MODEL_ROUTE.parasol && chance(0.7)) {
+      inst('parasol', xf(tx, ty, tz, rnd() * 6.28), pick([0xf4ede0, 0xe8dcc8, 0xd9c9ae]));
+    }
+    if (chance(0.5)) {
+      const bx = tx - 4.2;
+      inst('planter', xf3(bx, groundAt(bx, tz), tz, 0, 0, 0, 1.6, 0.95, 1.6), 0xcabb9d);
+      inst('shrub', xf3(bx, groundAt(bx, tz) + 0.6, tz, 0, rnd() * 6.28, 0, 1.5, 1.15, 1.5), pick([K.leaf, K.leafLt]));
+    }
+  }
+
+  /* ---- the lamp ring. Every reference plaza is lit by a regular rhythm of
+     posts round its edge rather than by floodlight, and the pooled warm
+     circles they throw on the paving are half of what sells the hour. */
+  const per = 2 * ((D.x1 - D.x0) + (D.z1 - D.z0));
+  const nL = Math.max(12, Math.round(per / 17));
+  for (let i = 0; i < nL; i++) {
+    const u = (i / nL) * per;
+    let lx, lz;
+    const w = D.x1 - D.x0, h = D.z1 - D.z0;
+    if (u < w) { lx = D.x0 + u; lz = D.z0 + 2.5; }
+    else if (u < w + h) { lx = D.x1 - 2.5; lz = D.z0 + (u - w); }
+    else if (u < 2 * w + h) { lx = D.x1 - (u - w - h); lz = D.z1 - 2.5; }
+    else { lx = D.x0 + 2.5; lz = D.z1 - (u - 2 * w - h); }
+    const ly = groundAt(lx, lz);
+    inst('streetlight', xf(lx, ly, lz, Math.atan2(mx - lx, mz - lz)), 0xffffff);
+    PRACTICALS.push({ x: lx, y: ly + 4.2, z: lz, c: 0xffe0b0, i: 5.5, r: 17 });
+    inst('pool', xf3(lx, ly + 0.15, lz, 0, 0, 0, 12, 1, 12), 0xffdcaa);
+  }
+
 }
 
 /* --------------------------------------------------------- per-frame life */
@@ -10029,6 +10128,9 @@ function planReserved() {
   reserve(PLAN.court.x0 - 18, PLAN.court.z0 - 18, PLAN.court.x1 + 18, PLAN.court.z1 + 18);
   reserve(J.x - 46, J.z - 50, J.x + 46, J.z + 50);
   reserve(PLAN.majlis.x - 30, PLAN.majlis.z - 28, PLAN.majlis.x + 30, PLAN.majlis.z + 28);
+  // the downtown plaza and the frontages of the four buildings that face it
+  const D = PLAN.dtplaza;
+  reserve(D.x0 - 26, D.z0 - 26, D.x1 + 26, D.z1 + 26);
   reserve(-118, TRAM.z - 24, 118, TRAM.z + 24);
   reserve(-118, -118, 118, -66);
   reserve(PLAN.water.x - 16, -90, PLAN.water.x + 16, 580);
@@ -10423,6 +10525,12 @@ const DRESS_SPOTS = [
   { x: -34, z: 120, r: 30, d: 0.7 },      // the channel walk
   { x: -214, z: 20, r: 48, d: 1.0 },      // the water court garden
   { x: -214, z: 24, r: 26, d: 1.2 },      // and its axis, more densely
+  /* the downtown plaza, denser than anywhere else in the district. The
+     reference renders of this square are the most crowded images in the set
+     and the crowd is most of why they read as a place people go. */
+  { x: 220, z: 234, r: 60, d: 1.7 },
+  { x: 268, z: 240, r: 22, d: 2.2 },      // the cafe spill along the hotel
+  { x: 168, z: 230, r: 24, d: 1.9 },      // and the cinema doors
 ];
 for (let z = 90; z <= 360; z += 26) {     // the souq spine, end to end
   DRESS_SPOTS.push({ x: 4 + (z > 250 ? 26 : 0), z, r: 22, d: 1.5 });
