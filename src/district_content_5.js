@@ -716,6 +716,29 @@ function downtownPlaza() {
     if (MODEL_ROUTE.treeseat) inst('treeseat', xf(p[0], py, p[1], rnd() * 6.28), pick([0xd6c6a8, 0xcbbb9c]));
   }
 
+  /* ---- palms standing in the paving, each with its own base. `palmpit` was
+     generated precisely so a palm could stand on hard landscape without a
+     planter being built under it, and it had never been placed. The reference
+     squares all have them: tall verticals breaking up the open field. */
+  if (MODEL_ROUTE.palmpit) {
+    for (const p of [[D.x0 + 18, D.z0 + 16], [D.x1 - 20, D.z0 + 20],
+                     [D.x0 + 22, D.z1 - 18], [D.x1 - 16, D.z1 - 22],
+                     [mx + 40, mz - 34], [mx - 46, mz + 8]]) {
+      inst('palmpit', xf3(p[0], groundAt(p[0], p[1]), p[1], 0, rnd() * 6.28, 0,
+        0.94 + rnd() * 0.22, 0.92 + rnd() * 0.3, 0.94 + rnd() * 0.22), 0xffffff);
+    }
+  }
+
+  /* ---- tiered planters marking the edge of the walking field, the other
+     asset that was generated for this and never used */
+  if (MODEL_ROUTE.planterset) {
+    for (let i = 0; i < 7; i++) {
+      const qx = mx - 52 + i * 17 + rr(-3, 3), qz = D.z1 - 12 + rr(-3, 3);
+      inst('planterset', xf3(qx, groundAt(qx, qz), qz, 0, rnd() * 6.28, 0,
+        1.0 + rnd() * 0.25, 1.0, 1.0 + rnd() * 0.25), pick([K.leaf, K.leafLt, K.leafDk]));
+    }
+  }
+
   /* ---- cafe spill along the hotel frontage, which in the renders is the
      busiest thing in the square: tables out under the arcade, parasols over
      them, planting between them and the paving. */
@@ -1769,6 +1792,12 @@ function nearDressing() {
         else if (roll < 0.42) {
           if (MODEL_ROUTE.vinepanel) inst('vinepanel', xf(px, gy, pz, ang));
           else inst('matroll', xf3(px, gy, pz, 0, ang, 0, 1, 1, 1), 0xffffff);
+        }
+        /* the hanging rail of clothes outside a shop — generated for exactly
+           this frontage dressing and never placed anywhere */
+        else if (roll < 0.48 && MODEL_ROUTE.clothrail) {
+          inst('clothrail', xf(px, gy, pz, ang + rr(-0.15, 0.15)),
+            pick([0xd8c0a0, 0xc8b090, 0x9d5f4e, 0x6e7f8e, 0xb8a25e, 0x7c5a72]));
         }
         else if (roll < 0.53) inst('goods', xf3(px, gy, pz, 0, ang, 0, 0.9 + rnd() * 0.25, 1, 1), pick([0xd8c0a0, 0xc8b090, 0xe0cdb0, 0x9d5f4e, 0x6e7f8e, 0xb8a25e, 0x7c5a72, 0xd9d3c4]));
         else if (roll < 0.64) inst('basket', xf(px, gy, pz, rnd() * 6.28, 0.7 + rnd() * 0.4, 0.8 + rnd() * 0.5, 0.7 + rnd() * 0.4), pick([0xc9b088, 0xb59a72]));
