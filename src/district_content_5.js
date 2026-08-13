@@ -343,25 +343,46 @@ function buildLife() {
               [PLAN.tensile.x0 + 14, PLAN.tensile.z1 - 14]]);
 
   const N = 108;
+  /* The crowd is now mixed source: the ten tagged scans take a bit over half
+     of it and the procedural figures take the rest.
+
+     Not all of it, and the reason is arithmetic rather than taste — there are
+     ten distinct scans for a hundred and eight people, so an all-scan crowd is
+     every face eleven times, which reads as a photocopy from the far end of
+     the souq. The procedural figures are individually weaker and collectively
+     the thing that stops the repeat being legible, so both stay. Two thirds
+     scans is where the two failures cross: below it the crowd reads blocky,
+     above it the repeat starts to show. */
+  const SCANS = WALKSCANS.slice();
+  const PROC = ['walk_thobe', 'walk_abaya', 'walk_west', 'walk_west2', 'walk_child'];
+  const KINDS = [];
   for (let i = 0; i < N; i++) {
     const path = PATHS[i % PATHS.length];
     const kind = rnd();
     /* a downtown in Al Khobar is mixed dress, not a uniform. Roughly a third
        thobe, a third abaya, a quarter western, the rest children. */
-    const which = kind < 0.32 ? 'walk_thobe' : kind < 0.63 ? 'walk_abaya'
+    const proc = kind < 0.32 ? 'walk_thobe' : kind < 0.63 ? 'walk_abaya'
       : kind < 0.79 ? 'walk_west' : kind < 0.92 ? 'walk_west2' : 'walk_child';
+    // children have no scanned counterpart, so they stay procedural
+    const which = (SCANS.length && proc !== 'walk_child' && rnd() < 0.66)
+      ? SCANS[(rnd() * SCANS.length) | 0] : proc;
+    if (KINDS.indexOf(which) < 0) KINDS.push(which);
     WALKERS.push({
       path, t: rnd(), speed: rr(0.55, 1.35) / 100,
       kind: which,
       lane: rr(-2.4, 2.4), ph: rnd() * 100,
       scale: which === 'walk_child' ? rr(0.90, 1.05) : rr(0.94, 1.08),
-      col: which === 'walk_thobe' ? pick([0xffffff, 0xf6f2ea, 0xece6da])
-        : which === 'walk_abaya' ? pick([0xffffff, 0xe2dce6, 0xd0cad8])
-        : pick([0xffffff, 0xe8e2d4, 0xd6dce4, 0xdcd2c2]),
+      /* a scan carries its own photographed colour; tinting it the way the
+         flat-shaded procedural figures are tinted would repaint the cloth */
+      col: SCANS.indexOf(which) >= 0 ? pick([0xffffff, 0xf7f4ee, 0xefeee8])
+        : which === 'walk_thobe' ? pick([0xffffff, 0xf6f2ea, 0xece6da])
+          : which === 'walk_abaya' ? pick([0xffffff, 0xe2dce6, 0xd0cad8])
+            : pick([0xffffff, 0xe8e2d4, 0xd6dce4, 0xdcd2c2]),
     });
   }
   // the instanced meshes the walkers drive
-  for (const k of ['walk_thobe', 'walk_abaya', 'walk_west', 'walk_west2', 'walk_child']) {
+  WALK_KINDS = PROC.concat(SCANS);
+  for (const k of WALK_KINDS) {
     for (const w of WALKERS) if (w.kind === k) inst(k, xf(0, -999, 0), w.col);
     if (INST_DEF[k]) { INST_DEF[k].cull = false; INST_DEF[k].shadow = true; }
   }
@@ -404,7 +425,8 @@ const _wm = new THREE.Matrix4();
 function updateLife(dt, t) {
   const defs = INST_DEF;
   // walkers
-  const idx = { walk_thobe: 0, walk_abaya: 0, walk_west: 0, walk_west2: 0, walk_child: 0 };
+  const idx = {};
+  for (const k of WALK_KINDS) idx[k] = 0;
   for (let i = 0; i < WALKERS.length; i++) {
     const w = WALKERS[i];
     w.t += w.speed * dt;
@@ -796,8 +818,9 @@ function buildRoundabout() {
     const wr = 12.2, wy = gy + 1.05;
     const wg = new THREE.CircleGeometry(wr, 56);
     wg.rotateX(-Math.PI / 2); wg.translate(RX, wy, RZ);
-    const fl = new Float32Array(wg.attributes.position.count); fl.fill(0.06);
-    wg.setAttribute('aFlow', new THREE.BufferAttribute(fl, 1));
+    // the fountain basin: a disc, and the only one, which is why the shader
+    // carries a shape flag rather than assuming a box
+    waterAttrs(wg, 0.06, 0.42, 1, RX, RZ, wr, wr);
     const wacc = new Acc();
     wacc.add(wg, xf(0, 0, 0), 0xffffff, 0, 1);
     const wm = new THREE.Mesh(wacc.geometry(), waterMat);

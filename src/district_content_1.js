@@ -168,6 +168,166 @@ function routePersonParts(key, prefix, targetH) {
   return kits;
 }
 
+/* ------------------------------------------------------ THE SCANNED CROWD *
+   The walkers were the last hand-built thing in the near field: tapered drums
+   with 7-segment spheres for heads, and at street level a hundred of them read
+   as exactly what they are. The scans are real people — 18 k triangles, cloth,
+   faces, folds — but they arrived as ten STATIC figures, and a static person
+   standing in the middle of a street is a worse error than a crude one
+   walking.
+
+   There is no rigging tool available in this project. What there IS, already
+   built and already shipping, is a vertex walk cycle driven by a limb tag in
+   the fractional part of a per-vertex float:
+
+       .10 left leg   .20 right leg   .30 left arm   .40 right arm
+
+   So the scans get labelled instead of rigged: every vertex is assigned to a
+   limb by WHERE IT IS on the body, and the shader that already swings the
+   procedural figures' limbs swings these. That is a skin with binary weights,
+   which is the crudest possible skin — and the two things that make a binary
+   skin tear are handled in the shader rather than here:
+
+     * a vertex AT the hip must not move, or the mesh rips across the pelvis.
+       The swing ramps in over the 180 mm below the pivot.
+     * a robe is continuous across the centre line, and two legs rotating
+       opposite ways would split it up the middle. The swing ramps in over the
+       60 mm either side of the centre line, so a thobe's skirt opens and
+       closes about a hem that stays whole.
+
+   Neither ramp touches the procedural figures: their limbs are separate drums
+   whose tops already sit 260 mm below the pivot, and they use a different
+   material. This is additive.
+
+   Three measurements have to be made off the mesh first, because a scan
+   arrives in whatever pose and orientation the scanner left it in:
+
+     1. WHICH HORIZONTAL AXIS IS LATERAL. A person is wider across the
+        shoulders than they are deep, so the wider extent of the shoulder band
+        is the left-right axis. The figure is then rotated so lateral is +X,
+        which is what the shader assumes.
+     2. WHICH WAY THEY FACE. Toes stick out forward of the ankle and heels do
+        not, so the feet's centroid sits forward of the body's. Where it sits
+        behind, the figure is turned around. This is the one measurement with
+        a real failure mode — a figure standing with its weight back could
+        read either way — so it is asserted in `tests/walkcycle_test.mjs`
+        rather than trusted.
+     3. WHERE THE SHOULDERS ARE. The arm band runs from the hip to the
+        shoulder, and an arm is anything in it further out than 55% of the
+        widest point. A figure with its arms held tight to its body gets few
+        arm vertices and swings its arms less, which is a deliberate failure
+        direction: an unswung arm reads as someone carrying something, and a
+        wrongly-swung torso reads as a rendering bug.                        */
+function tagWalker(g0, targetH) {
+  const g = g0.index ? g0.toNonIndexed() : g0.clone();
+  g.computeBoundingBox();
+  let bb = g.boundingBox;
+  // stand it up if the scan is Z-up, as routePersonParts does
+  if ((bb.max.z - bb.min.z) > (bb.max.y - bb.min.y) * 1.3) {
+    g.rotateX(-Math.PI / 2);
+    g.computeBoundingBox();
+    bb = g.boundingBox;
+  }
+  const h0 = bb.max.y - bb.min.y;
+  if (h0 < 1e-4) return null;
+  g.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+  const k = targetH / h0;
+  g.scale(k, k, k);
+
+  const p = g.attributes.position;
+  const n = p.count;
+  const H = targetH;
+
+  /* 1. the lateral axis: the wider extent across the shoulder band */
+  let sx0 = 1e9, sx1 = -1e9, sz0 = 1e9, sz1 = -1e9;
+  for (let i = 0; i < n; i++) {
+    const y = p.getY(i);
+    if (y < H * 0.72 || y > H * 0.90) continue;
+    const x = p.getX(i), z = p.getZ(i);
+    if (x < sx0) sx0 = x; if (x > sx1) sx1 = x;
+    if (z < sz0) sz0 = z; if (z > sz1) sz1 = z;
+  }
+  if (sx1 < sx0) { sx0 = bb.min.x; sx1 = bb.max.x; sz0 = bb.min.z; sz1 = bb.max.z; }
+  if ((sz1 - sz0) > (sx1 - sx0)) g.rotateY(Math.PI / 2);   // put lateral on X
+
+  /* 2. facing: the feet's centroid sits forward of the body's */
+  let fz = 0, fn = 0, bz = 0;
+  for (let i = 0; i < n; i++) {
+    const y = p.getY(i);
+    bz += p.getZ(i);
+    if (y > H * 0.055) continue;
+    fz += p.getZ(i); fn++;
+  }
+  const toe = fn ? (fz / fn) - (bz / n) : 0;
+  const flipped = toe < 0;
+  if (flipped) g.rotateY(Math.PI);
+
+  /* 3. the bands, and the widest point of the upper body */
+  const HIP = 0.92 * (H / 1.72);
+  const SHO = 1.40 * (H / 1.72);
+  let latMax = 1e-4;
+  for (let i = 0; i < n; i++) {
+    const y = p.getY(i);
+    if (y < H * 0.50 || y > H * 0.92) continue;
+    const a = Math.abs(p.getX(i));
+    if (a > latMax) latMax = a;
+  }
+  const ARM_OUT = latMax * 0.55;
+
+  const sa = new Float32Array(n);
+  const tally = [0, 0, 0, 0, 0];
+  for (let i = 0; i < n; i++) {
+    const x = p.getX(i), y = p.getY(i);
+    let tag = 0;
+    if (y < HIP) {
+      // a hanging forearm reaches below the hip; anything that far out is
+      // not a leg, and leaving it untagged is better than swinging it wrong
+      if (Math.abs(x) < ARM_OUT) tag = x < 0 ? 0.10 : 0.20;
+    } else if (y <= SHO && Math.abs(x) > ARM_OUT) {
+      tag = x < 0 ? 0.30 : 0.40;
+    }
+    sa[i] = tag;
+    tally[tag === 0 ? 4 : Math.round(tag * 10) - 1]++;
+  }
+  g.setAttribute('aSurf', new THREE.BufferAttribute(sa, 1));
+  if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
+  g.userData.walkTally = tally;      // read by tests/walkcycle_test.mjs
+  /* the SIGNED measurement, kept as measured rather than as corrected. The
+     gate asserts on its MAGNITUDE: a figure whose feet sit 2 mm forward of its
+     body centroid has not told us which way it faces, and a coin toss on that
+     is a walker moonwalking down the souq. */
+  g.userData.toe = toe;
+  g.userData.flipped = flipped;
+  return g;
+}
+
+/* The same ten scans again, tagged and given the walking material. They are a
+   second set of kit names rather than a replacement for the standers: a
+   district needs both, and the geometry is the cheap half of a scan. */
+function routeWalkerParts(key, prefix, targetH) {
+  const P = PROPS[key];
+  if (!P || !P.parts.length) return [];
+  const kits = [];
+  P.parts.forEach((part, pi) => {
+    const g = tagWalker(part.geo, targetH);
+    if (!g) return;
+    const nm = 'w:' + prefix + pi;
+    if (!INST_DEF[nm]) {
+      defInst(nm, g, {
+        mat: makeModelMaterial(part.src, false, true), shadow: true, receive: true,
+        cull: false,
+      });
+    }
+    /* deliberately NOT registered in MODEL_ROUTE. A routed kit resolves to a
+       different instanced mesh each frame depending on the camera, and the
+       walkers are driven by writing a matrix into one known mesh every frame —
+       so these are ordinary instance names the life pass can address
+       directly. */
+    kits.push(nm);
+  });
+  return kits;
+}
+
 /* Split a furnished scene into individually placeable pieces.
 
    `ghscene` is a complete residential interior: fifty-four meshes across
@@ -614,87 +774,295 @@ function water(x0, z0, x1, z1, y, depth, flow) {
   WATERBODIES.push({ x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: Math.min(z0, z1), z1: Math.max(z0, z1), y, depth: depth || 0.5, flow: flow || 0 });
 }
 
+/* ============================================================== THE WATER ==
+   Rebuilt. The old shader was a tinted plane with a mirror on it: three
+   isotropic noise fields, a normal that was the difference of two of them
+   rather than the gradient of any of them, no depth, no refraction, no foam,
+   and ripples at 0.6 / 0.28 / 0.12 m — swells, in a three-metre rill. It read
+   as coloured glass, which is what the client saw and said.
+
+   What actually makes water read as water, in the order the eye notices:
+
+   1. YOU CAN SEE THE BOTTOM, AND IT IS IN THE WRONG PLACE. Refraction at the
+      surface bends the view ray by about 30 degrees at a walking eye height,
+      so the tank floor is visibly displaced and it MOVES with the ripples.
+      This is the single strongest cue and the old shader had none of it.
+   2. THE COLOUR IS PATH LENGTH, NOT PAINT. Water absorbs red about ten times
+      faster than blue, so the tint deepens with the distance the light travels
+      through it — pale at the coping, saturated across the middle, and darker
+      again where the ray runs the long way along the channel. Beer-Lambert,
+      one exponential, and it is what makes a pool look wet rather than teal.
+   3. CAUSTICS. The floor is lit through a lens that is moving. This is not
+      decoration — a pool without caustics reads as a photograph of a pool.
+   4. FRESNEL, DONE PROPERLY. Schlick with F0 = 0.02: near-total reflection at
+      grazing, near-total transmission looking down. The old one was
+      `fres*1.9 + 0.20 + 0.30*(1-flow)`, a fudge that made every pool a mirror
+      from every angle.
+   5. FOAM at the edge, because water wets a wall and holds a meniscus there.
+
+   ---- the model ------------------------------------------------------------
+
+   Six directional waves at REAL sizes and REAL speeds. Deep-water dispersion
+   is c = sqrt(g*L/2pi), so the long waves outrun the short ones and the
+   pattern never repeats — using one speed for all of them is the other thing
+   that makes procedural water read as a texture sliding under a plane.
+
+     1.10 m at 1.31 m/s      the wind swell, open pools only
+     0.62 m at 0.98
+     0.42 m at 0.81          the chop you actually see in a channel
+     0.235 m at 0.61
+     0.155 m at 0.49
+     0.052 m at 0.29         the capillary glitter that catches the sun
+
+   Because they are sines, the height, the SLOPE and the CURVATURE are all
+   available in closed form from the same six evaluations. The slope gives the
+   normal exactly — no central difference, no epsilon to tune — and the
+   curvature gives the caustics, because focusing IS curvature. Getting both
+   for free is the whole reason this is sines and not noise.
+
+   Every train is band-limited by the pixel footprint on the same principle as
+   the surface law: a 52 mm ripple seen from forty metres is under a pixel, and
+   point-sampling it is the sparkle that makes distant water look like tinfoil.
+
+   ---- opaque, and why ------------------------------------------------------
+
+   The water writes depth and does not blend. That is the decided transparency
+   rule and it falls out of the model rather than being imposed on it: the
+   surface computes what is underneath it analytically — the tank floor, the
+   tank walls, their tile, their caustics, their extinction — so there is
+   nothing left for the framebuffer to contribute. One less sorted surface, no
+   ordering against the glass, and refraction that a blended pass cannot do at
+   all without a second full-scene target.
+
+   What it costs: real geometry below the surface is replaced by the analytic
+   tank. In this district that is four flat tank boxes and the submerged 750 mm
+   of the fountain plinth, which is not visible through moving water anyway.
+   ========================================================================== */
 const waterMat = MATERIALS && MATERIALS.water ? MATERIALS.water({}) : new THREE.ShaderMaterial({
-  transparent: true,
+  transparent: false,
   uniforms: {
     uTime: { value: 0 }, uSun: { value: CSUN.clone() },
-    uDeep: { value: C(0x10565f) }, uShal: { value: C(0x3fb9ae) },
+    /* absorption per metre, linear RGB. Clean water: red goes first, which is
+       why a metre of it is blue-green and ten metres of it is blue. */
+    uAbsorb: { value: new THREE.Vector3(0.62, 0.16, 0.085) },
+    /* the light the body scatters back out of itself, which is what makes a
+       shallow pool glow rather than just darken */
+    uScatter: { value: C(0x2f8f92) },
+    uTank: { value: C(0x27403f) }, uGrout: { value: C(0x16292a) },
+    uFoam: { value: C(0xe8f2f2) },
     uSky: { value: C(0x7c8fc4) }, uWarm: { value: C(0xffc98a) },
     uFogColor: { value: C(0x62789f) }, uFogWarm: { value: C(0xe6bd92) }, uFogD: { value: CITY_FOG },
     uRefl: { value: null }, uReflMtx: { value: new THREE.Matrix4() },
     uReflOn: { value: 0 }, uReflY: { value: 0 },
   },
   vertexShader: `
-    varying vec3 vW; varying vec2 vF; varying float vD; varying vec4 vRP;
+    varying vec3 vW; varying vec4 vRP; varying float vFlow;
+    varying vec4 vTank; varying vec2 vShape;
     attribute float aFlow;
+    attribute vec4 aTank;      // cx, cz, halfX, halfZ  (halfX == halfZ for a disc)
+    attribute vec2 aShape;     // shape (0 box, 1 disc), depth in metres
     uniform mat4 uReflMtx;
     void main(){
       vec4 wp = modelMatrix*vec4(position,1.0);
-      vW = wp.xyz; vF = uv; vD = aFlow;
+      vW = wp.xyz; vFlow = aFlow; vTank = aTank; vShape = aShape;
       vRP = uReflMtx * wp;
-      vec4 mv = viewMatrix*wp;
-      gl_Position = projectionMatrix*mv;
+      gl_Position = projectionMatrix*viewMatrix*wp;
     }`,
   fragmentShader: `
     precision highp float;
-    varying vec3 vW; varying vec2 vF; varying float vD; varying vec4 vRP;
-    uniform float uTime,uFogD,uReflOn,uReflY; uniform vec3 uSun,uDeep,uShal,uSky,uWarm,uFogColor,uFogWarm;
+    varying vec3 vW; varying vec4 vRP; varying float vFlow;
+    varying vec4 vTank; varying vec2 vShape;
+    uniform float uTime,uFogD,uReflOn,uReflY;
+    uniform vec3 uSun,uAbsorb,uScatter,uTank,uGrout,uFoam,uSky,uWarm,uFogColor,uFogWarm;
     uniform sampler2D uRefl;
+
     float h21(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
     float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
       return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y); }
+
+    /* wavelength, amplitude, direction, and the deep-water speed that follows
+       from the wavelength — c = sqrt(g L / 2pi). The last column is how much
+       of the train survives on a still tank versus a moving channel. */
+    const int NW = 6;
+    const vec4 WD[NW] = vec4[NW](            // dir.xy, wavelength, amplitude
+      vec4( 0.92,  0.39, 1.100, 0.0180),
+      vec4( 0.55, -0.84, 0.620, 0.0100),
+      vec4(-0.79,  0.61, 0.420, 0.0072),
+      vec4( 0.33,  0.94, 0.235, 0.0034),
+      vec4(-0.97, -0.24, 0.155, 0.0021),
+      vec4( 0.71, -0.70, 0.052, 0.00055));
+
+    /* height, slope and curvature of the surface at p, all from the same six
+       evaluations. fp is the pixel footprint in metres: a train shorter than
+       the pixel is faded to nothing, which is the difference between distant
+       water and distant tinfoil. */
+    void waves(vec2 p, float fp, float flow, float t, out float h, out vec2 grad, out float lap) {
+      h = 0.0; grad = vec2(0.0); lap = 0.0;
+      /* a channel drifts; a tank does not. The drift is a translation of the
+         whole field, so it does not change the wave shapes, only where they
+         are — which is what a current does. */
+      vec2 drift = vec2(0.0, -t * 0.42 * flow);
+      for (int i = 0; i < NW; i++) {
+        vec2 d = WD[i].xy;
+        float L = WD[i].z;
+        float k = 6.2831853 / L;
+        float c = sqrt(9.81 * L * 0.159155);          // deep-water phase speed
+        // the long swells are wind-driven and a sheltered tank has less of them
+        float still = mix(mix(0.42, 1.0, flow), 1.0, clamp(0.30 / L, 0.0, 1.0));
+        float a = WD[i].w * still * (1.0 - smoothstep(L * 0.30, L * 0.85, fp));
+        if (a < 1e-5) continue;
+        float ph = dot(p + drift, d) * k - t * c * k;
+        /* the irregular part: without it six sines are a corrugated sheet.
+           One slow noise field warps the phase, which is cheap and is what
+           breaks the lattice. */
+        ph += vn(p * (0.7 / L) + t * 0.05) * 2.4;
+        float s = sin(ph), co = cos(ph);
+        h    += a * s;
+        grad += a * k * co * d;
+        lap  -= a * k * k * s;
+      }
+    }
+
+    /* the tank floor: dark glazed tile, 550 mm, with grout and a wash of dirt */
+    vec3 tankFloor(vec2 p) {
+      vec2 f = abs(fract(p / 0.55) - 0.5);
+      float grout = smoothstep(0.44, 0.48, max(f.x, f.y));
+      vec3 c = mix(uTank, uGrout, grout);
+      c *= 0.80 + 0.30 * vn(p * 2.1);
+      c *= 0.86 + 0.22 * vn(p * 0.37);          // the uneven staining of a tank
+      return c;
+    }
+
     void main(){
       vec2 p = vW.xz;
       float t = uTime;
-      // two crossed ripple trains plus a slow drift along the channel
-      float a = vn(p*1.7 + vec2(t*0.30*vD, t*0.11));
-      float b = vn(p*3.6 - vec2(t*0.18, t*0.42*vD));
-      float c = vn(p*8.1 + vec2(-t*0.55, t*0.33));
-      float hgt = a*0.5 + b*0.32 + c*0.18;
-      vec3 N = normalize(vec3((a-b)*0.9, 1.0, (b-c)*0.9));
       vec3 Vd = normalize(cameraPosition - vW);
-      float fres = pow(1.0 - clamp(dot(N,Vd),0.0,1.0), 3.2);
-      /* a still tank is dark: its colour is the reflection, not the water.
-         Only the moving channel carries the shallow turquoise. */
-      vec3 col = mix(uDeep, uShal, (0.30 + 0.55*hgt) * (0.24 + 0.76*vD));
-      col *= mix(0.42, 1.0, vD);
+      float dist = length(cameraPosition - vW);
 
-      /* the mirror. The ripple normal displaces the projected lookup, scaled
-         down with distance so the far end of a 630 m channel does not smear —
-         a metre of displacement is a whole reflected tower at fifty metres and
-         invisible at two. The sky term stays underneath as the fallback, so a
-         fragment whose reflection ray leaves the target still reads as water. */
+      /* the pixel footprint on the surface, in metres — the same measurement
+         the surface law uses, and needed here for the same reason */
+      vec3 fdx = dFdx(vW), fdy = dFdy(vW);
+      float fp = max(length(fdx), length(fdy));
+
+      float h; vec2 grad; float lap;
+      waves(p, fp, vFlow, t, h, grad, lap);
+      vec3 N = normalize(vec3(-grad.x, 1.0, -grad.y));
+
+      // ---- the tank, and where the refracted ray meets it -----------------
+      float depth = max(vShape.y, 0.05);
+      float yFloor = vW.y - depth;
+      vec3 R = refract(-Vd, N, 1.0 / 1.333);
+      // total internal reflection cannot happen entering a denser medium, but
+      // a degenerate normal can still produce a zero vector
+      if (dot(R, R) < 0.5) R = vec3(0.0, -1.0, 0.0);
+      R = normalize(R);
+      float tF = R.y < -1e-4 ? (yFloor - vW.y) / R.y : 1e9;
+      // the tank walls, so a ray running down the channel stops at the end
+      vec2 c2 = vTank.xy, hx = vTank.zw;
+      float tS = 1e9;
+      if (vShape.x > 0.5) {
+        vec2 o = p - c2;
+        float A = dot(R.xz, R.xz), B = dot(o, R.xz), Cq = dot(o, o) - hx.x * hx.x;
+        float disc = B * B - A * Cq;
+        if (A > 1e-6 && disc > 0.0) tS = (-B + sqrt(disc)) / A;
+      } else {
+        if (abs(R.x) > 1e-4) {
+          float d = ((R.x > 0.0 ? c2.x + hx.x : c2.x - hx.x) - p.x) / R.x;
+          if (d > 0.0) tS = min(tS, d);
+        }
+        if (abs(R.z) > 1e-4) {
+          float d = ((R.z > 0.0 ? c2.y + hx.y : c2.y - hx.y) - p.y) / R.z;
+          if (d > 0.0) tS = min(tS, d);
+        }
+      }
+      float tHit = max(0.02, min(tF, tS));
+      vec3 Pb = vW + R * tHit;
+      bool onFloor = tF <= tS;
+
+      /* caustics: focusing is curvature, and the curvature is already in hand.
+         Sampled where the SUN's refracted ray would have crossed the surface,
+         not under the fragment, which is what makes the pattern lie along the
+         light rather than under the eye. */
+      float caust = 0.0;
+      if (onFloor) {
+        vec3 Sd = normalize(uSun);
+        vec2 back = Pb.xz - Sd.xz / max(Sd.y, 0.25) * depth * 0.75;
+        float hb; vec2 gb; float lb;
+        waves(back, fp, vFlow, t, hb, gb, lb);
+        caust = pow(max(lb * 0.020, 0.0), 1.6) * 2.6;
+      }
+
+      /* Beer-Lambert over the real path: down through the water and back out.
+         The the + depth is the sun's own leg, which is why a deep tank is dark
+         even where you are looking straight down into it. */
+      float path = tHit + depth * 0.9;
+      vec3 trans = exp(-uAbsorb * path);
+      vec3 below = (onFloor ? tankFloor(Pb.xz) * (1.0 + caust * 1.8)
+                            : mix(uTank, vec3(0.42, 0.40, 0.35), 0.5) * 0.9);
+      vec3 through = below * trans + uScatter * (1.0 - trans) * 0.55;
+
+      // ---- the surface ----------------------------------------------------
+      float cosT = clamp(dot(N, Vd), 0.0, 1.0);
+      float F = 0.02 + 0.98 * pow(1.0 - cosT, 5.0);      // Schlick, water F0
+
       vec3 skyish = mix(uSky, uFogColor, 0.25);
+      vec3 mirror = skyish;
+      float ok = 0.0;
       if (uReflOn > 0.5 && vRP.w > 0.0) {
-        float dist = length(cameraPosition - vW);
-        float wob = 0.034 / (1.0 + dist * 0.16);
+        /* the ripple displaces the projected lookup, scaled down with distance
+           so the far end of a 630 m channel does not smear — a metre of
+           displacement is a whole reflected tower at fifty metres and
+           invisible at two */
+        float wob = 0.030 / (1.0 + dist * 0.16);
         vec2 ruv = (vRP.xy / vRP.w) + vec2(N.x, N.z) * wob;
-        vec3 mirror = texture2D(uRefl, clamp(ruv, 0.002, 0.998)).rgb;
-        // off-target fragments fall back rather than clamp-smearing an edge
         vec2 edge = smoothstep(vec2(0.0), vec2(0.03), ruv)
                   * (1.0 - smoothstep(vec2(0.97), vec2(1.0), ruv));
-        float ok = edge.x * edge.y;
-        // grazing angles reflect nearly everything, steep ones almost nothing
-        // a real water surface at a walking eye height is mostly mirror: the
-        // transmitted half is a dark tank, so what you see is the reflection
-        float mix1 = clamp(fres * 1.9 + 0.20 + 0.30 * (1.0 - vD), 0.0, 0.965) * ok;
-        col = mix(col, mirror, mix1);
-        col = mix(col, skyish, fres * 0.66 * (1.0 - ok));
-      } else {
-        col = mix(col, uSky, fres*0.66);
+        ok = edge.x * edge.y;
+        mirror = mix(skyish, texture2D(uRefl, clamp(ruv, 0.002, 0.998)).rgb, ok);
       }
+      vec3 col = mix(through, mirror, F);
+
+      // ---- foam at the wall ------------------------------------------------
+      float d2e = vShape.x > 0.5 ? hx.x - length(p - c2)
+                                 : min(hx.x - abs(p.x - c2.x), hx.y - abs(p.y - c2.y));
+      float fw = 0.11 + 0.05 * vn(p * 6.5 + vec2(0.0, t * 0.25));
+      float foam = smoothstep(fw, 0.0, d2e) * (0.45 + 0.55 * vn(p * 11.0 - vec2(t * 0.4, 0.0)));
+      foam *= 1.0 - smoothstep(0.0, 0.9, fp);      // it is not visible at range
+      col = mix(col, uFoam, clamp(foam, 0.0, 0.72));
+
+      // ---- the sun on it ---------------------------------------------------
       vec3 H = normalize(normalize(uSun) + Vd);
-      col += uWarm * pow(max(dot(N,H),0.0), 90.0) * 1.5;
-      col += uWarm * pow(max(dot(N,H),0.0), 12.0) * 0.16;
-      // caustic glitter
-      col += vec3(0.9,0.98,1.0) * pow(max(c-0.62,0.0), 2.0) * 1.1;
-      float d = length(cameraPosition - vW);
-      float fog = 1.0 - exp(-uFogD*uFogD*d*d);
+      float ndh = max(dot(N, H), 0.0);
+      col += uWarm * pow(ndh, 380.0) * 3.4;        // the glint
+      col += uWarm * pow(ndh, 22.0) * 0.10;        // the sheen around it
+
+      float fog = 1.0 - exp(-uFogD*uFogD*dist*dist);
       vec3 fd = normalize(vW - cameraPosition);
       col = mix(col, mix(uFogColor, uFogWarm, pow(max(dot(fd, normalize(uSun)), 0.0), 1.8)), fog);
-      gl_FragColor = vec4(col, 0.90 + 0.10*fres);
+      gl_FragColor = vec4(col, 1.0);
     }`,
 });
+
+/* Describe a water plane's own tank to the shader. Every body needs the same
+   four things and they used to be either absent or hard-coded: which way it
+   flows, how deep it is, whether it is a box or a disc, and where its walls
+   are. They ride as vertex attributes rather than uniforms because all four
+   bodies share one material and one draw call each — a uniform would mean four
+   materials, four programs and four reflection wirings. */
+function waterAttrs(g, flow, depth, shape, cx, cz, hx, hz) {
+  const n = g.attributes.position.count;
+  const fl = new Float32Array(n); fl.fill(flow);
+  const tk = new Float32Array(n * 4);
+  const sh = new Float32Array(n * 2);
+  for (let i = 0; i < n; i++) {
+    tk[i * 4] = cx; tk[i * 4 + 1] = cz; tk[i * 4 + 2] = hx; tk[i * 4 + 3] = hz;
+    sh[i * 2] = shape; sh[i * 2 + 1] = depth;
+  }
+  g.setAttribute('aFlow', new THREE.BufferAttribute(fl, 1));
+  g.setAttribute('aTank', new THREE.BufferAttribute(tk, 4));
+  g.setAttribute('aShape', new THREE.BufferAttribute(sh, 2));
+  return g;
+}
 
 const WATER_RUNS = (function () {
   const R = [
@@ -741,9 +1109,11 @@ function buildWater() {
       const pp = g.attributes.position;
       for (let k = 0; k < pp.count; k++) pp.setY(k, terrainY(pp.getX(k), pp.getZ(k)) - 0.34);
     }
-    const nv = g.attributes.position.count;
-    const fl = new Float32Array(nv); fl.fill(r[5] ? 1 : 0.14);
-    g.setAttribute('aFlow', new THREE.BufferAttribute(fl, 1));
+    /* the tank box under a run is 900 mm tall with its top 560 mm below the
+       water line — see the ACC.arch box a few lines down, which is the same
+       number read off the same place */
+    waterAttrs(g, r[5] ? 1 : 0.14, 0.56, 0,
+      (x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2);
     acc.add(g, xf(0, 0, 0), 0xffffff, 0, 1);
     // the stone tank the water sits in, and its coping kerbs
     const cy = (z0 + z1) / 2, cxm = (x0 + x1) / 2;

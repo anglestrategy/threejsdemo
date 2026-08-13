@@ -670,3 +670,38 @@ walk cycle green.
 `walkseg` (the sidewalk paver segment) came out of the intake at 99,800
 triangles with an identical far level — the disconnected-shell case again. It
 needs a `preweld` tolerance before it is usable and is not routed yet.
+
+---
+
+## Round N — the nine-item list
+
+Six of the nine are single changes with a measurement behind them; three
+(2, 7, 8) are rebuilds. Recorded here because each one has a caveat and the
+caveats belong where they are read, not only in the commit.
+
+| # | item | what shipped | caveat |
+|---|---|---|---|
+| 1 | test `models3d_generate` | a café chair at 120 k faces from one reference image; five assets through the same route (chair, café table, balcony railing, split AC unit, market parasol) | the generator is real and good; it is an asset source, not a rigger |
+| 2 | bake surfaces to textures | **not baked — band-limited analytically instead**, in BOTH renderers | a baked tile repeats and `srfH` is not periodic; see DEVIATIONS #13 for the table and the measurement |
+| 3 | anisotropy 8 → 16 | one queried constant, five call sites | WebGL2 queries the device; WebGPU is fixed at 16 by spec |
+| 4 | AgX instead of ACES | default on the WebGPU build, `?tone=aces` to compare | exposure moves with the curve — 0.88 ACES ≈ 1.05 AgX |
+| 5 | roll the shadow box | **not rolled — sized per axis instead** | rolling was measured first and it does not reach: best roll took north–south from 34.6 m to 48.6 m against the ~100 m needed. Per-axis extents give 102 m on every heading |
+| 6 | check the double-compile | `fogNode` now set before `enter()`; program count in `__stats` | |
+| 7 | real people | the ten scans tagged limb by limb by position and driven by the existing vertex walk cycle; two thirds of the crowd | **a binary skin, not a rig.** The tear is handled by ramping the swing to zero at the hip and at the centre line. A figure with its arms held tight to its body swings them less — deliberate, an unswung arm reads as carrying something and a wrongly-swung torso reads as a bug |
+| 8 | water rebuild | refraction, chromatic Beer–Lambert extinction, analytic tank, curvature caustics, foam, six dispersing wave trains at real sizes, opaque | replaces real sub-surface geometry with the analytic tank — four flat tank boxes and the submerged 750 mm of the fountain plinth |
+| 9 | glass | Schlick Fresnel driving alpha and reflection, tin-bath roll, thickness tint, dirt film, the district's own directional fog | the panes are one merged mesh, so two overlapping panes can blend in the wrong order. At these alphas the error is under a per cent — the deliberate limit of the no-depth-peeling rule |
+
+**The transparency rule, decided before the glass was written and used by both:**
+water is opaque and depth-writes (it computes what is beneath it analytically),
+glass never depth-writes and draws last, everything else is opaque or
+alpha-tested. Exactly one blended layer in the scene; glass and water never sort
+against each other; no depth peeling.
+
+**The bug underneath item 8.** `Acc` — the accumulator every piece of generated
+geometry goes through — copied position, normal, uv, colour and `aSurf` and
+dropped every other attribute on the floor. All four water meshes built an
+`aFlow` attribute and all four delivered it to the shader as zero, so the flow
+term has been multiplied by nothing since the channel was written and the whole
+district has had stagnant water. Nothing pointed at it: the water still
+animated, it just animated as a still tank does. `Acc` now auto-forwards any
+attribute the source geometry carries.

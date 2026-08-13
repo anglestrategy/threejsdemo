@@ -24,13 +24,14 @@
 import { Color, Vector2 } from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-  Fn, float, vec3, vec4, attribute, positionWorld, positionLocal, normalWorld,
+  Fn, float, vec2, vec3, vec4, attribute, positionWorld, positionLocal, normalWorld,
   cameraPosition, cameraViewMatrix, instanceIndex, length, floor, fract, mix,
   clamp, uniform, vertexColor, max, abs, sin, cos, If, select, dot,
 } from 'three/tsl';
 
 import {
   srfH, triplanarUV, reliefNormal, reliefNormalStaged, reliefNormalWorld,
+  footprint,
 } from './surface.js';
 import { directionalFog, probeField, ATMOS } from './atmosphere.js';
 
@@ -65,6 +66,11 @@ export function makeCityMaterial(opts = {}) {
   const clsOf = () => (opts.fixedClass ? float(4) : floor(attribute('aSurf', 'float')));
   const uvOf = () => triplanarUV(positionWorld, normalWorld);
   const distOf = () => length(positionWorld.sub(cameraPosition));
+  /* vec2(major axis, geometric mean) of the pixel's footprint on this surface,
+     in metres — the band-limit for the whole law. Off the WORLD POSITION, not
+     off the triplanar uv: see the note above the band-limiting block in
+     surface.js. `?nobl=1` turns it off, which is the A/B for judging it. */
+  const fpOf = () => (opts.noBandLimit ? vec2(0, 0) : footprint(positionWorld));
 
   /* ---- THE WORLD MOVES -------------------------------------------------
      The vertex half of the law, and the half that makes the district a place
@@ -154,8 +160,8 @@ export function makeCityMaterial(opts = {}) {
     const wn = opts.normalConst
       ? normalWorld
       : (stage
-        ? reliefNormalStaged(uvOf(), clsOf(), distOf(), uAmp, float(stage), normalWorld)
-        : reliefNormalWorld(uvOf(), clsOf(), distOf(), uAmp, normalWorld));
+        ? reliefNormalStaged(uvOf(), clsOf(), distOf(), uAmp, float(stage), normalWorld, fpOf())
+        : reliefNormalWorld(uvOf(), clsOf(), distOf(), uAmp, normalWorld, fpOf()));
     mat.normalNode = wn.transformDirection(cameraViewMatrix).normalize();
   }
 
@@ -165,7 +171,8 @@ export function makeCityMaterial(opts = {}) {
      is coursed stone rather than one colour behind a joint pattern. */
   if (!opts.noColor) {
     mat.colorNode = Fn(() => {
-      const h = srfH(uvOf(), clsOf()).toVar();     // (height, cavity, grain)
+      const fp = fpOf().toVar();
+      const h = srfH(uvOf(), clsOf(), fp.x, fp.y).toVar();  // (height, cavity, grain)
       const base = (opts.flatColor ? vec3(0.78) : vertexColor()).toVar();
       const shaded = base.mul(mix(float(0.62), float(1.0), h.y)).toVar();
       return shaded.mul(mix(float(0.90), float(1.10), h.z));
@@ -177,7 +184,8 @@ export function makeCityMaterial(opts = {}) {
      single most common tell of relief faked with a normal map alone. */
   if (!opts.noRough) {
     mat.roughnessNode = Fn(() => {
-      const h = srfH(uvOf(), clsOf()).toVar();
+      const fp = fpOf().toVar();
+      const h = srfH(uvOf(), clsOf(), fp.x, fp.y).toVar();
       return clamp(float(0.86).add(float(1).sub(h.y).mul(0.12))
         .sub(h.z.mul(0.06)), 0.25, 1.0);
     })();
@@ -199,7 +207,8 @@ export function makeCityMaterial(opts = {}) {
      WebGL2 path computed and what `emissiveNode` has to be handed. */
   const INV_PI = 1 / Math.PI;
   const albedoOf = () => Fn(() => {
-    const h = srfH(uvOf(), clsOf()).toVar();
+    const fp = fpOf().toVar();
+    const h = srfH(uvOf(), clsOf(), fp.x, fp.y).toVar();
     const base = (opts.flatColor ? vec3(0.78) : vertexColor()).toVar();
     return base.mul(mix(float(0.62), float(1.0), h.y))
       .mul(mix(float(0.90), float(1.10), h.z));

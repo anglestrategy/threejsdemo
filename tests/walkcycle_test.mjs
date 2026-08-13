@@ -15,9 +15,46 @@ await p.goto('http://localhost:8123/' + '?scene=city&shot=3&noveil=1', { waitUnt
 await p.waitForFunction('window.__ready === true', null, { timeout: 300000 });
 await p.waitForTimeout(3500);
 const r = await p.evaluate(() => {
-  const out = { tagged: {}, shaderHasBranch: null, swing: null };
+  const out = { tagged: {}, shaderHasBranch: null, swing: null, scans: {} };
   const sc = window.__scenes.city.scene;
   let sample = null;
+  /* THE SCANNED WALKERS.
+     Ten photogrammetry figures labelled limb by limb by `tagWalker()` — there
+     is no rigger in this project, so the tags are assigned by position on the
+     body and every one of the three measurements that makes that work can be
+     wrong on a given scan. So all three are asserted rather than trusted:
+
+       both  every figure must have BOTH legs tagged. One leg means the
+             lateral axis was read as the facing axis and the figure will
+             hop rather than walk.
+       lean  the leg tags must be roughly balanced. A 90/10 split means the
+             body's centre line is not at x = 0.
+       toe   the feet's centroid must sit forward of the body's, which is
+             what `tagWalker` uses to decide which way the figure faces. The
+             SIGN is corrected automatically; what cannot be corrected is a
+             measurement too small to trust, so the gate is on magnitude.  */
+  sc.traverse(o => {
+    if (!o.isInstancedMesh || !/^w:gw/.test(o.name)) return;
+    const a = o.geometry.getAttribute('aSurf');
+    const pos = o.geometry.getAttribute('position');
+    let ll = 0, rl = 0, la = 0, ra = 0, none = 0;
+    for (let i = 0; i < a.count; i++) {
+      const t = +(a.getX(i) % 1).toFixed(2);
+      if (t > 0.05 && t < 0.15) ll++;
+      else if (t < 0.25) rl++;
+      else if (t < 0.35) la++;
+      else if (t < 0.45) ra++;
+      else none++;
+    }
+    const legs = ll + rl;
+    out.scans[o.name] = {
+      leftLeg: ll, rightLeg: rl, leftArm: la, rightArm: ra, untagged: none,
+      legBalance: legs ? +(Math.min(ll, rl) / legs).toFixed(3) : 0,
+      toe: +(o.geometry.userData.toe === undefined ? 0 : o.geometry.userData.toe).toFixed(4),
+      flipped: !!o.geometry.userData.flipped,
+      verts: pos.count,
+    };
+  });
   sc.traverse(o => {
     if (!o.isInstancedMesh || !/^walk_/.test(o.name)) return;
     const a = o.geometry.getAttribute('aSurf');
@@ -48,5 +85,19 @@ const r = await p.evaluate(() => {
 });
 const names = Object.keys(r.tagged);
 const anyTagged = names.some(n => r.tagged[n].some(v => v > 0.05));
-console.log(JSON.stringify({ ...r, PASS: anyTagged && r.swing && r.swing.strideMetres > 0.3 }, null, 1));
+/* the scans are a gate too, but a soft one on count: if the people asset did
+   not load there is nothing to tag and that is a different failure, caught by
+   count_instances. What is hard is that any scan that IS in the scene must be
+   tagged correctly. */
+const scanNames = Object.keys(r.scans);
+const scanFails = scanNames.filter((n) => {
+  const s = r.scans[n];
+  return (s.leftLeg + s.rightLeg) < s.verts * 0.05     // legs found at all
+      || s.legBalance < 0.22                            // and both of them
+      || Math.abs(s.toe) < 0.017;                       // and facing decidably
+});
+console.log(JSON.stringify({ ...r, scanCount: scanNames.length, scanFails,
+  PASS: anyTagged && r.swing && r.swing.strideMetres > 0.3 && scanFails.length === 0 },
+null, 1));
 await b.close();
+process.exit((anyTagged && r.swing && r.swing.strideMetres > 0.3 && scanFails.length === 0) ? 0 : 1);

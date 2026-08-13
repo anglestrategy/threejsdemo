@@ -44,7 +44,27 @@ const S = {
    No BufferGeometryUtils in the embedded addon set, so everything merges by
    hand. Each pushed part carries a surface class and a baked shade so one
    draw call can hold a whole quarter of the city.                          */
-function Acc() { this.pos = []; this.nrm = []; this.uv = []; this.col = []; this.srf = []; this.idx = []; this.n = 0; }
+function Acc() {
+  this.pos = []; this.nrm = []; this.uv = []; this.col = []; this.srf = [];
+  this.idx = []; this.n = 0;
+  /* CUSTOM ATTRIBUTES TRAVEL WITH THE GEOMETRY.
+     They did not, and the bug that came of it took a long time to find and was
+     invisible the whole way: every water mesh in the district built an `aFlow`
+     attribute, every water mesh went through this accumulator, and this
+     accumulator copied position, normal, uv, colour and aSurf and dropped
+     everything else on the floor. So `aFlow` reached the shader as 0 on all
+     four bodies, the flow term was multiplied by it, and the district has had
+     dead still water everywhere since the day the channel was written.
+
+     Nothing pointed at it. The water animated (the time-varying terms are not
+     gated on flow), it just animated as a stagnant tank would, and "the water
+     does not look like water" is not a sentence that leads you to a missing
+     attribute copy. Auto-forwarding anything the source geometry carries is
+     the fix that cannot rot: a call site that adds an attribute gets it, with
+     no second place to remember. */
+  this.ext = {};
+}
+const ACC_BUILTIN = { position: 1, normal: 1, uv: 1, color: 1, aSurf: 1 };
 const _m3 = new THREE.Matrix3();
 const _v3 = new THREE.Vector3();
 const _c3 = new THREE.Color();
@@ -65,11 +85,32 @@ Acc.prototype.add = function (geo, mtx, colour, surf, shade) {
     this.col.push(r, g, b);
     this.srf.push(surf);
   }
+  this._ext(geo.attributes, base, cnt);
   const gi = geo.index;
   if (gi) { for (let i = 0; i < gi.count; i++) this.idx.push(base + gi.getX(i)); }
   else { for (let i = 0; i < cnt; i++) this.idx.push(base + i); }
   this.n += cnt;
   return this;
+};
+
+/* copy every non-builtin attribute across, back-filling zeros for the runs
+   added before it first appeared and for the runs that do not carry it */
+Acc.prototype._ext = function (attrs, base, cnt) {
+  for (const nm in attrs) {
+    if (ACC_BUILTIN[nm] || this.ext[nm]) continue;
+    const a = attrs[nm];
+    this.ext[nm] = { size: a.itemSize, data: new Array(base * a.itemSize).fill(0) };
+  }
+  for (const nm in this.ext) {
+    const e = this.ext[nm];
+    const a = attrs && attrs[nm];
+    if (!a) { for (let k = 0; k < cnt * e.size; k++) e.data.push(0); continue; }
+    for (let i = 0; i < cnt; i++) {
+      for (let c = 0; c < e.size; c++) {
+        e.data.push(c < a.itemSize ? a.array[i * a.itemSize + c] : 0);
+      }
+    }
+  }
 };
 
 /* push raw triangles with explicit per-vertex shade — used by the hand-built
@@ -89,6 +130,7 @@ Acc.prototype.tri = function (a, b, c, colour, surf, shade) {
     this.col.push(_c3.r * sh, _c3.g * sh, _c3.b * sh);
     this.srf.push(surf);
   }
+  this._ext(null, base, 3);
   this.idx.push(base, base + 1, base + 2);
   this.n += 3;
   return this;
@@ -103,6 +145,10 @@ Acc.prototype.geometry = function () {
   g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
   g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
   g.setAttribute('aSurf', new THREE.Float32BufferAttribute(this.srf, 1));
+  for (const nm in this.ext) {
+    const e = this.ext[nm];
+    g.setAttribute(nm, new THREE.Float32BufferAttribute(e.data, e.size));
+  }
   g.setIndex(this.idx.length > 65535 ? new THREE.Uint32BufferAttribute(this.idx, 1)
     : new THREE.Uint16BufferAttribute(this.idx, 1));
   g.computeBoundingSphere();
@@ -240,10 +286,10 @@ const TEX = {};
     const d = ld.load(TEXPACK[k].diff);
     d.wrapS = d.wrapT = THREE.RepeatWrapping;
     d.colorSpace = THREE.SRGBColorSpace;
-    d.anisotropy = 8;
+    d.anisotropy = MAX_ANISO_();
     const n = ld.load(TEXPACK[k].nrm);
     n.wrapS = n.wrapT = THREE.RepeatWrapping;
-    n.anisotropy = 8;
+    n.anisotropy = MAX_ANISO_();
     TEX[k] = { diff: d, nrm: n, mean: TEXPACK[k].mean };
   }
 })();
@@ -260,6 +306,49 @@ const TEX = {};
    so nothing ever pops.                                                    */
 /* every material that wants the irradiance field registers here, so the bake
    binds one set of textures to all of them */
+/* Anisotropic filtering, asked of the renderer rather than typed.
+
+   This was a hard 8 in five places. 16 is the usual hardware maximum and the
+   difference lands exactly where this district is weakest: a paving or asphalt
+   texture seen down a 200 m street is compressed far harder along the view than
+   across it, and an isotropic sample of it is the mush that reads as "low
+   quality" before anything else does.
+
+   `getMaxAnisotropy()` is the honest source — a typed 16 is a guess about
+   hardware, and on a device that caps at 4 three silently clamps it anyway. The
+   fallback covers the WebGPU path, where the query does not exist.
+
+   NOTE, because it is the more important half: the surfaces that shimmer worst
+   in this scene — paving, asphalt, travertine, brick — are NOT textures. They
+   are the procedural law evaluated per pixel, so there is nothing for any
+   filter to filter. That half is fixed by band-limiting the law analytically;
+   see the note above SURF_GLSL.
+
+   A LAZY getter, not a const. It was a const, and the const sat below
+   `loadDetail`, which reads it — so the module threw
+   `Cannot access 'MAX_ANISO' before initialization` on every load and the
+   district never built. A temporal-dead-zone error reads like a missing
+   import and is neither; the fix is to stop caring about declaration order,
+   not to shuffle the file. */
+/* `var`, deliberately. `let` and `const` both have a temporal dead zone, and
+   this module's own top-level code calls loadDetail() -> MAX_ANISO_() from
+   ABOVE this line, so either of them throws "Cannot access before
+   initialization" and the district never builds. `var` hoists as undefined,
+   which the falsy check below already handles. Two full render cycles were
+   spent proving this twice. */
+var _maxAniso = 0;
+function MAX_ANISO_() {
+  if (_maxAniso) return _maxAniso;
+  _maxAniso = 16;
+  try {
+    const c = renderer.capabilities;
+    if (c && typeof c.getMaxAnisotropy === 'function') {
+      _maxAniso = Math.max(1, Math.min(16, c.getMaxAnisotropy()));
+    }
+  } catch (e) { /* WebGPU path has no capabilities object */ }
+  return _maxAniso;
+}
+
 const PROBE_MATS = [];
 /* Panels generated from the renders and baked to alpha-cutout imposters by
    `gen_imposter.py`. A mashrabiya is 22,000 triangles of real lattice and this
@@ -273,7 +362,7 @@ const PANELS = {};
   for (const k in PANELPACK) {
     const t = ld.load(PANELPACK[k].tex);
     t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 8;
+    t.anisotropy = MAX_ANISO_();
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
     PANELS[k] = Object.assign({}, PANELPACK[k], { map: t });
   }
@@ -665,13 +754,107 @@ function resolve(px, pz, radius, feetY) {
    meso band is coursing / louvre rhythm / perforation driven by triplanar
    world position, and the micro band is roughness and hue variance. A 2-50 m
    macro layer sits over all of it so nothing tiles visibly.               */
+/* `?nobl=1` zeroes the footprint, which point-samples the law exactly as it
+   did before it was filtered. That is the A/B for judging the band-limiting:
+   the difference is a street that shimmers as the camera moves and one that
+   does not, and it has to be seen side by side rather than argued about.
+   Baked in as a literal rather than carried as a uniform — it is a debug
+   switch, and a uniform would put a multiply in every fragment forever. */
+const BAND_LIMIT = (typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('nobl') === '1') ? '0.0' : '1.0';
+
 const SURF_GLSL = `
+  /* ================================================== BAND-LIMITING ========
+     The surface law is procedural, and a procedural surface has nothing to
+     mipmap. A texture gets mipmaps and anisotropic filtering for free, and
+     both exist for exactly one reason: a pixel covers an AREA of the surface,
+     and what it should show is the AVERAGE over that area. Point-sampling a
+     225 mm ashlar course down a 200 m street asks a half-metre-wide pixel for
+     the value at one infinitesimal point of a pattern that changes eight
+     times across it. The answer is a random draw, and a random draw that
+     changes as the camera moves is a shimmer.
+
+     That is most of what read as "low quality" in a street-level frame. It is
+     not a tuning problem in the law; the law is fine. It is that the law was
+     never filtered.
+
+     So it is filtered here, analytically, which is the one method that costs
+     nothing per pixel and never repeats:
+
+       * every noise octave finer than the pixel is faded to its own mean
+         (0.5 for value noise), so it contributes its DC and none of its
+         aliasing;
+       * every hard feature — a joint, a mortar line, a groove, a flag edge —
+         is faded to its own SPATIAL MEAN over the cell it divides, computed
+         in closed form, so a wall of brick at 80 m goes to the true average
+         colour of brick-and-mortar rather than to random brick or random
+         mortar;
+       * every per-cell constant — this block's tone, this flag's wear — is
+         faded to 0.5 once its cell is under about two pixels.
+
+     Two footprints, and the difference between them matters:
+
+       gFPa  the MAJOR axis of the pixel's footprint, in metres. Conservative.
+             Used for the hard features and the per-cell constants, which have
+             discontinuities and alias violently, and where over-blurring is a
+             far cheaper mistake than sparkle.
+       gFPg  the GEOMETRIC MEAN of the two axes — the width of the square with
+             the same area. Used for the smooth noise octaves, which alias
+             gently, and where using the major axis at a grazing angle throws
+             away detail the eye can genuinely resolve along the other one.
+
+     Both come from dFdx/dFdy of the WORLD POSITION, not of the triplanar uv.
+     The triplanar uv jumps where the dominant axis changes, and a derivative
+     of a jump is a spike, which would punch a blurred line down every convex
+     edge in the district. The world position is continuous everywhere and
+     already carries the grazing-angle stretch that makes the footprint long.
+   * ======================================================================== */
+  float gFPa, gFPg;
+
   float h11(float p){ p=fract(p*0.1031); p*=p+33.33; p*=p+p; return fract(p); }
   float h21(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
   float vn2(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
     return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y); }
-  float fb2(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<4;i++){ s+=a*vn2(p); p*=2.03; a*=0.52; } return s; }
-  float fb3(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<3;i++){ s+=a*vn2(p); p*=2.11; a*=0.5; } return s; }
+
+  /* fb2/fb3 take the footprint IN THEIR OWN p-space, so a caller that wrote
+     fb2(q * 22.0) writes fb2(q * 22.0, gFPg * 22.0) and the octave weights
+     come out right without either side knowing the other's scale.
+
+     Nyquist: one lattice cell of octave i is 1 unit of p, so the octave holds
+     no information a pixel can carry once wp >= 0.5. It is faded out between
+     0.35 and 0.90 rather than cut at 0.5, because a hard cut is itself a
+     visible edge travelling across the ground as the camera moves.
+
+     A faded octave is replaced by its mean, not by zero: value noise averages
+     0.5, and dropping it to 0 would darken every distant surface. */
+  float fb2(vec2 p, float wp){ float s=0.0,a=0.5;
+    for(int i=0;i<4;i++){
+      float k = 1.0 - smoothstep(0.35, 0.90, wp);
+      s += a * (k > 0.002 ? mix(0.5, vn2(p), k) : 0.5);
+      p*=2.03; a*=0.52; wp*=2.03; }
+    return s; }
+  float fb3(vec2 p, float wp){ float s=0.0,a=0.5;
+    for(int i=0;i<3;i++){
+      float k = 1.0 - smoothstep(0.35, 0.90, wp);
+      s += a * (k > 0.002 ? mix(0.5, vn2(p), k) : 0.5);
+      p*=2.11; a*=0.5; wp*=2.11; }
+    return s; }
+
+  /* A hard feature fades to its own spatial mean once a pixel is wider than
+     the feature itself. \`mean\` is the closed-form average of the sharp
+     expression over one cell — for smoothstep(0, w, e) with e the distance to
+     the nearest cell edge, that average is exactly 1 - w/cell per axis. Using
+     the true mean rather than widening the smoothstep is the whole trick:
+     widening makes the joint spread until the wall is half joint and reads
+     two stops too dark, which is the usual way this gets done wrong. */
+  float blFeat(float sharp, float mean, float feat, float cell){
+    return mix(sharp, mean, smoothstep(feat, max(feat*2.0, cell*0.5), gFPa)); }
+
+  /* A per-cell constant fades to the mean of its own distribution — h21 is
+     uniform on 0..1, so 0.5 — once the cell is under about two pixels. This
+     is the term that puts salt and pepper on a distant brick wall. */
+  float blCell(float v, float cell){
+    return mix(v, 0.5, smoothstep(cell*0.30, cell*0.75, gFPa)); }
 
   /* --------------------------------------------------------------------- *
      THE HEIGHT FIELD.  One function, branched by surface class, returning a
@@ -690,16 +873,19 @@ const SURF_GLSL = `
       float bl = 0.42 + h11(row * 3.7 + 11.0) * 0.42;
       float jx = fract((q.x + off) / bl), jy = fract(q.y / course);
       float e = min(min(jx, 1.0 - jx) * bl, min(jy, 1.0 - jy) * course);
-      float joint = smoothstep(0.0, 0.016, e);        // 16 mm recessed joint
-      float stone = h21(vec2(floor((q.x + off) / bl), row) * 1.37);
+      float jw = 0.016;                               // 16 mm recessed joint
+      float joint = blFeat(smoothstep(0.0, jw, e),
+        (1.0 - jw / bl) * (1.0 - jw / course), jw, min(bl, course));
+      float stone = blCell(h21(vec2(floor((q.x + off) / bl), row) * 1.37), min(bl, course));
       grain = stone;
       cav = joint;
       // each block sits a little proud or shy of its neighbours, and its face
       // is not flat: that is what separates coursed stone from a grid
-      float face = 0.55 + 0.45 * fb2(q * 22.0 + stone * 30.0);
+      float face = 0.55 + 0.45 * fb2(q * 22.0 + stone * 30.0, gFPg * 22.0);
       return joint * (0.55 + 0.45 * stone) * 0.55 + face * 0.30 * joint;
     } else if (s < 1.5) {                            // RENDER, mud plaster
-      float t = fb2(q * 3.2) * 0.55 + fb2(q * 14.0) * 0.30 + fb2(q * 46.0) * 0.15;
+      float t = fb2(q * 3.2, gFPg * 3.2) * 0.55 + fb2(q * 14.0, gFPg * 14.0) * 0.30
+              + fb2(q * 46.0, gFPg * 46.0) * 0.15;
       grain = t; cav = 0.55 + 0.45 * t;
       return t;
     } else if (s < 2.5) {                            // BRICK
@@ -708,17 +894,26 @@ const SURF_GLSL = `
       float sft = mod(row, 2.0) * 0.5 * cw;
       float jx = fract((q.x + sft) / cw), jy = fract(q.y / ch);
       float e = min(min(jx, 1.0 - jx) * cw, min(jy, 1.0 - jy) * ch);
-      float mortar = smoothstep(0.0, 0.011, e);
-      float bk = h21(vec2(floor((q.x + sft) / cw), row) * 1.91);
+      float mw = 0.011;
+      float mortar = blFeat(smoothstep(0.0, mw, e),
+        (1.0 - mw / cw) * (1.0 - mw / ch), mw, min(cw, ch));
+      float bk = blCell(h21(vec2(floor((q.x + sft) / cw), row) * 1.91), min(cw, ch));
       grain = bk; cav = mortar;
-      return mortar * (0.62 + 0.38 * bk) * 0.72 + 0.16 * fb2(q * 40.0) * mortar;
+      return mortar * (0.62 + 0.38 * bk) * 0.72 + 0.16 * fb2(q * 40.0, gFPg * 40.0) * mortar;
     } else if (s < 3.5) {                            // TIMBER
+      /* the groove threshold is in BOARD units, not metres — 0.06 of a
+         192 mm board is 11.5 mm — so both it and the edge distance are put
+         back into metres before the footprint is allowed to judge them */
+      float bwm = 1.0 / 5.2;
       float board = floor(q.y * 5.2);
       float bj = fract(q.y * 5.2);
-      float groove = smoothstep(0.0, 0.06, min(bj, 1.0 - bj));
-      float gr = fb2(vec2(q.x * 2.2, q.y * 60.0));
+      float gwm = 0.06 * bwm;
+      float groove = blFeat(smoothstep(0.0, gwm, min(bj, 1.0 - bj) * bwm),
+        1.0 - gwm / bwm, gwm, bwm);
+      float gr = fb2(vec2(q.x * 2.2, q.y * 60.0), gFPg * 60.0);
       grain = gr; cav = groove;
-      return groove * (0.6 + 0.4 * gr) * 0.5 + h11(board * 5.1) * 0.12 * groove;
+      return groove * (0.6 + 0.4 * gr) * 0.5
+           + blCell(h11(board * 5.1), bwm) * 0.12 * groove;
     } else if (s < 4.5) {                            // TRAVERTINE
       /* Cladding panels, not megaliths. These were 2.3 x 1.15 m — bigger
          than a door, laid in a hard grid over every travertine and office
@@ -732,43 +927,59 @@ const SURF_GLSL = `
       float sft = mod(row, 2.0) * 0.5 * sw + h11(row * 4.7) * 0.18;
       float jx = fract((q.x + sft) / sw), jy = fract(q.y / sh);
       float e = min(min(jx, 1.0 - jx) * sw, min(jy, 1.0 - jy) * sh);
-      float joint = smoothstep(0.0, 0.006, e);
-      float band = fb2(vec2(q.x * 2.2, q.y * 16.0));
-      float slab = h21(vec2(floor((q.x + sft) / sw), row) * 1.61);
-      float pit = smoothstep(0.62, 0.92, fb2(q * 26.0));   // the travertine pores
+      float jw = 0.006;
+      float joint = blFeat(smoothstep(0.0, jw, e),
+        (1.0 - jw / sw) * (1.0 - jw / sh), jw, min(sw, sh));
+      float band = fb2(vec2(q.x * 2.2, q.y * 16.0), gFPg * 16.0);
+      float slab = blCell(h21(vec2(floor((q.x + sft) / sw), row) * 1.61), min(sw, sh));
+      float pit = smoothstep(0.62, 0.92, fb2(q * 26.0, gFPg * 26.0));   // the travertine pores
       grain = 0.35 * band + 0.65 * slab; cav = joint * (1.0 - pit * 0.7);
       return joint * (0.62 + 0.38 * slab) * 0.40 - pit * 0.22;
     } else if (s < 5.5) {                            // CONCRETE / white render
-      float t = fb2(q * 4.2) * 0.6 + fb2(q * 19.0) * 0.4;
+      float t = fb2(q * 4.2, gFPg * 4.2) * 0.6 + fb2(q * 19.0, gFPg * 19.0) * 0.4;
       grain = t; cav = 0.7 + 0.3 * t;
       return t * 0.6;
     } else if (s < 6.5) {                            // METAL, brushed
-      float t = fb2(vec2(q.x * 90.0, q.y * 4.0));
+      float t = fb2(vec2(q.x * 90.0, q.y * 4.0), gFPg * 90.0);
       grain = t; cav = 1.0;
       return t * 0.25;
     } else if (s < 7.5) {                            // PAVING, irregular flags
-      vec2 warp = vec2(fb3(q * 0.28), fb3(q * 0.28 + 19.0)) - 0.5;
-      vec2 p2 = q * 4.05 + warp * 0.85;
-      vec2 ci = floor(p2), cf = fract(p2);
-      float best = 9.0, second = 9.0; vec2 bid = vec2(0.0);
-      for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
-        vec2 g = vec2(float(i), float(j));
-        vec2 o = vec2(h21(ci + g), h21(ci + g + 41.7));
-        float d = length(g + o - cf);
-        if (d < best) { second = best; best = d; bid = ci + g; }
-        else if (d < second) second = d;
+      /* A Worley cell is 1 unit of p2, which is 247 mm of ground. Once a pixel
+         is wider than that the nine hashes below are nine random numbers per
+         pixel and the whole loop is a sparkle generator — so past that width
+         it is skipped entirely and the flags go straight to their mean. That
+         is the correct filtered answer AND it is the single biggest cost in
+         this shader gone from every distant square metre of pavement. */
+      float cellm = 1.0 / 4.05;
+      float ewm = 0.038 * cellm;
+      float edge, slab;
+      if (gFPa > cellm * 0.85) {
+        edge = 1.0 - ewm / cellm; slab = 0.5;
+      } else {
+        vec2 warp = vec2(fb3(q * 0.28, gFPg * 0.28), fb3(q * 0.28 + 19.0, gFPg * 0.28)) - 0.5;
+        vec2 p2 = q * 4.05 + warp * 0.85;
+        vec2 ci = floor(p2), cf = fract(p2);
+        float best = 9.0, second = 9.0; vec2 bid = vec2(0.0);
+        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+          vec2 g = vec2(float(i), float(j));
+          vec2 o = vec2(h21(ci + g), h21(ci + g + 41.7));
+          float d = length(g + o - cf);
+          if (d < best) { second = best; best = d; bid = ci + g; }
+          else if (d < second) second = d;
+        }
+        edge = blFeat(smoothstep(0.0, ewm, (second - best) * cellm),
+          1.0 - ewm / cellm, ewm, cellm);
+        slab = blCell(h21(bid * 1.13), cellm);
       }
-      float edge = smoothstep(0.0, 0.038, second - best);
-      float slab = h21(bid * 1.13);
       grain = slab; cav = edge;
       // every flag is laid a little high or low, and its face is worn
-      return edge * (0.5 + 0.5 * slab) * 0.5 + edge * 0.22 * fb2(q * 9.0);
+      return edge * (0.5 + 0.5 * slab) * 0.5 + edge * 0.22 * fb2(q * 9.0, gFPg * 9.0);
     } else if (s < 8.5) {                            // SAND
-      float d = fb2(q * 0.9) * 0.6 + fb2(q * 6.0) * 0.4;
+      float d = fb2(q * 0.9, gFPg * 0.9) * 0.6 + fb2(q * 6.0, gFPg * 6.0) * 0.4;
       grain = d; cav = 1.0;
       return d;
     } else if (s < 9.5) {                            // ASPHALT
-      float g2 = fb2(q * 26.0) * 0.6 + fb2(q * 90.0) * 0.4;
+      float g2 = fb2(q * 26.0, gFPg * 26.0) * 0.6 + fb2(q * 90.0, gFPg * 90.0) * 0.4;
       grain = g2; cav = 0.8 + 0.2 * g2;
       return g2 * 0.5;
     } else if (s < 10.5) {                           // FABRIC
@@ -777,12 +988,16 @@ const SURF_GLSL = `
          the drape. This was a 3 cm chequer at full amplitude, which put
          gingham on every figure, every awning and every cushion in the
          district — the single loudest wrong note in the near field. */
-      float fold = fb2(q * 5.5) * 0.62 + fb2(q * 17.0) * 0.38;
-      float w = 0.5 + 0.5 * sin(q.x * 1300.0) * sin(q.y * 1300.0);
+      float fold = fb2(q * 5.5, gFPg * 5.5) * 0.62 + fb2(q * 17.0, gFPg * 17.0) * 0.38;
+      /* the weave is 4.8 mm — under a pixel from about a metre and a half
+         away, and a sin() aliases into wide moiré bands rather than into
+         noise, which is far more visible. It goes to its own mean early. */
+      float wk = 1.0 - smoothstep(0.0012, 0.0034, gFPa);
+      float w = 0.5 + 0.5 * sin(q.x * 1300.0) * sin(q.y * 1300.0) * wk;
       grain = 0.34 + 0.66 * fold; cav = 1.0;
       return fold * 0.52 + w * 0.055;
     }
-    grain = fb2(q * 4.0); cav = 1.0;                 // FOLIAGE
+    grain = fb2(q * 4.0, gFPg * 4.0); cav = 1.0;     // FOLIAGE
     return grain;
   }
 `;
@@ -929,6 +1144,18 @@ function makeCityMaterial(cacheKey) {
           '#include <normal_fragment_maps>\n normal = normalize((viewMatrix * vec4(gNrmW, 0.0)).xyz);')
         .replace('#include <color_fragment>', `#include <color_fragment>
       {
+        /* THE PIXEL FOOTPRINT — set once, before anything reads the law.
+           dFdx/dFdy of the world position give the two edges of the quad this
+           fragment's pixel projects onto the surface, in metres. Their lengths
+           are the two axes of the footprint; the major one is what a
+           conservative filter must respect and their geometric mean is the
+           width of the equal-area square. See the note above SURF_GLSL for
+           why these come off the world position and not off the triplanar uv. */
+        vec3 fdx = dFdx(vWP), fdy = dFdy(vWP);
+        float fla = length(fdx), flb = length(fdy);
+        gFPa = max(fla, flb) * ${BAND_LIMIT};
+        gFPg = sqrt(max(fla * flb, 1e-12)) * ${BAND_LIMIT};
+
         vec3 Nw = normalize(vWNrm);
         vec3 aN = abs(Nw);
         /* triplanar frame in world space: the dominant axis picks the plane,
@@ -948,7 +1175,12 @@ function makeCityMaterial(cacheKey) {
         // ---- relief: sample the height field three times and bend the normal
         float cav, grain, cavx, gx, cavy, gy;
         float dist = length(cameraPosition - vWP);
-        float e = 0.006 + dist * 0.00035;
+        /* the central difference must never be finer than a pixel. Sampling
+           the height field at 6 mm through a pixel that covers 300 mm asks
+           for the slope between two arbitrary points of a field that has
+           twenty features between them — which is a random direction, and a
+           random normal direction is the sparkle on a distant wall. */
+        float e = max(0.006 + dist * 0.00035, gFPa);
         float h0 = srfH(uvw, s, cav, grain);
         float hx = srfH(uvw + vec2(e, 0.0), s, cavx, gx);
         float hy = srfH(uvw + vec2(0.0, e), s, cavy, gy);
@@ -989,7 +1221,8 @@ function makeCityMaterial(cacheKey) {
         rough = clamp(mix(rough, rough * (0.55 + 0.95 * nT.z), 0.60 * dw), 0.04, 1.0);
 
         // ---- macro band: 2-50 m drift so no material ever tiles
-        float macro = fb2(vWP.xz * 0.045) * 0.62 + fb3(vWP.xz * 0.011) * 0.38;
+        float macro = fb2(vWP.xz * 0.045, gFPg * 0.045) * 0.62
+                    + fb3(vWP.xz * 0.011, gFPg * 0.011) * 0.38;
         alb *= 0.84 + 0.34 * macro;
 
         // ---- albedo and roughness follow the same height field, so the
@@ -1007,12 +1240,12 @@ function makeCityMaterial(cacheKey) {
         if (s > 5.5 && s < 6.5) { gMetal = 0.44; rough = 0.26 + 0.34 * grain; }
 
         // ---- micro band: hue and value jitter, everywhere, at 6-40 cm
-        float micro = fb3(vWP.xz * 3.7 + vWP.y * 2.1);
+        float micro = fb3(vWP.xz * 3.7 + vWP.y * 2.1, gFPg * 3.7);
         alb *= 0.945 + 0.11 * micro;
         /* ground-contact weathering: every vertical surface darkens and
            desaturates in the first 900 mm, warmer where the ground bounces,
            and the splash line is uneven because rain is uneven */
-        float splash = 0.55 + 0.45 * fb2(vec2(vWP.x, vWP.z) * 1.7);
+        float splash = 0.55 + 0.45 * fb2(vec2(vWP.x, vWP.z) * 1.7, gFPg * 1.7);
         float lowT = smoothstep(0.95 * splash, 0.02, vWP.y) * (1.0 - aN.y);
         alb = mix(alb, alb * vec3(0.72, 0.69, 0.63), lowT * 0.55);
 
@@ -1079,8 +1312,8 @@ function makeCityMaterial(cacheKey) {
    field, and foliage still has to move, which means the wind term. Leaves are
    masked rather than blended: an alpha-sorted leaf card is a leaf card that
    flickers as you walk past it. */
-function makeModelMaterial(src, foliage) {
-  if (MATERIALS) { const m = MATERIALS.model(src, foliage); PROBE_MATS.push(m); return m; }
+function makeModelMaterial(src, foliage, walk) {
+  if (MATERIALS) { const m = MATERIALS.model(src, foliage, walk); PROBE_MATS.push(m); return m; }
   const mat = new THREE.MeshStandardMaterial({
     map: src.map || null, normalMap: foliage ? null : (src.normalMap || null),
     roughnessMap: foliage ? null : (src.roughnessMap || null),
@@ -1090,7 +1323,7 @@ function makeModelMaterial(src, foliage) {
     transparent: false,
     alphaTest: src.alphaTest > 0 ? src.alphaTest : (foliage && src.map ? 0.42 : 0),
   });
-  if (mat.map) mat.map.anisotropy = 8;
+  if (mat.map) mat.map.anisotropy = MAX_ANISO_();
   mat.userData.u = {
     uTime: { value: 0 }, uWind: { value: new THREE.Vector2(0.85, 0.32) },
     uSway: { value: foliage ? 1 : 0 },
@@ -1105,8 +1338,43 @@ function makeModelMaterial(src, foliage) {
   mat.onBeforeCompile = (sh) => {
     for (const k in mat.userData.u) sh.uniforms[k] = mat.userData.u[k];
     sh.vertexShader = `uniform float uTime, uSway; uniform vec2 uWind; varying vec3 vMWP;
+      ${walk ? 'attribute float aSurf;' : ''}
       float mwh(vec3 p){ return fract(sin(dot(p,vec3(12.99,78.23,37.71)))*43758.5453); }\n` +
       sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        ${walk ? `
+        /* THE SCANNED CROWD WALKS.
+           The same limb tag and the same swing as the procedural figures, with
+           two ramps the procedural ones do not need and must not get. A scan
+           is ONE continuous mesh: a rigid rotation about the hip rips it
+           across the pelvis, and two legs turning opposite ways split a robe
+           up the middle. Both ramps take the swing smoothly to zero at the
+           seam instead — over 180 mm below the pivot, and over 60 mm either
+           side of the centre line. The result is a thobe whose hem opens and
+           closes about a whole seam, which is what a thobe does.
+
+           tagWalker() guarantees the frame this assumes: feet at y = 0,
+           facing +Z, lateral on X. */
+        float limbTag = fract(aSurf + 0.001);
+        if (limbTag > 0.05) {
+          vec3 anch = vec3(0.0);
+          #ifdef USE_INSTANCING
+            anch = instanceMatrix[3].xyz;
+          #endif
+          float wph = mwh(floor(anch * 0.35) + vec3(7.3)) * 6.2831853;
+          float sw = sin(uTime * 4.15 + wph);
+          float swang, piv;
+          if (limbTag < 0.15)      { swang =  sw * 0.52; piv = 0.92; }
+          else if (limbTag < 0.25) { swang = -sw * 0.52; piv = 0.92; }
+          else if (limbTag < 0.35) { swang = -sw * 0.40; piv = 1.40; }
+          else                     { swang =  sw * 0.40; piv = 1.40; }
+          float rv = smoothstep(0.0, 0.18, piv - position.y);
+          float rl = smoothstep(0.0, 0.06, abs(position.x));
+          swang *= rv * rl;
+          float cw = cos(swang), sw2 = sin(swang);
+          vec3 lq = transformed; lq.y -= piv;
+          transformed.z = lq.z * cw - lq.y * sw2;
+          transformed.y = lq.z * sw2 + lq.y * cw + piv;
+        }` : ''}
         if (uSway > 0.5) {
           vec3 anchor = vec3(0.0);
           #ifdef USE_INSTANCING
@@ -1158,7 +1426,10 @@ function makeModelMaterial(src, foliage) {
         irradiance += mix(pgnd, psky, upW) * uProbeInt;
       }`);
   };
-  mat.customProgramCacheKey = () => 'citymodel' + (foliage ? 'f' : 's');
+  /* the walking variant compiles a different vertex shader, so it must not
+     share a program with the static one — the same fault that kept the shop
+     interiors dark for three rounds */
+  mat.customProgramCacheKey = () => 'citymodel' + (foliage ? 'f' : 's') + (walk ? 'w' : '');
   PROBE_MATS.push(mat);
   return mat;
 }
@@ -1255,6 +1526,8 @@ function updatePracticals(cam) {
    both follow the texel size: a bias tuned at 1.7 cm acnes at 14.6, and a
    penumbra fixed in texels would grow ninefold as the box opens. */
 const _shDir = new THREE.Vector3();
+const _shUp = new THREE.Vector3();
+const _shX = new THREE.Vector3();
 function fitShadow(target) {
   const c = citySun.shadow.camera;
   const h = Math.max(1.6, target.y);
@@ -1268,7 +1541,49 @@ function fitShadow(target) {
   const fl = Math.hypot(_shDir.x, _shDir.z) || 1;
   const cx = target.x + (_shDir.x / fl) * ahead;
   const cz = target.z + (_shDir.z / fl) * ahead;
-  c.left = -half; c.right = half; c.top = half; c.bottom = -half;
+  /* ---- fit the box to the view, per axis -------------------------------
+     A square box was covering wildly different distances on different
+     headings, and the difference is the sun rather than the code. The shadow
+     camera's two axes are `x` (horizontal, perpendicular to the sun's bearing)
+     and `y` (tilted with the sun). A ground direction that lies along `x` is
+     covered one-for-one; one that lies along the sun's bearing is covered
+     `1 / sin(elevation)` — 2.9x at this sun's 20 degrees.
+
+     MEASURED for this district, sun (-0.923, 0.342, -0.175), half = 34 m:
+
+         ground reach east-west   101.2 m
+         ground reach north-south  34.6 m
+
+     The souq spine is 216 m of north-south street and bookmark 3 looks
+     straight down it, so everything past 34 m had NO cast shadow — and three
+     reports receivers outside the frustum as LIT, which is why it read as a
+     flat street rather than as a broken one.
+
+     Rolling the box was tried first and the arithmetic says it cannot fix
+     this: swept over 180 degrees the best roll takes north-south from 34.6 m
+     to 48.6 m, because the un-compressed axis has to point somewhere and the
+     souq is nearly perpendicular to the sun. It also drags the sampling
+     lattice across every surface as the camera turns.
+
+     So the box is sized per axis from what the view actually needs: REACH
+     metres down the view, WIDTH either side of it, projected onto each axis
+     and taken as the extent. On an east-west street this changes nothing (the
+     sun already pays for it); on the souq it widens one axis and leaves the
+     other alone. No rotation, so the lattice never moves. */
+  const REACH = half * 3.0;             // how far down the street to shadow
+  const WIDTH = half;                   // how far either side of it
+  const vx = _shDir.x / fl, vz = _shDir.z / fl;
+  const px = -vz, pz = vx;              // across the view, on the ground
+  /* the two axes as three will build them: x = cross(up, z), y = cross(z, x),
+     with z = CSUN. Recomputed rather than transcribed — see CLAUDE.md. */
+  _shX.set(0, 1, 0).cross(CSUN).normalize();
+  _shUp.copy(CSUN).cross(_shX);
+  const need = (ax, az) => Math.max(
+    Math.abs(REACH * vx * ax + REACH * vz * az),
+    Math.abs(WIDTH * px * ax + WIDTH * pz * az));
+  const halfU = Math.min(430, Math.max(half, need(_shX.x, _shX.z)));
+  const halfW = Math.min(430, Math.max(half, need(_shUp.x, _shUp.z)));
+  c.left = -halfU; c.right = halfU; c.top = halfW; c.bottom = -halfW;
   const D = 260 + half * 1.6;
   c.near = 1; c.far = D + half * 2.4 + 90;
   c.updateProjectionMatrix();
@@ -1280,7 +1595,9 @@ function fitShadow(target) {
      units per texel — so a bias tuned for the 1.7 cm walking texel acnes badly
      at the 17 cm aerial one, and the acne reads as a whole quarter losing the
      sun rather than as speckle. */
-  const texel = 2 * half / SHADOW_MAP;
+  /* the box is no longer square, so the texel that matters for bias is the
+     COARSER of the two — a bias tuned to the fine axis acnes on the other */
+  const texel = 2 * Math.max(halfU, halfW) / SHADOW_MAP;
   citySun.shadow.bias = -(0.30 + texel * 3.6) / (c.far - c.near);
   citySun.shadow.normalBias = Math.max(0.05, texel * 3.6);
   citySun.shadow.radius = Math.min(9, Math.max(1, 0.14 / texel));

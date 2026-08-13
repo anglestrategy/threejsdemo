@@ -30,6 +30,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { makeCityMaterial as gpuCityMaterial, cityFogNode } from './gpu/material.js';
+import { makeGlassMaterial as gpuGlassMaterial } from './gpu/glass.js';
 import { makeModelMaterial as gpuModelMaterial } from './gpu/modelmat.js';
 import { makeSkyMaterial, makeGroundBounceMaterial } from './gpu/sky.js';
 import { makeWaterMaterial } from './gpu/water.js';
@@ -99,12 +100,34 @@ const IS_GPU = !!(renderer.backend && renderer.backend.isWebGPUBackend);
 say('renderer: ' + (IS_GPU ? 'WebGPU' : 'WebGL2 fallback'));
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(1);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-/* the district's own exposure. `setCityGrade(1)` in the WebGL2 build drops
-   it to 0.88 on entering the city and the whole grade is judged at that
-   number; leaving it at 1.0 here makes every side-by-side an exposure
-   comparison before it is anything else. */
-renderer.toneMappingExposure = 0.88;
+/* ---- tone mapping ------------------------------------------------------
+   AgX by default, not ACES, and the reason is this scene specifically.
+
+   The district is lit at 19:00 by a narrow-band source 20 degrees above the
+   horizon. ACES rolls a saturated orange highlight toward yellow and then to
+   white as it clips — which is the correct film look for a broad daylight
+   key and the wrong answer for a low warm sun, because the thing that makes
+   golden hour read as golden is exactly the hue ACES throws away first. AgX
+   holds hue into the clip. (Same finding, same reason, in StarKnightt/
+   night-street, whose street is lit the same way.)
+
+   `?tone=aces` switches back for an A/B, and the exposure follows the curve
+   rather than staying put: the two curves do not agree about what a given
+   radiance is worth, so comparing them at one exposure compares exposures.
+   The WebGL2 build already carried `?tone=agx` as an option — this makes the
+   two builds agree on the default instead of disagreeing silently. */
+const TONE = (_q.get('tone') || 'agx').toLowerCase();
+if (TONE === 'aces' || !THREE.AgXToneMapping) {
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.88;
+} else {
+  renderer.toneMapping = THREE.AgXToneMapping;
+  /* AgX has a longer toe and a gentler shoulder than ACES, so the same
+     radiance reads darker through it; the district's measured 0.88 under ACES
+     lands near 1.05 here. Tuned by the side-by-side, not by taste — ?exp=N
+     overrides so the number can be re-derived rather than trusted. */
+  renderer.toneMappingExposure = parseFloat(_q.get('exp') || '1.05');
+}
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -126,13 +149,18 @@ const CITY_MATERIALS = {
   city: (cacheKey) => {
     const m = gpuCityMaterial({
       roomAdd: cacheKey === 'room' ? [1.05, 0.86, 0.62] : null,
+      // ?nobl=1 point-samples the surface law again, which is the A/B for the
+      // band-limiting: the difference is a street that shimmers and one that
+      // does not, and it has to be seen side by side to be judged
+      noBandLimit: _q.get('nobl') === '1',
     });
     if (cacheKey === 'room') m.side = THREE.DoubleSide;
     GPU_MATS.push(m);
     return m;
   },
-  model: (src, foliage) => { const m = gpuModelMaterial(src, foliage); GPU_MATS.push(m); return m; },
+  model: (src, foliage, walk) => { const m = gpuModelMaterial(src, foliage, walk); GPU_MATS.push(m); return m; },
   water: (o) => { const m = makeWaterMaterial(o); GPU_MATS.push(m); return m; },
+  glass: (kind) => { const m = gpuGlassMaterial(kind); GPU_MATS.push(m); return m; },
   sky: () => makeSkyMaterial(),
   groundBounce: () => makeGroundBounceMaterial(),
 };
@@ -179,10 +207,19 @@ const scene = new THREE.Scene();      // the map scene the district restores to
 /* ------------------------------------------------------------------- drive */
 const cityScene3 = CITY.scene;
 const cam = CITY.cam;
-cityScene3.fogNode = cityFogNode();
 
 say('building the district…');
 const t0 = performance.now();
+/* Fog goes on BEFORE anything renders, and the ordering is the whole point.
+   A material's compiled program depends on the scene's fog and environment, so
+   attaching either one after the first draw makes every material in the
+   district compile TWICE — once without and once with. night-street measured
+   that exact mistake at 99 programs down to 76 and 11-13 seconds of load
+   recovered, and shader compilation is the dominant cost of starting a scene
+   this size. Nothing has rendered at this line; `enter()` builds geometry and
+   the PMREM bake below only ever sees the sky material. */
+cityScene3.fogNode = cityFogNode();
+
 /* `enter({instant:true})` drains the whole step generator itself — the chunking
    exists so the WebGL2 dive can animate over it, and there is no dive here. */
 await CITY.enter({ instant: true });
@@ -358,6 +395,20 @@ window.__water = () => {
 
 window.__stats = () => ({
   backend: IS_GPU ? 'webgpu' : 'webgl2',
+  /* how many shader programs the backend built. The number is the check on the
+     fog/environment ordering above: attach either late and this roughly
+     doubles. Reported rather than asserted because the backend's own shape
+     differs between the WebGPU and WebGL2 paths. */
+  programs: (() => {
+    try {
+      const b = renderer.backend;
+      if (b && b.programs) return b.programs.size !== undefined ? b.programs.size : b.programs.length;
+      if (renderer.info && renderer.info.programs) return renderer.info.programs.length;
+      const nb = renderer._nodes && renderer._nodes.nodeBuilderCache;
+      if (nb && nb.size !== undefined) return nb.size;
+    } catch (e) { /* not fatal, it is a diagnostic */ }
+    return null;
+  })(),
   calls: renderer.info.render.drawCalls,
   tris: renderer.info.render.triangles,
   csm: !!lit.csm,

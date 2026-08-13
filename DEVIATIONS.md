@@ -184,3 +184,59 @@ now fixed:
 `shot.mjs --webgpu` selects the flags that at least produce an adapter, so the
 moment the container's Chromium can hold a device, every existing gate works
 unchanged.
+
+---
+
+## 13. The surface law is band-limited analytically, not baked to textures
+
+**Spec item:** "bake surfaces to textures" — the list's item 2, whose purpose
+was to stop the procedural stone, brick and paving aliasing into mush and
+shimmer down a long street.
+
+**What was built instead:** the law is filtered analytically, in place, in both
+renderers — `SURF_GLSL` in `src/district.js` and `srfH` in `src/gpu/surface.js`.
+Each noise octave finer than the pixel fades to its own mean, each hard feature
+fades to its closed-form spatial mean over the cell it divides, and each
+per-cell constant fades to 0.5 once its cell is under about two pixels. The
+relief central difference is clamped so it is never finer than a pixel.
+
+**Why the bake was the wrong door.** It was written first (`src/gpu/bake.js`,
+now deleted) as a 4096² atlas of twelve 1024² class tiles with a near/far
+crossfade, and the design does not survive contact with the law:
+
+| | baked atlas | analytic band-limit |
+|---|---|---|
+| fixes shimmer | past the crossfade only | at every distance |
+| repeats | a 3.6 m travertine tile across a 40 m façade, eleven times | never |
+| tile seam | `srfH` is not periodic, so the tile does not wrap — a hard line every tile | none |
+| near/far agreement | only if the law is made periodic, which moves the repeat into the near field where it is visible | identical by construction, it is one law |
+| helps the shipping WebGL2 build | no, TSL only | yes, the same change in the GLSL |
+| VRAM | ~170 MB with mips | none |
+
+The atlas would also have bled between class cells at every mip past the first,
+since a one-texel inset only protects mip 0 and the tiles are neighbours.
+
+**Measured, not argued.** `tests/surf_compile.mjs` compiles the law on a real
+WebGL2 context and reads back the peak-to-peak spread of the height across
+sixteen *neighbouring pixels* at eight footprints. That spread is the aliasing.
+
+```
+peak-to-peak height across 16 neighbouring pixels, 0-255
+                    8mm    30mm    90mm   250mm   700mm  2000mm
+brick      before   181     186     204     212     192     159
+brick      after    178      47       0       0       0       0
+ashlar     before   111     195     169     169     164     148
+ashlar     after    111     186      42       2       2       3
+paving     before    13     152     149      99     109      54
+paving     after     13     139      48       0       0       0
+```
+
+Before the change, adjacent pixels at street distance disagreed by 60-80% of
+full range on every class. `?nobl=1` restores the old point-sampled law in both
+builds so the two can be judged side by side.
+
+**Cost, and it is negative.** Distant pavement no longer runs the nine-hash
+Worley loop at all — past a 210 mm footprint the flags are under a pixel and
+the loop is skipped for its mean — and faded noise octaves skip their `vn2`
+call. The filtered law is cheaper than the unfiltered one everywhere past about
+twenty metres, which is most of every street-level frame.

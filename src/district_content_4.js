@@ -6,6 +6,12 @@
 const LIGHTS = [];       // string-light bookkeeping (count only; flicker is in-shader)
 const JETS = [];         // fountain jets, animated
 const WALKERS = [];      // people on seeded paths
+/* every instance name the crowd drives — the five procedural figures plus
+   whichever of the ten scans tagWalker() managed to label. Filled by the
+   dressing pass and read every frame by updateLife, which is why it is here
+   and not a local: it used to be a hard-coded list of five names, and adding
+   the scans to the crowd without moving it would have left them frozen. */
+let WALK_KINDS = [];
 const BIRDS = [];
 
 /* emissive material: the instance colour *is* the light colour */
@@ -72,24 +78,182 @@ const poolMat = MATERIALS && MATERIALS.water ? MATERIALS.water({ pool: true }) :
     }`,
 });
 
-/* glass: transparent, low roughness, keeps a little of the sky */
-const glassMat = new THREE.MeshStandardMaterial({
-  vertexColors: true, transparent: true, opacity: 0.34, roughness: 0.06,
-  metalness: 0.70, color: 0xffffff, side: THREE.DoubleSide, depthWrite: false,
-  envMapIntensity: 1.5,
-});
-// shopfront glazing is nearly clear: you are meant to see the lit room
-/* Shopfront glass, and the reason the interiors were invisible for three
+/* ================================================================ GLASS ==
+   Both panes were a CONSTANT alpha over a metallic standard material —
+   opacity 0.34 on the balustrades and 0.085 on the shopfronts — and a constant
+   alpha is the single loudest wrong note glass can make. A window is not 34%
+   opaque. It is about 4% reflective when you look straight through it and
+   almost 100% reflective when you look along it, and the whole reading of a
+   glazed elevation comes from that swing: the panes near the middle of your
+   view are clear and show the room, and the same panes at the end of the
+   street are a sheet of sky. Fresnel is not a refinement here, it IS the
+   material.
+
+   Five things, in the order they matter:
+
+   1. SCHLICK FRESNEL, driving both the alpha and the reflection. F0 = 0.043,
+      which is (n-1)^2/(n+1)^2 for n = 1.52 soda-lime float glass. The alpha
+      goes from the base transmission face-on to opaque at grazing.
+   2. WHAT IT REFLECTS. There is no environment map in this build and a real
+      one would cost a cube render per frame, so the reflected ray is shaded
+      analytically against the same dusk sky and ground bounce the rest of the
+      district is lit by — warm low in the west, deep blue overhead, the
+      pavement's own colour below the horizon. It agrees with the scene
+      because it is built from the scene's own numbers.
+   3. ROLL DISTORTION. Float glass is not flat. It is drawn over a tin bath and
+      it keeps a slight cylindrical roll, which is why the reflection of a
+      straight parapet in a real curtain wall bows and breaks between panes.
+      A 1.4 m ripple at a fifth of a degree of slope does it, and it is the
+      cue that most reliably separates a rendered window from a photographed
+      one.
+   4. TINT WITH THICKNESS. Architectural glass is faintly green — iron in the
+      melt — and you see the tint in transmission, doubled through a sealed
+      unit. It is 6 mm of glass, so this is subtle and it is measurable.
+   5. DIRT. A vertical pane in a desert city holds a film that catches the low
+      sun. Faint vertical streaking, strongest at the bottom of the pane.
+
+   The transparency rule this uses, decided before the material was written:
+   the water is OPAQUE and depth-writes (it computes what is beneath it
+   analytically — see the water shader), the glass depth-writes NOT AT ALL and
+   is drawn last, and everything else in the district is opaque or alpha-tested.
+   So there is exactly one blended layer in the scene, glass never sorts
+   against water, and no depth peeling is needed. Where two panes do overlap —
+   a shopfront seen through a balustrade — the blend order can be wrong, and at
+   these alphas the error is under a per cent. That is the deliberate limit of
+   the rule and it is why the rule is cheap.                                 */
+function makeGlassMaterial(kind) {
+  if (MATERIALS && MATERIALS.glass) return MATERIALS.glass(kind);
+  const shop = kind === 'shop';
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true, transparent: true, side: THREE.DoubleSide,
+    depthWrite: false,
+    /* the standard model still runs underneath: it carries the sun's specular
+       and the district's lights. What is replaced is the constant alpha and
+       the missing environment. */
+    opacity: 1.0,
+    roughness: shop ? 0.14 : 0.06,
+    metalness: 0.0,
+    color: 0xffffff,
+    envMapIntensity: 0.0,
+  });
+  mat.userData.u = {
+    /* base transmission looking straight through. A shopfront at dusk is meant
+       to show the room — the room is brighter than the street, so transmission
+       wins — and a balustrade is meant to read as a pane. */
+    uBaseA: { value: shop ? 0.055 : 0.16 },
+    uTint: { value: new THREE.Color(shop ? 0xdcece4 : 0xc8dcd8) },
+    uSkyHi: { value: new THREE.Color(0x2f4a78) },
+    uSkyLo: { value: new THREE.Color(0x9fb2cf) },
+    uSunW: { value: CSUN.clone() },
+    uWarm: { value: new THREE.Color(0xffc07a) },
+    uGnd: { value: new THREE.Color(0x6c6152) },
+    uDirt: { value: shop ? 0.55 : 0.30 },
+    uFogWarm: { value: new THREE.Color(0xd9a878) },
+    uFogCool: { value: new THREE.Color(0x7286a8) },
+    uFogScaleH: { value: 150 },
+  };
+  mat.onBeforeCompile = (sh) => {
+    for (const k in mat.userData.u) sh.uniforms[k] = mat.userData.u[k];
+    sh.vertexShader = 'varying vec3 vGWP; varying vec3 vGN;\n' + sh.vertexShader
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        vGWP = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        vGN = normalize(mat3(modelMatrix) * normal);`);
+    sh.fragmentShader = `varying vec3 vGWP; varying vec3 vGN;
+      uniform float uBaseA, uDirt, uFogScaleH;
+      uniform vec3 uTint, uSkyHi, uSkyLo, uSunW, uWarm, uGnd, uFogWarm, uFogCool;
+      float gh21(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+      float gvn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+        return mix(mix(gh21(i),gh21(i+vec2(1,0)),f.x),mix(gh21(i+vec2(0,1)),gh21(i+vec2(1,1)),f.x),f.y); }
+      /* the dusk sky as a function of direction, built from the same three
+         colours the district's own sky dome and fog are built from, so a
+         reflection agrees with what it is reflecting */
+      vec3 gSky(vec3 d) {
+        float up = clamp(d.y * 0.5 + 0.5, 0.0, 1.0);
+        vec3 c = mix(uSkyLo, uSkyHi, pow(up, 0.75));
+        float s = pow(max(dot(normalize(d), normalize(uSunW)), 0.0), 5.0);
+        c += uWarm * s * 0.55;
+        // below the horizon it is the ground, not the sky
+        return mix(uGnd * 0.75, c, smoothstep(-0.09, 0.06, d.y));
+      }\n` + sh.fragmentShader
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      {
+        /* ROLL. Float glass keeps a slight cylindrical roll from the tin bath,
+           so a straight line reflected in a real curtain wall bows and steps
+           between panes. 1.4 m period at about a fifth of a degree. */
+        vec3 nw = normalize(vGN);
+        vec3 up = abs(nw.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+        vec3 tw = normalize(cross(up, nw));
+        vec3 bw = cross(nw, tw);
+        vec2 pl = vec2(dot(vGWP, tw), dot(vGWP, bw));
+        float rollA = sin(pl.y * 4.4) * 0.0034 + gvn(pl * 0.62) * 0.0026 - 0.0013;
+        float rollB = sin(pl.x * 3.1 + 1.7) * 0.0021;
+        vec3 nrw = normalize(nw + tw * rollB + bw * rollA);
+        normal = normalize((viewMatrix * vec4(nrw, 0.0)).xyz);
+      }`)
+      .replace('#include <opaque_fragment>', `
+      {
+        vec3 nw = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
+        vec3 Vd = normalize(cameraPosition - vGWP);
+        // a double-sided pane must reflect off the face you can see
+        if (dot(nw, Vd) < 0.0) nw = -nw;
+        float cosT = clamp(dot(nw, Vd), 0.0, 1.0);
+        float F = 0.043 + 0.957 * pow(1.0 - cosT, 5.0);
+
+        /* DIRT: a vertical film that runs down the pane, heaviest at the
+           bottom and streaked along the run of the glass. It raises the
+           reflection a little and the alpha a lot, which is what a dirty
+           window actually does. */
+        vec3 up2 = abs(nw.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+        vec3 tw2 = normalize(cross(up2, nw));
+        vec2 pl2 = vec2(dot(vGWP, tw2), vGWP.y);
+        float streak = gvn(vec2(pl2.x * 7.0, pl2.y * 0.55)) * 0.65
+                     + gvn(vec2(pl2.x * 21.0, pl2.y * 0.30)) * 0.35;
+        float low = smoothstep(2.6, 0.0, fract(pl2.y * 0.5) * 2.0);
+        float dirt = clamp(uDirt * (0.22 + 0.78 * streak) * (0.35 + 0.65 * low), 0.0, 0.55);
+
+        vec3 refl = gSky(reflect(-Vd, nw));
+        // the sealed unit reflects twice; the inner pane is dimmer and offset
+        refl += gSky(reflect(-Vd, normalize(nw + vec3(0.004, -0.006, 0.003)))) * 0.34;
+        refl /= 1.34;
+
+        /* transmission: what the standard model computed, tinted by 6 mm of
+           glass twice over and dimmed by the film */
+        vec3 through = outgoingLight * uTint * (1.0 - dirt * 0.5);
+
+        float a = clamp(uBaseA + (1.0 - uBaseA) * F + dirt * 0.45, 0.0, 1.0);
+        vec3 col = mix(through, refl + outgoingLight * 0.25, clamp(F + dirt * 0.5, 0.0, 1.0));
+        col += uWarm * dirt * 0.10 * pow(max(dot(nw, normalize(normalize(uSunW) + Vd)), 0.0), 3.0);
+
+        gl_FragColor = vec4(col, a * diffuseColor.a);
+      }`)
+      .replace('#include <fog_fragment>', `
+      #ifdef USE_FOG
+        /* the same directional, altitude-falloff fog the walls use. Glass that
+           fogs differently from the mullion beside it is a category error you
+           see instantly on a distant tower. */
+        vec3 gfd = normalize(vGWP - cameraPosition);
+        float gfs = pow(max(dot(gfd, normalize(uSunW)), 0.0), 1.8);
+        float gha = 0.5 * (cameraPosition.y + vGWP.y);
+        float gfog = 1.0 - exp(-fogDensity * fogDensity
+                     * exp(-max(gha, 0.0) / uFogScaleH) * vFogDepth * vFogDepth);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, mix(uFogCool, uFogWarm, gfs), clamp(gfog, 0.0, 1.0));
+      #endif`);
+  };
+  mat.customProgramCacheKey = () => 'cityglass' + kind;
+  return mat;
+}
+
+const glassMat = makeGlassMaterial('rail');
+/* Shopfront glazing, and the reason the interiors were invisible for three
    rounds. At metalness 0.30, roughness 0.05 and an environment intensity of
-   0.75, this was a near-mirror: at dusk it returned a flat sheet of sky and
-   nothing behind it could be seen at all, whatever was in there. A real shop
-   window in the evening is the opposite — the room is brighter than the street,
-   so transmission wins and the reflection is a faint veil over the top. */
-const shopGlassMat = new THREE.MeshStandardMaterial({
-  vertexColors: true, transparent: true, opacity: 0.085, roughness: 0.14,
-  metalness: 0.02, color: 0xffffff, side: THREE.DoubleSide, depthWrite: false,
-  envMapIntensity: 0.13,
-});
+   0.75, the old one was a near-mirror: at dusk it returned a flat sheet of sky
+   and nothing behind it could be seen at all, whatever was in there. A real
+   shop window in the evening is the opposite — the room is brighter than the
+   street, so transmission wins and the reflection is a faint veil over it. The
+   Fresnel term above now does that by itself rather than by a hand-picked
+   constant, and it does the other half too: the same pane at the end of the
+   street goes to sky, which is what a row of shopfronts looks like. */
+const shopGlassMat = makeGlassMaterial('shop');
 
 /* ---------------------------------------------------------- kit geometry */
 function kitBox(list, x, y, z, w, h, d, col, surf, shade, ry, rx, rz) {
@@ -246,7 +410,7 @@ function palmGeo(detail) {
   return g;
 }
 
-let STANDERS = [], SITTERS = [], PALM_PROC = null, FURNITURE = [];
+let STANDERS = [], SITTERS = [], WALKSCANS = [], PALM_PROC = null, FURNITURE = [];
 
 function defineKit() {
   /* ---- palm ----------------------------------------------------------- */
@@ -1127,6 +1291,10 @@ function defineKit() {
      division the walk cycle was built for. */
   STANDERS = routePersonParts('people10', 'gp', 1.72);
   SITTERS = routePersonParts('people5s', 'gs', 1.28);
+  /* and the same ten again, tagged limb by limb so the walk cycle drives
+     them. The procedural walkers stay: a crowd of ten repeated scans reads as
+     a photocopy, and the two mixed read as a crowd. See tagWalker(). */
+  WALKSCANS = routeWalkerParts('people10', 'gw', 1.72);
 
   /* ---- the palm --------------------------------------------------------
      This asset was rejected in an earlier round on the strength of a

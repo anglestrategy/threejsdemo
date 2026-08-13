@@ -46,8 +46,14 @@ try {
   say('renderer: ' + (isGPU ? 'WebGPU' : 'WebGL2 fallback'));
   rn.setSize(innerWidth, innerHeight);
   rn.setPixelRatio(1);
-  rn.toneMapping = THREE.ACESFilmicToneMapping;
-  rn.toneMappingExposure = 1.0;
+  /* AgX, not ACES — see the note in src/gpuapp.js. A low warm key is the one
+     case where ACES's hue shift toward yellow-white is the wrong answer. */
+  if (Q.get('tone') === 'aces' || !THREE.AgXToneMapping) {
+    rn.toneMapping = THREE.ACESFilmicToneMapping; rn.toneMappingExposure = 1.0;
+  } else {
+    rn.toneMapping = THREE.AgXToneMapping;
+    rn.toneMappingExposure = parseFloat(Q.get('exp') || '1.2');
+  }
   rn.shadowMap.enabled = flag('shadow');
   document.body.appendChild(rn.domElement);
 

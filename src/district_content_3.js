@@ -475,8 +475,9 @@ function buildCourtyard() {
   const wacc = new Acc();
   const wg = new THREE.PlaneGeometry(px1 - px0, pz1 - pz0, 12, 8);
   wg.rotateX(-Math.PI / 2); wg.translate((px0 + px1) / 2, gy - 0.12, (pz0 + pz1) / 2);
-  const fl = new Float32Array(wg.attributes.position.count); fl.fill(0.10);
-  wg.setAttribute('aFlow', new THREE.BufferAttribute(fl, 1));
+  // tank top at gy - 1.05 + 0.62 = gy - 0.43, water at gy - 0.12: 310 mm deep
+  waterAttrs(wg, 0.10, 0.31, 0, (px0 + px1) / 2, (pz0 + pz1) / 2,
+    (px1 - px0) / 2, (pz1 - pz0) / 2);
   wacc.add(wg, xf(0, 0, 0), 0xffffff, 0, 1);
   const wm = new THREE.Mesh(wacc.geometry(), waterMat);
   WATERMESHES.push(wm);
@@ -609,8 +610,9 @@ function buildTensile() {
   const wacc = new Acc();
   const wg = new THREE.PlaneGeometry(bx1 - bx0, bz1 - bz0, 10, 18);
   wg.rotateX(-Math.PI / 2); wg.translate((bx0 + bx1) / 2, gy - 0.14, (bz0 + bz1) / 2);
-  const fl = new Float32Array(wg.attributes.position.count); fl.fill(0.22);
-  wg.setAttribute('aFlow', new THREE.BufferAttribute(fl, 1));
+  // tank top at gy - 0.95 + 0.55 = gy - 0.40, water at gy - 0.14: 260 mm deep
+  waterAttrs(wg, 0.22, 0.26, 0, (bx0 + bx1) / 2, (bz0 + bz1) / 2,
+    (bx1 - bx0) / 2, (bz1 - bz0) / 2);
   wacc.add(wg, xf(0, 0, 0), 0xffffff, 0, 1);
   const wm = new THREE.Mesh(wacc.geometry(), waterMat);
   WATERMESHES.push(wm);
