@@ -652,14 +652,27 @@ function downtownPlaza() {
   platform(D.x0, D.z0, D.x1, D.z1, gy + 0.13);
 
   // ---- the four buildings that make the room
-  const put = (kit, x, z, ry) => {
+  /* Placed with their solidity, not just their geometry. An `inst` on its own
+     is scenery you walk through: these need a collider so the square is a
+     room you are actually inside, an occluder so the fabric behind them is
+     not drawn through them, and a scan site so nothing else claims the
+     ground they stand on. */
+  const put = (kit, x, z, ry, hw, hd, h) => {
     if (!MODEL_ROUTE[kit]) return;
-    inst(kit, xf(x, groundAt(x, z), z, ry), 0xffffff);
+    const y = groundAt(x, z);
+    inst(kit, xf(x, y, z, ry), 0xffffff);
+    // footprint half-extents swap when the piece is turned a quarter turn
+    const turned = Math.abs(Math.sin(ry)) > 0.5;
+    const ex = turned ? hd : hw, ez = turned ? hw : hd;
+    collider(x, z, ex - 0.4, ez - 0.4, 0, y + h);
+    occluder(x, z, ex, ez, y + h);
+    platform(x - ex, z - ez, x + ex, z + ez, y + 0.16);
+    SCANSITES.push({ x0: x - ex - 2, x1: x + ex + 2, z0: z - ez - 2, z1: z + ez + 2 });
   };
-  put('cinema', D.x0 - 12, mz - 4, Math.PI / 2);        // west, facing east in
-  put('hotelcnr', D.x1 + 14, mz + 6, -Math.PI / 2);     // east, facing west in
-  put('shophouse', mx + 6, D.z0 - 16, Math.PI);         // north, facing south in
-  put('arcadeblk', mx - 30, D.z1 + 16, 0);              // south, facing north in
+  put('cinema', D.x0 - 12, mz - 4, Math.PI / 2, 21.0, 13.0, 12.5);   // west, facing east in
+  put('hotelcnr', D.x1 + 14, mz + 6, -Math.PI / 2, 11.5, 11.5, 16.5); // east, facing west in
+  put('shophouse', mx + 6, D.z0 - 16, Math.PI, 21.3, 5.2, 12.0);      // north, facing south in
+  put('arcadeblk', mx - 30, D.z1 + 16, 0, 14.3, 8.0, 11.0);           // south, facing north in
 
   // ---- public art on the centre line, which is what the eye lands on
   if (MODEL_ROUTE.artring) inst('artring', xf(mx + 8, gy + 0.13, mz - 6, 0.7), 0xffffff);
