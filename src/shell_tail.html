@@ -1,0 +1,22 @@
+
+  var urls = {};
+  for (var k in MODS) {
+    var b = atob(MODS[k]);
+    var u8 = new Uint8Array(b.length);
+    for (var i = 0; i < b.length; i++) u8[i] = b.charCodeAt(i);
+    urls[k] = URL.createObjectURL(new Blob([u8], { type: 'text/javascript' }));
+  }
+  var main = urls['__main__'];
+  delete urls['__main__'];
+  var im = document.createElement('script');
+  im.type = 'importmap';
+  im.textContent = JSON.stringify({ imports: urls });
+  document.head.appendChild(im);
+  var s = document.createElement('script');
+  s.type = 'module';
+  s.src = main;
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>
