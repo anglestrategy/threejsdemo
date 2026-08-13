@@ -720,7 +720,10 @@ function defineKit() {
     defInst('totem', combine(L));
     // the display face again, emissive, so it reads as lit rather than pale
     const E = [];
-    E.push({ geo: G_BOXT, mtx: xf3(0, 1.32, -0.17, 0, 0, 0, 0.76, 2.14, 0.02), col: 0xffffff, surf: 0, shade: 1 });
+    /* base-at-origin, like every other kit box: G_BOXT is translated +0.5 in
+       Y, so this y is the bottom of the panel and not its centre. Getting
+       that wrong floats the glow a metre above the sign it belongs to. */
+    E.push({ geo: G_BOXT, mtx: xf3(0, 0.24, -0.17, 0, 0, 0, 0.76, 2.14, 0.02), col: 0xffffff, surf: 0, shade: 1 });
     defInst('totemlit', combine(E), { mat: emisSoftMat, shadow: false });
   }
   /* ---- timber pergola bracket ---------------------------------------- */
