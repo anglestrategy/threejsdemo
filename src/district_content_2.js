@@ -208,7 +208,13 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
   const at = (t, off) => [S4.x0 + ux * t + nx * (off || 0), S4.z0 + uz * t + nz * (off || 0)];
 
   // ---- ground floor
-  const shopfront = (style === 'souq' && pub >= 1) || (style === 'brick' && pub >= 2) || (style === 'office' && pub >= 1);
+  /* `modern` had to join this test. Mixing the downtown quarter's materials
+     moved two thirds of its plots off `brick` onto sand and travertine, and
+     since neither qualified here the whole quarter quietly lost its
+     ground-floor retail — a downtown of blank plinths. Any modern block on a
+     public frontage is a shopfront, which is what the references show. */
+  const shopfront = (style === 'souq' && pub >= 1) || (style === 'brick' && pub >= 2)
+    || (style === 'office' && pub >= 1) || (modern && pub >= 1);
   const gh = style === 'office' ? fh * 1.5 : fh;
   /* the block hollowed its whole ground floor to make room for shops. A side
      that has none has to put the mass back, or its windows look into a void. */
@@ -255,6 +261,17 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         const lp = at(b * bw + pierW / 2, -0.34);
         inst('wlantern', xf(lp[0], gy + 2.85, lp[1], ang + Math.PI / 2), 0xffd9a4);
         PRACTICALS.push({ x: lp[0] - nx * 0.3, y: gy + 2.85, z: lp[1] - nz * 0.3, c: 0xffc98a, i: 2.6, r: 8.5 });
+      }
+      /* The glazed vitrine, standing in the opening in front of the lit room.
+         The asset exists for exactly this — the comment where it was routed
+         says so — and it had never been placed anywhere. Scaled uniformly off
+         its 3.30 m fit height so it keeps its proportions rather than being
+         stretched to the bay, and only where the bay is wide enough to take
+         it without fouling the piers. */
+      if (MODEL_ROUTE.vitrine && ow > 2.0 && oh > 2.0) {
+        const vs = oh / 3.30;
+        const vp = at(t, -0.10);
+        inst('vitrine', xf3(vp[0], gy + 0.12, vp[1], 0, ang + Math.PI / 2, 0, vs, vs, vs), 0xffffff);
       }
       // a step and a threshold slab
       a.add(G_BOXT, xf(at(t, -1.35)[0], gy - 0.06, at(t, -1.35)[1], ang, ow + 0.6, 0.14, 1.0), 0xc9b795, S.TRAVERTINE, shade * 0.95);
