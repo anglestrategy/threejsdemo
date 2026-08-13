@@ -600,6 +600,24 @@ function routeSceneParts(key, prefix, opts) {
    the frame, and visibly destroyed. Every asset now keeps its full geometry
    anywhere in the walkable district; only the ring beyond LOD_FULL drops. */
 const LOD_FULL = 340;
+/* Whether the far level can ever be selected at all. Since the district was
+   halved, every corner of the plan sits inside LOD_FULL of a near-field
+   viewpoint and the answer is no — which is worth knowing at load time,
+   because it means the loader can skip a second GLB fetch, parse and
+   in-memory geometry copy for all 87 props. Measured rather than assumed, so
+   that widening the plan again turns the far level back on by itself. */
+const LOD_FAR_USED = (function () {
+  const B = PLAN.bounds;
+  for (const c of [[B.x0, B.z0], [B.x1, B.z0], [B.x0, B.z1], [B.x1, B.z1]]) {
+    let best = 1e9;
+    for (const p of NEARFIELD) {
+      const d = (c[0] - p[0]) * (c[0] - p[0]) + (c[1] - p[1]) * (c[1] - p[1]);
+      if (d < best) best = d;
+    }
+    if (best > LOD_FULL * LOD_FULL) return true;
+  }
+  return false;
+})();
 function modelLOD(r, x, z) {
   if (r.parts.length < 2) return 0;
   const rad = Math.max(r.near, LOD_FULL);

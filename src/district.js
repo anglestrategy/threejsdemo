@@ -413,8 +413,13 @@ async function loadProps() {
       });
       if (!parts.length) return;
       const rec = Object.assign({ parts }, index[key]);
-      // the far level, where the intake produced one
-      if (index[key].lod1) {
+      /* The far level, where the intake produced one AND anything in the plan
+         is far enough away to want it. Since the district was halved, every
+         point in it falls inside LOD_FULL of a near-field viewpoint, so the
+         far level is never selected — and loading it anyway costs a second
+         GLB fetch and parse per prop, and a second copy of the geometry held
+         in memory, for something that is never drawn. */
+      if (index[key].lod1 && LOD_FAR_USED) {
         try {
           const g1 = await gl.loadAsync(index[key].lod1.file);
           const p1 = [];
