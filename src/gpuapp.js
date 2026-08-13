@@ -258,22 +258,27 @@ const shot = SHOTS.find(x => x.id === shotId) || SHOTS[0];
 await CITY.goShot(shot, true);
 say('shot ' + shot.id + ': ' + shot.name);
 
-/* `aFlow` is authored on the channel geometry and not on every water body the
-   channel material ends up on. GLSL reads a missing attribute as zero; TSL
-   warns and the backend is free to hand back anything. Zeroed explicitly here,
-   which is also what it means: no flow. */
-let flowFixed = 0;
-CITY.scene.traverse((o) => {
-  if (!o.isMesh || !o.material || !o.material.userData || !o.material.userData.u) return;
-  if (!o.material.userData.u.uReflOn) return;          // not the water material
-  if (o.geometry.getAttribute('aFlow')) return;
-  const n = o.geometry.attributes.position.count;
-  o.geometry.setAttribute('aFlow', new THREE.BufferAttribute(new Float32Array(n), 1));
-  flowFixed++;
-});
-if (flowFixed) say('aFlow zeroed on ' + flowFixed + ' still water body(ies)');
+/* No `aFlow` fix-up any more, and its removal is the point: adding a
+   zero-filled attribute to each water geometry was the only thing this build
+   did to that geometry that the shipping build does not, and the souq rendered
+   as a canal because of it. The district never authors flow that survives the
+   merge — see the note in src/gpu/water.js — so the material reads a constant
+   and the geometry is left exactly as the generator produced it. */
+
+/* ?nowater=1 hides every water body. One flag, and it separates "the water is
+   wrong" from "something else is teal" — which is not the same question and
+   was about to cost a third guess. */
+if (_q.get('nowater') === '1') {
+  let hid = 0;
+  CITY.scene.traverse((o) => {
+    const u = o.isMesh && o.material && o.material.userData && o.material.userData.u;
+    if (u && u.uReflOn) { o.visible = false; hid++; }
+  });
+  say('hid ' + hid + ' water body(ies)');
+}
 
 const READY_AT = Math.max(1, +(_q.get('frames') || 14));
+const REFL_ALWAYS = _q.get('refl') === '1';
 let f = 0;
 renderer.setAnimationLoop(() => {
   const dt = Math.min(0.05, clock.getDelta());
@@ -293,12 +298,63 @@ renderer.setAnimationLoop(() => {
      (getRenderTarget / setRenderTarget / clear / render / shadowMap
      .autoUpdate) exists on WebGPURenderer. `WebGLRenderTarget` is re-exported
      by three.webgpu.js and extends RenderTarget, so even the target class
-     carries over. Nothing to port; only to call. */
-  if (!QA.norefl) CITY.reflect();
+     carries over. Nothing to port; only to call.
+
+     Once, on the first frame, unless `?refl=1`. A frame here is already three
+     full passes over 87 M triangles — the eye pass, the shadow refit and this —
+     and a software rasteriser does not survive that repeated. On a moving
+     camera the mirror must be re-rendered every frame and `?refl=1` does that,
+     which is what real hardware runs; on the fixed camera of a still gate the
+     mirror is identical every frame, so rendering it once is not an
+     approximation, it is the same image for a third of the cost. */
+  if (!QA.norefl && (REFL_ALWAYS || f === 0)) CITY.reflect();
   if (post) post.render(); else renderer.render(cityScene3, cam);
   window.__frames++;
   if (++f === READY_AT) window.__ready = true;
 });
+
+/* Water diagnostics, because the souq read as a canal and the arithmetic said
+   the flow attribute had to be the cause — and a guess at that costs a ten
+   minute render here, where a fact costs nothing. */
+window.__water = () => {
+  const out = [];
+  CITY.scene.traverse((o) => {
+    if (!o.isMesh || !o.material || !o.material.userData || !o.material.userData.u) return;
+    const u = o.material.userData.u;
+    if (!u.uReflOn) return;
+    const a = o.geometry.getAttribute('aFlow');
+    o.geometry.computeBoundingBox();
+    const bb = o.geometry.boundingBox;
+    out.push({
+      name: o.name || '?', visible: o.visible, renderOrder: o.renderOrder,
+      aFlow: a ? { n: a.count, min: +Math.min(...a.array).toFixed(3), max: +Math.max(...a.array).toFixed(3) } : null,
+      y: +((bb.min.y + bb.max.y) / 2).toFixed(2),
+      span: [+(bb.max.x - bb.min.x).toFixed(1), +(bb.max.z - bb.min.z).toFixed(1)],
+      cx: +((bb.min.x + bb.max.x) / 2).toFixed(1), cz: +((bb.min.z + bb.max.z) / 2).toFixed(1),
+      reflOn: u.uReflOn.value, depthWrite: o.material.depthWrite,
+      transparent: o.material.transparent,
+      /* Does this mesh have geometry AT the souq, or does its bounding box
+         merely reach there? The merged channel spans 390 x 644 m and the souq
+         sits inside that box, which is not the same as water being there — and
+         the shipping build, measured the same way, has no vertices there at
+         all while this build draws a water surface across the street. */
+      nearSouq: (() => {
+        const pos = o.geometry.getAttribute('position');
+        let n = 0, ylo = 1e9, yhi = -1e9;
+        for (let i = 0; i < pos.count; i++) {
+          const x = pos.getX(i), z = pos.getZ(i);
+          if (Math.abs(x - 4) < 10 && Math.abs(z - 178) < 40) {
+            n++; const y = pos.getY(i); if (y < ylo) ylo = y; if (y > yhi) yhi = y;
+          }
+        }
+        return n ? { verts: n, y: [+ylo.toFixed(3), +yhi.toFixed(3)] } : null;
+      })(),
+      verts: o.geometry.getAttribute('position').count,
+      indexed: !!o.geometry.index,
+    });
+  });
+  return out;
+};
 
 window.__stats = () => ({
   backend: IS_GPU ? 'webgpu' : 'webgl2',

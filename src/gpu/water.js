@@ -40,7 +40,7 @@ import {
 } from 'three';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import {
-  Fn, float, vec2, vec3, vec4, uniform, texture, attribute, positionWorld,
+  Fn, float, vec2, vec3, vec4, uniform, texture, positionWorld,
   cameraPosition, normalize, dot, max, min, pow, mix, clamp, smoothstep, floor,
   fract, length, exp, If,
 } from 'three/tsl';
@@ -105,15 +105,40 @@ export function makeWaterMaterial(opts = {}) {
      ground is most of the street. */
   const mat = new MeshBasicNodeMaterial({ transparent: true, fog: false });
 
+  /* `?wdbg=flow|fres` paints the water with the one value being argued about
+     instead of its colour. The souq read as a canal and two rounds of
+     arithmetic said the flow attribute had to be at 1 while the buffer was all
+     zeros; a guess at that costs a ten minute render in this container and a
+     measurement costs the same render and settles it. */
+  const DBG = (typeof location !== 'undefined'
+    && new URLSearchParams(location.search).get('wdbg')) || '';
+
   mat.colorNode = Fn(() => {
     const wp = positionWorld.toVar();
     const p = wp.xz.toVar();
     const t = u.uTime.toVar();
-    /* `aFlow` per vertex: 0 in a still tank, 1 in the channel. The pool
-       variant has no such attribute, so it supplies the constant instead of
-       reading a buffer that is not there — an attribute() on a missing
-       attribute is zeros on one backend and garbage on another. */
-    const vD = (opts.pool ? float(0) : attribute('aFlow', 'float')).toVar();
+    /* `aFlow` is dead code, and measuring that is what ended a long hunt.
+
+       The GLSL reads a per-vertex flow rate — 0 in a still tank, 1 in the
+       channel — and scales both the drift and the colour by it. But NO water
+       mesh in the district carries the attribute: `Acc`, which merges every
+       water run into one mesh, copies position/normal/uv/colour/surface and
+       not `aFlow`, so the one place that authors it (the roundabout basin)
+       loses it in the merge. Measured on the shipping build: all four water
+       meshes report `aFlow: null`. GLSL reads a missing attribute as zero, so
+       the shipping district has been still water everywhere, always.
+
+       The port therefore does the same thing explicitly. The alternative — the
+       one tried first — was to add a zero-filled attribute to each water
+       geometry so TSL had something to read; that is a mutation of geometry the
+       shipping build never touches, and touching it is the only thing the two
+       builds did differently at this surface. Reading a constant is both
+       faithful and inert.
+
+       Restoring real flow means fixing `Acc` to carry `aFlow` through the
+       merge, which is a change to the SHARED district and belongs in its own
+       step with the WebGL2 build re-gated. Logged, not smuggled in here. */
+    const vD = float(0).toVar();
 
     const a = vn(p.mul(1.7).add(vec2(t.mul(0.30).mul(vD), t.mul(0.11)))).toVar();
     const b = vn(p.mul(3.6).sub(vec2(t.mul(0.18), t.mul(0.42).mul(vD)))).toVar();
@@ -167,6 +192,11 @@ export function makeWaterMaterial(opts = {}) {
     col.assign(mix(col, mix(u.uFogColor, u.uFogWarm,
       pow(max(dot(fd, normalize(u.uSun)), 0.0), 1.8)), clamp(fg, 0.0, 1.0)));
 
+    if (DBG === 'flow') return vec4(vec3(vD), 1.0);
+    if (DBG === 'hgt') return vec4(vec3(hgt), 1.0);
+    if (DBG === 'base') return vec4(col, 1.0);
+    if (DBG === 'deep') return vec4(u.uDeep, 1.0);
+    if (DBG === 'fres') return vec4(vec3(fres), 1.0);
     return vec4(col, float(0.90).add(fres.mul(0.10)));
   })();
 

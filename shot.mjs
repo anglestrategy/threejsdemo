@@ -60,5 +60,7 @@ await page.screenshot({ path: path.join(ROOT, 'shots', name + '.png'), timeout: 
 
 let stats = null;
 try { stats = await page.evaluate(() => (window.__stats ? window.__stats() : null)); } catch (e) { }
-console.log(JSON.stringify({ name, url: url.slice(url.lastIndexOf('/') + 1), bootMs, fps, stats, errors: errors.slice(0, 24) }, null, 1));
+let extra = null;
+try { extra = await page.evaluate(() => (window.__water ? window.__water() : null)); } catch (e) { }
+console.log(JSON.stringify({ name, url: url.slice(url.lastIndexOf('/') + 1), bootMs, fps, stats, water: extra, errors: errors.slice(0, 24) }, null, 1));
 await browser.close();
