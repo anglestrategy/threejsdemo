@@ -277,7 +277,12 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
          two side cheeks and a valance. */
       if (chance(0.46) && ow > 1.8) {
         const AC = pick([0x9d4a3c, 0xb5613f, 0x7a5b3a, 0x4f5f52, 0x8e6a3e, 0xa8503f]);
-        const ah = gy + oh * 0.90;                 // springs from above the head
+        /* springs from above the head, but never higher than an awning goes.
+           A double-height modern shopfront puts oh at 4.25 m, and 90% of that
+           is a canopy at nearly four metres — over the heads of the people it
+           is meant to shade, which is not what it looks like in any of the
+           references. */
+        const ah = gy + Math.min(oh * 0.90, 3.35);
         const proj = 1.55;
         /* Stepped rather than tilted. xf3 composes its Euler as XYZ, so a roll
            term here would be applied about the world axis and not about the
