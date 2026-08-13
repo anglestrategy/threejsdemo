@@ -45,7 +45,8 @@ const MODEL_ROUTE = {};
    majlis terrace. Anything planted along those gets the full scan. */
 const NEARFIELD = (function () {
   const p = [[0, 0], [21, -44], [-40, -30], [40, -20], [150, 235], [-224, 198],
-  [-200, 150], [-250, 230], [258, 374], [-120, -60]];
+  [-200, 150], [-250, 230], [258, 374], [-120, -60],
+  [292, 144], [178, 196], [132, 306], [250, 200], [300, 200]];
   for (let z = 80; z <= 370; z += 34) p.push([4 + (z > 250 ? 26 : 0), z]);
   return p;
 })();
@@ -1078,11 +1079,11 @@ const waterMat = MATERIALS && MATERIALS.water ? MATERIALS.water({}) : new THREE.
     uTime: { value: 0 }, uSun: { value: CSUN.clone() },
     /* absorption per metre, linear RGB. Clean water: red goes first, which is
        why a metre of it is blue-green and ten metres of it is blue. */
-    uAbsorb: { value: new THREE.Vector3(0.68, 0.12, 0.08) },
+    uAbsorb: { value: new THREE.Vector3(0.72, 0.10, 0.07) },
     /* the light the body scatters back out of itself, which is what makes a
        shallow pool glow rather than just darken */
-    uScatter: { value: C(0x35a09a) },
-    uTank: { value: C(0x2a4742) }, uGrout: { value: C(0x16292a) },
+    uScatter: { value: C(0x38a89e) },
+    uTank: { value: C(0x2c4e48) }, uGrout: { value: C(0x162c2c) },
     uFoam: { value: C(0xe8f2f2) },
     uSky: { value: C(0x7c8fc4) }, uWarm: { value: C(0xffc98a) },
     uFogColor: { value: C(0x62789f) }, uFogWarm: { value: C(0xe6bd92) }, uFogD: { value: CITY_FOG },

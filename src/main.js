@@ -1832,8 +1832,8 @@ const AOShader = {
     uProjInv: { value: new THREE.Matrix4() },
     uRes: { value: new THREE.Vector2(1, 1) },
     uNear: { value: 0.1 }, uFar: { value: 1000 },
-    uRadius: { value: 1.35 }, uIntensity: { value: 1.95 },
-    uTint: { value: new THREE.Color(0x4e445c) },
+    uRadius: { value: 1.35 }, uIntensity: { value: 1.85 },
+    uTint: { value: new THREE.Color(0x504660) },
     uOn: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
@@ -1974,23 +1974,23 @@ composer.addPass(dofPass);
    only genuinely over-bright pixels bloom, and they bloom gently. The previous
    0.58 / 0.70 pair (a low threshold with high strength) is what smeared the
    beacons into white. */
-const BLOOM_MAP = { s: 0.52, r: 0.64, t: 0.92 };
+const BLOOM_MAP = { s: 0.56, r: 0.68, t: 0.88 };
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), BLOOM_MAP.s, BLOOM_MAP.r, BLOOM_MAP.t);
 composer.addPass(bloom);
 
 const GradeShader = {
   uniforms: {
     tDiffuse: { value: null }, uTime: { value: 0 },
-    uVig: { value: 0.86 }, uDim: { value: 0 },
+    uVig: { value: 0.90 }, uDim: { value: 0 },
     uRes: { value: new THREE.Vector2(1, 1) },
     uVeil: { value: 0 }, uCity: { value: 0 },
     /* the golden (t=19.0) and dusk (t=20.6) keyframes interpolated to this
        scene's hour. Kept as uniforms so the grade stays tunable in one place. */
     uWB: { value: new THREE.Vector3(1.042, 0.978, 0.955) },
-    uShTint: { value: new THREE.Vector3(0.725, 0.895, 1.240) },
-    uHiTint: { value: new THREE.Vector3(1.185, 1.018, 0.822) },
-    uShAmt: { value: 0.60 }, uHiAmt: { value: 0.54 },
-    uSat: { value: 1.14 }, uCon: { value: 1.10 },
+    uShTint: { value: new THREE.Vector3(0.740, 0.900, 1.220) },
+    uHiTint: { value: new THREE.Vector3(1.195, 1.022, 0.830) },
+    uShAmt: { value: 0.55 }, uHiAmt: { value: 0.50 },
+    uSat: { value: 1.12 }, uCon: { value: 1.08 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: `

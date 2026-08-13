@@ -1053,7 +1053,7 @@ function makeCityMaterial(cacheKey) {
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
     uProbeInt: { value: 1.12 },
-    uFogWarm: { value: new THREE.Color(0xdcab7c) }, uFogCool: { value: new THREE.Color(0x7488ac) },
+    uFogWarm: { value: new THREE.Color(0xe0a572) }, uFogCool: { value: new THREE.Color(0x6882b0) },
     uFogScaleH: { value: 150 },
     uSunW: { value: CSUN.clone() },
     /* A room the sun never enters is lit by its own ceiling, and no pooled
@@ -1243,13 +1243,13 @@ function makeCityMaterial(cacheKey) {
         alb += foli * vec3(0.078, 0.120, 0.042) * (0.45 + 0.55 * grain);
         rough = clamp(rough * (1.10 - 0.28 * grain) + (1.0 - cav) * 0.20, 0.05, 1.0);
 
-        if (s > 1.5 && s < 2.5) alb = mix(alb, alb * vec3(1.12, 0.93, 0.84), grain);
-        if (s > 3.5 && s < 4.5) alb *= vec3(0.96 + 0.14 * grain, 0.94 + 0.12 * grain, 0.91 + 0.10 * grain);
-        if (s > 5.5 && s < 6.5) { gMetal = 0.44; rough = 0.26 + 0.34 * grain; }
-        if (s > 6.5 && s < 7.5) alb *= vec3(1.04, 1.01, 0.95);
-        if (s > 4.5 && s < 5.5) alb *= vec3(1.02, 1.01, 0.97);
-        if (s > 7.5 && s < 8.5) alb *= vec3(1.06, 1.02, 0.93);
-        if (s > 8.5 && s < 9.5) alb *= vec3(0.97, 0.97, 1.0);
+        if (s > 1.5 && s < 2.5) alb = mix(alb, alb * vec3(1.16, 0.91, 0.82), grain);
+        if (s > 3.5 && s < 4.5) alb *= vec3(0.94 + 0.16 * grain, 0.92 + 0.14 * grain, 0.89 + 0.12 * grain);
+        if (s > 5.5 && s < 6.5) { gMetal = 0.48; rough = 0.24 + 0.32 * grain; }
+        if (s > 6.5 && s < 7.5) alb *= vec3(1.05, 1.01, 0.94);
+        if (s > 4.5 && s < 5.5) alb *= vec3(1.03, 1.01, 0.96);
+        if (s > 7.5 && s < 8.5) alb *= vec3(1.08, 1.03, 0.91);
+        if (s > 8.5 && s < 9.5) alb *= vec3(0.96, 0.96, 1.02);
 
         // ---- micro band: hue and value jitter, everywhere, at 6-40 cm
         float micro = fb3(vWP.xz * 3.7 + vWP.y * 2.1, gFPg * 3.7);
@@ -1268,15 +1268,15 @@ function makeCityMaterial(cacheKey) {
         float dripStrk = smoothstep(0.56, 0.80, dripSeed);
         float dripV = (1.0 - abs(aN.y));
         float dripZ = smoothstep(0.6, 3.0, vWP.y);
-        float drpT = dripStrk * dripV * dripZ * 0.36;
-        alb = mix(alb, alb * vec3(0.74, 0.72, 0.69), drpT);
-        rough = mix(rough, min(rough * 0.82, 0.68), drpT * 0.4);
+        float drpT = dripStrk * dripV * dripZ * 0.40;
+        alb = mix(alb, alb * vec3(0.72, 0.70, 0.66), drpT);
+        rough = mix(rough, min(rough * 0.78, 0.64), drpT * 0.45);
 
         /* building-scale warm/cool hue drift: no two facades should read
            the same colour even if they are the same material, because
            real stone weathers differently on each face */
         float hueDrift = fb2(vWP.xz * 0.018, gFPg * 0.018);
-        alb *= mix(vec3(0.97, 0.98, 1.02), vec3(1.03, 1.01, 0.97), hueDrift);
+        alb *= mix(vec3(0.955, 0.975, 1.035), vec3(1.045, 1.015, 0.960), hueDrift);
 
         diffuseColor.rgb = alb;
         gRough = rough;
@@ -1340,15 +1340,26 @@ function makeCityMaterial(cacheKey) {
    have to stand in the same light as everything else, which means the probe
    field, and foliage still has to move, which means the wind term. Leaves are
    masked rather than blended: an alpha-sorted leaf card is a leaf card that
-   flickers as you walk past it. */
+   flickers as you walk past it.
+
+   BAKED-ALBEDO MODELS: models from Tripo/image-to-3D carry lighting baked
+   into their albedo with no normal or roughness maps. Applying full scene
+   lighting on top doubles every shadow. For these, we raise roughness to 1
+   (no specular), cut environment reflections, and blend the final lit result
+   back toward the original albedo so the baked detail shows through. */
 function makeModelMaterial(src, foliage, walk) {
   if (MATERIALS) { const m = MATERIALS.model(src, foliage, walk); PROBE_MATS.push(m); return m; }
+  const baked = !foliage && !src.normalMap && !src.roughnessMap;
   const mat = new THREE.MeshStandardMaterial({
     map: src.map || null, normalMap: foliage ? null : (src.normalMap || null),
     roughnessMap: foliage ? null : (src.roughnessMap || null),
     aoMap: foliage ? null : (src.aoMap || null),
-    color: 0xffffff, roughness: foliage ? 0.88 : 0.82, metalness: 0.0,
-    side: THREE.DoubleSide, envMapIntensity: 1.0, fog: true,
+    color: 0xffffff,
+    roughness: baked ? 0.92 : (foliage ? 0.88 : 0.82),
+    metalness: 0.0,
+    side: THREE.DoubleSide,
+    envMapIntensity: baked ? 0.15 : 1.0,
+    fog: true,
     transparent: false,
     alphaTest: src.alphaTest > 0 ? src.alphaTest : (foliage && src.map ? 0.42 : 0),
   });
@@ -1356,11 +1367,12 @@ function makeModelMaterial(src, foliage, walk) {
   mat.userData.u = {
     uTime: { value: 0 }, uWind: { value: new THREE.Vector2(0.85, 0.32) },
     uSway: { value: foliage ? 1 : 0 },
+    uBaked: { value: baked ? 1.0 : 0.0 },
     uProbeSky: { value: null }, uProbeGnd: { value: null },
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
     uProbeInt: { value: 1.12 },
-    uFogWarm: { value: new THREE.Color(0xdcab7c) }, uFogCool: { value: new THREE.Color(0x7488ac) },
+    uFogWarm: { value: new THREE.Color(0xe0a572) }, uFogCool: { value: new THREE.Color(0x6882b0) },
     uFogScaleH: { value: 150 },
     uSunW: { value: CSUN.clone() },
   };
@@ -1427,9 +1439,7 @@ function makeModelMaterial(src, foliage, walk) {
       uniform sampler3D uProbeSky, uProbeGnd;
       uniform vec3 uProbeOrg, uProbeStp, uProbeDim;
       uniform vec3 uFogWarm, uFogCool, uSunW;
-      uniform float uFogScaleH;
-      /* mean aerosol density along the ray, from an exponential atmosphere of
-         scale height uFogScaleH sampled at both ends */
+      uniform float uFogScaleH, uBaked;
       float FOG_H(float wy) {
         float hAvg = 0.5 * (cameraPosition.y + wy);
         return exp(-max(hAvg, 0.0) / uFogScaleH);
@@ -1437,6 +1447,12 @@ function makeModelMaterial(src, foliage, walk) {
       uniform float uProbeOn, uProbeInt;\n` +
       sh.fragmentShader
         .replace('#include <fog_fragment>', `
+      #ifdef USE_MAP
+      if (uBaked > 0.5) {
+        vec3 bAlb = pow(texture2D(map, vMapUv).rgb, vec3(2.2));
+        gl_FragColor.rgb = mix(bAlb, gl_FragColor.rgb, 0.35);
+      }
+      #endif
       #ifdef USE_FOG
         vec3 fdir = normalize(vMWP - cameraPosition);
         float fsun = pow(max(dot(fdir, normalize(uSunW)), 0.0), 1.8);
@@ -1458,7 +1474,7 @@ function makeModelMaterial(src, foliage, walk) {
   /* the walking variant compiles a different vertex shader, so it must not
      share a program with the static one — the same fault that kept the shop
      interiors dark for three rounds */
-  mat.customProgramCacheKey = () => 'citymodel' + (foliage ? 'f' : 's') + (walk ? 'w' : '');
+  mat.customProgramCacheKey = () => 'citymodel' + (foliage ? 'f' : 's') + (walk ? 'w' : '') + (baked ? 'b' : '');
   PROBE_MATS.push(mat);
   return mat;
 }
@@ -1487,23 +1503,23 @@ const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.11, 
 const CSUN = new THREE.Vector3(-0.9232, 0.3420, -0.1754).normalize();
 const cityHemi = new THREE.HemisphereLight(0x6f8ec6, 0x7d5730, 0.10);
 cityScene.add(cityHemi);
-const citySun = new THREE.DirectionalLight(0xffc596, 2.75);
+const citySun = new THREE.DirectionalLight(0xffbe88, 2.85);
 citySun.position.copy(CSUN).multiplyScalar(300);
 citySun.castShadow = true;
 /* not quite to zero. A real shadow at this hour is filled by a whole sky, and
    the pillar is that nothing in this district ever goes to a grey void. */
-citySun.shadow.intensity = 0.88;
+citySun.shadow.intensity = 0.85;
 const SHADOW_MAP = 4096;
 citySun.shadow.mapSize.set(SHADOW_MAP, SHADOW_MAP);
 cityScene.add(citySun);
 cityScene.add(citySun.target);
 /* a cool counter-fill from the east sky so shadowed stone never goes grey —
    the shadow side reads blue-violet from the dusk dome, not black */
-const cityFill = new THREE.DirectionalLight(0x8aa4e8, 0.70);
+const cityFill = new THREE.DirectionalLight(0x809ee8, 0.75);
 cityFill.position.set(240, 130, 200);
 cityScene.add(cityFill);
 /* and a warm bounce from the paving, aimed up */
-const cityBounce = new THREE.DirectionalLight(0xff9a52, 0.88);
+const cityBounce = new THREE.DirectionalLight(0xff9248, 0.94);
 cityBounce.position.set(40, -100, -30);
 cityScene.add(cityBounce);
 
@@ -1515,7 +1531,7 @@ cityScene.add(cityBounce);
 const PRACTICALS = [];
 const POOL = [];
 for (let i = 0; i < 12; i++) {
-  const l = new THREE.PointLight(0xffcc8e, 0, 28, 1.7);
+  const l = new THREE.PointLight(0xffc580, 0, 32, 1.6);
   l.castShadow = false;
   cityScene.add(l);
   POOL.push(l);
@@ -1643,9 +1659,9 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: {
     uSun: { value: CSUN.clone() }, uTime: { value: 0 },
-    uZen: { value: C(0x071538) }, uMid: { value: C(0x1c3870) },
-    uHorizon: { value: C(0x768aae) }, uGlow: { value: C(0xffce92) },
-    uWarmHz: { value: C(0xddae80) },
+    uZen: { value: C(0x06122e) }, uMid: { value: C(0x1a3568) },
+    uHorizon: { value: C(0x7088aa) }, uGlow: { value: C(0xffc888) },
+    uWarmHz: { value: C(0xe0a874) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
@@ -1664,8 +1680,8 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
          One horizon colour makes a flat band all the way round and is most of
          what reads as haze rather than as evening. */
       c = mix(c, mix(uHorizon, uWarmHz, pow(sd, 1.15)), hz * 0.94);
-      c += uGlow * pow(sd, 5.0) * 0.60 * (0.35 + 0.65 * hz);
-      c += uGlow * pow(sd, 24.0) * 0.75;
+      c += uGlow * pow(sd, 5.0) * 0.68 * (0.35 + 0.65 * hz);
+      c += uGlow * pow(sd, 24.0) * 0.85;
       // high cirrus taking the last of the sun
       vec2 sp = d.xz / max(d.y + 0.16, 0.05);
       float cl = fb(sp * 0.52 + vec2(uTime * 0.0035, 0.0));
@@ -1732,7 +1748,7 @@ const cityMat = makeCityMaterial();
 /* the same law, with the ceiling switched on. Everything inside a shop uses
    this: the shell, the fittings, the stock and the shopkeeper. */
 const cityIntMat = makeCityMaterial('room');
-cityIntMat.userData.u.uRoomAdd.value.setRGB(1.25, 0.96, 0.68);
+cityIntMat.userData.u.uRoomAdd.value.setRGB(1.35, 1.02, 0.72);
 cityIntMat.side = THREE.DoubleSide;
 const DISPOSE = [];
 

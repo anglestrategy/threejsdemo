@@ -1274,7 +1274,7 @@ function defineKit() {
   routeProp('wshrub', 'watershrub', 1.45, { near: 40 });
   routeProp('slimtree', 'lagoon_a', 6.20, { near: 70 });
   routeProp('jamaa', 'mosque', PLAN.jamaa.h, { jitter: false });
-  routeProp('arcadeblk', 'arcade', 11.0, { jitter: false , near: 62 });
+  routeProp('arcadeblk', 'arcade', 11.0, { jitter: false , near: 120 });
 
   /* ---- the masterplan set ----------------------------------------------
      Generated from the two site aerials rather than from a street-level
@@ -1284,9 +1284,9 @@ function defineKit() {
   routeProp('canopypav', 'canopypav', 15.0, { jitter: false });
   routeProp('tram', 'tram', 3.6, { jitter: false });
   routeProp('tramstop', 'tramstop', 3.4, { jitter: false });
-  routeProp('shophouse', 'shophouse', 12.0, { near: 62 });
-  routeProp('bluehall', 'bluehall', 16.0, { jitter: false , near: 110 });
-  routeProp('resblock', 'resblock', 15.0, { near: 55 });
+  routeProp('shophouse', 'shophouse', 12.0, { near: 120 });
+  routeProp('bluehall', 'bluehall', 16.0, { jitter: false , near: 160 });
+  routeProp('resblock', 'resblock', 15.0, { near: 120 });
   routeProp('fountain', 'fountain', 2.46, { jitter: false });
   routeProp('obelisk', 'obelisk', 12.0, { jitter: false });
   routeProp('sail1', 'sail1', 5.0, { near: 60 });
@@ -1357,10 +1357,10 @@ function defineKit() {
      boulevard get a street rather than a repeat; a brick boutique hotel and
      an art-deco cinema as one-offs, sited by hand below. */
   routePropSet('shophouse', ['shophouse', 'shopblk1', 'shopblk2', 'shopblk3'],
-    12.0, { near: 62 });
-  routeProp('shopstair', 'shopstair', 13.5, { near: 62 });
-  routeProp('hotelcnr', 'hotelcnr', 16.5, { jitter: false, near: 90 });
-  routeProp('cinema', 'cinema', 12.5, { jitter: false, near: 90 });
+    12.0, { near: 120 });
+  routeProp('shopstair', 'shopstair', 13.5, { near: 120 });
+  routeProp('hotelcnr', 'hotelcnr', 16.5, { jitter: false, near: 200 });
+  routeProp('cinema', 'cinema', 12.5, { jitter: false, near: 200 });
 
   /* ---- the trees -------------------------------------------------------
      `tree` is the district's most-placed kit name after the palm, and until
