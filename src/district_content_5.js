@@ -527,6 +527,26 @@ function buildLife() {
     }
   }
 
+  /* ---- public art -------------------------------------------------------
+     On the axes that already want a terminus: the head of the souq spine, and
+     the two long sight lines across the canopy plaza. A piece of public art is
+     a full stop at the end of a view, which is the job the plan had left to a
+     blank wall. */
+  {
+    const P = PLAN.plaza;
+    for (const spot of [
+      [PLAN.spineX, PLAN.souq.z1 + 22],
+      [(P.x0 + P.x1) / 2 - 96, (P.z0 + P.z1) / 2],
+      [(P.x0 + P.x1) / 2 + 96, (P.z0 + P.z1) / 2],
+      [PLAN.tensile.x0 + 62, PLAN.tensile.z0 + 62],
+    ]) {
+      if (nearBuilding(spot[0], spot[1], 5)) continue;
+      const gy = groundAt(spot[0], spot[1]);
+      if (gy < -50) continue;
+      inst('artring', xf(spot[0], gy, spot[1], rnd() * 6.28), 0xffffff);
+    }
+  }
+
   /* ---- the two one-off buildings --------------------------------------
      A downtown needs somewhere to stay and somewhere to go in the evening,
      and the plan had neither. Both are corner pieces, so both go on corners

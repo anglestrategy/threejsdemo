@@ -1376,6 +1376,14 @@ function defineKit() {
   routeProp('olive', 'tree_oliv', 3.4, { near: 999 });
   routeProp('potbush', 'tree_pot', 1.35, { near: 999 });
 
+  /* ---- public art ------------------------------------------------------
+     The district had none, which for a masterplan that is largely about public
+     realm is a gap you only notice once it is named: every plaza in the four
+     SDC renders has a piece standing in it and every plaza here had a fountain
+     or nothing. One woven ring, sited by hand below on the axes that already
+     want a terminus. */
+  routeProp('artring', 'art_ring', 3.10, { jitter: false, near: 60 });
+
   /* ---- material panels -------------------------------------------------
      Samples rather than objects, and two of them fill real gaps: the district
      has no screens (every service yard and roof terrace is open to view) and
