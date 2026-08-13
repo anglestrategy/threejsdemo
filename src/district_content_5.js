@@ -675,9 +675,12 @@ function downtownPlaza() {
   const a = ACC.ground;
 
   // ---- the paved field, and a walkable level over the whole of it
+  /* the slab is base-at-origin and 0.14 thick, so its top is gy + 0.20 — the
+     walkable level has to be the top of it, not a number near the middle, or
+     you walk shin-deep through your own paving */
   a.add(G_BOXT, xf(mx, gy + 0.06, mz, 0, D.x1 - D.x0, 0.14, D.z1 - D.z0),
     K.paveLt || 0xc9bda4, S.PAVING, 0.98);
-  platform(D.x0, D.z0, D.x1, D.z1, gy + 0.13);
+  platform(D.x0, D.z0, D.x1, D.z1, gy + 0.20);
 
   // ---- the four buildings that make the room
   /* Placed with their solidity, not just their geometry. An `inst` on its own

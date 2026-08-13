@@ -290,10 +290,14 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         const fp = at(t, -proj);
         f.add(G_BOXT, xf(fp[0], ah - 0.10 - (NS - 1) * 0.14, fp[1], ang, ow + 0.28, 0.07, 0.09), K.steelDk, S.METAL, 0.95);
         f.add(G_BOXT, xf(fp[0], ah - 0.36 - (NS - 1) * 0.14, fp[1], ang, ow + 0.24, 0.26, 0.045), AC, S.FABRIC, shade * 0.94);
-        // and a cheek at each end, closing it against the wall
+        /* and a cheek at each end, closing it against the wall. G_BOXT is
+           base-at-origin, so this y is the bottom of the cheek: it has to
+           start at the front edge of the canopy and rise to the back one, or
+           it stands proud above the fabric it is supposed to close. */
+        const cy0 = ah - 0.10 - (NS - 1) * 0.14;
         for (const s2 of [-1, 1]) {
           const cp = at(t + s2 * (ow + 0.2) / 2, -proj / 2);
-          f.add(G_BOXT, xf(cp[0], ah - 0.30, cp[1], ang, 0.04, 0.42, proj), AC, S.FABRIC, shade * 0.88);
+          f.add(G_BOXT, xf(cp[0], cy0, cp[1], ang, 0.04, (NS - 1) * 0.14 + 0.055, proj), AC, S.FABRIC, shade * 0.88);
         }
       }
       /* The glazed vitrine, standing in the opening in front of the lit room.
