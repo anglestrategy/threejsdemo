@@ -11734,6 +11734,27 @@ return {
        it exists: `node tests/scale_audit.mjs` reads it and diffs it against
        the sizes the reference renders imply. */
     furniture: () => FURNITURE,
+    /* Per-object culling state, for when the frame cost will not move as the
+       camera does. A chunked tile is 130 m across, so its bounding sphere
+       should have a radius near 65 m plus the prop's own size; anything in the
+       hundreds means the tile spans the district and the culler can never
+       reject it, which is the difference between chunking that works and
+       chunking that only looks like it does. */
+    cullinfo() {
+      const out = [];
+      cityRoot.traverse((o) => {
+        if (!o.isInstancedMesh || !o.count) return;
+        const bs = o.boundingSphere;
+        out.push({
+          name: o.name, n: o.count, culled: o.frustumCulled,
+          r: bs ? +bs.radius.toFixed(1) : null,
+          c: bs ? [+bs.center.x.toFixed(0), +bs.center.z.toFixed(0)] : null,
+        });
+      });
+      out.sort((a, b) => (b.r || 0) - (a.r || 0));
+      return { meshes: out.length, widest: out.slice(0, 12),
+        uncullable: out.filter((x) => !x.culled).length };
+    },
     sizes() {
       const out = {};
       const bb = new THREE.Box3(), b2 = new THREE.Box3(), m = new THREE.Matrix4();
