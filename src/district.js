@@ -496,7 +496,7 @@ const PROBE = { step: 15, ystep: 7.5, ny: 5, y0: 1.6, nx: 0, nz: 0, x0: 0, z0: 0
 // the sky dome's own colour, in JS, so the bake and the shader agree
 function skyColourAt(dx, dy, dz) {
   const up = clamp(dy, 0, 1);
-  const zen = [0.063, 0.102, 0.231], mid = [0.239, 0.271, 0.431], hor = [0.761, 0.643, 0.584];
+  const zen = [0.055, 0.089, 0.202], mid = [0.231, 0.262, 0.423], hor = [0.774, 0.652, 0.592];
   const p = Math.pow(up, 0.62);
   let r = mid[0] + (zen[0] - mid[0]) * p;
   let g = mid[1] + (zen[1] - mid[1]) * p;
@@ -504,8 +504,8 @@ function skyColourAt(dx, dy, dz) {
   const hz = Math.pow(1 - up, 5.0);
   r = r + (hor[0] - r) * hz * 0.92; g = g + (hor[1] - g) * hz * 0.92; b = b + (hor[2] - b) * hz * 0.92;
   const sd = Math.max(dx * CSUN.x + dy * CSUN.y + dz * CSUN.z, 0);
-  const glow = Math.pow(sd, 5.0) * 0.55 * (0.35 + 0.65 * hz) + Math.pow(sd, 24.0) * 0.7;
-  return [r + 1.00 * glow, g + 0.82 * glow, b + 0.63 * glow];
+  const glow = Math.pow(sd, 5.0) * 0.60 * (0.35 + 0.65 * hz) + Math.pow(sd, 24.0) * 0.75;
+  return [r + 1.00 * glow, g + 0.83 * glow, b + 0.65 * glow];
 }
 
 function bakeProbes() {
@@ -1639,9 +1639,9 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: {
     uSun: { value: CSUN.clone() }, uTime: { value: 0 },
-    uZen: { value: C(0x081840) }, uMid: { value: C(0x1d3a72) },
-    uHorizon: { value: C(0x7488ac) }, uGlow: { value: C(0xffcc8e) },
-    uWarmHz: { value: C(0xdcab7c) },
+    uZen: { value: C(0x071538) }, uMid: { value: C(0x1c3870) },
+    uHorizon: { value: C(0x768aae) }, uGlow: { value: C(0xffce92) },
+    uWarmHz: { value: C(0xddae80) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `

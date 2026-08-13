@@ -1833,7 +1833,7 @@ const AOShader = {
     uRes: { value: new THREE.Vector2(1, 1) },
     uNear: { value: 0.1 }, uFar: { value: 1000 },
     uRadius: { value: 1.35 }, uIntensity: { value: 1.95 },
-    uTint: { value: new THREE.Color(0x524760) },
+    uTint: { value: new THREE.Color(0x4e445c) },
     uOn: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
@@ -1987,9 +1987,9 @@ const GradeShader = {
     /* the golden (t=19.0) and dusk (t=20.6) keyframes interpolated to this
        scene's hour. Kept as uniforms so the grade stays tunable in one place. */
     uWB: { value: new THREE.Vector3(1.042, 0.978, 0.955) },
-    uShTint: { value: new THREE.Vector3(0.742, 0.908, 1.210) },
-    uHiTint: { value: new THREE.Vector3(1.178, 1.014, 0.828) },
-    uShAmt: { value: 0.58 }, uHiAmt: { value: 0.52 },
+    uShTint: { value: new THREE.Vector3(0.725, 0.895, 1.240) },
+    uHiTint: { value: new THREE.Vector3(1.185, 1.018, 0.822) },
+    uShAmt: { value: 0.60 }, uHiAmt: { value: 0.54 },
     uSat: { value: 1.12 }, uCon: { value: 1.088 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
