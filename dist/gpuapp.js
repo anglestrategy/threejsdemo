@@ -663,8 +663,13 @@ async function loadProps() {
       });
       if (!parts.length) return;
       const rec = Object.assign({ parts }, index[key]);
-      // the far level, where the intake produced one
-      if (index[key].lod1) {
+      /* The far level, where the intake produced one AND anything in the plan
+         is far enough away to want it. Since the district was halved, every
+         point in it falls inside LOD_FULL of a near-field viewpoint, so the
+         far level is never selected — and loading it anyway costs a second
+         GLB fetch and parse per prop, and a second copy of the geometry held
+         in memory, for something that is never drawn. */
+      if (index[key].lod1 && LOD_FAR_USED) {
         try {
           const g1 = await gl.loadAsync(index[key].lod1.file);
           const p1 = [];
@@ -874,9 +879,16 @@ function bakeProbes() {
    another around a public core, on a walkable grid with a water course
    threading through it. Everything else in the file places itself against
    these rectangles.                                                        */
+/* Halved, deliberately. This was 940 x 950 m — a small city, most of it
+   residential filler nobody walks through, and every triangle spent out
+   there is a triangle not spent on the street you are standing in. It is a
+   DOWNTOWN district: the core is the product. 760 x 610 m keeps every set
+   piece — plaza, canopy, souq, entertainment quarter, commercial edge,
+   colonnade court, water court, both towers and the jamaa — and drops the
+   outer housing estates to a framing band. */
 const PLAN = {
-  bounds: { x0: -470, x1: 470, z0: -250, z1: 700 },
-  ring: 400,                       // perimeter road half-extent
+  bounds: { x0: -380, x1: 380, z0: -140, z1: 470 },
+  ring: 310,                       // perimeter road half-extent
   plaza: { x0: -112, x1: 112, z0: -78, z1: 122 },
   canopy: { x0: -104, x1: 104, z0: -66, z1: 112, h: 15.4 },
   water:  { x: -34, w: 5.4 },      // the main north-south channel
@@ -886,9 +898,11 @@ const PLAN = {
   comm:   { x0: -336, x1: -104, z0: 118, z1: 366 },
   court:  { x0: -282, x1: -166, z0: 178, z1: 282 },   // colonnade courtyard
   tensile:{ x0: -296, x1: -132, z0: -74, z1: 88 },    // shade-sail water court
-  resN:   { x0: -340, x1: 336, z0: 392, z1: 640 },
-  resS:   { x0: 150, x1: 430, z0: -230, z1: 96 },
-  resW:   { x0: -450, x1: -356, z0: -120, z1: 340 },
+  /* framing bands rather than estates: enough fabric to close the view down
+     every street out of the core, and no more */
+  resN:   { x0: -300, x1: 300, z0: 392, z1: 452 },
+  resS:   { x0: 150, x1: 348, z0: -128, z1: 96 },
+  resW:   { x0: -378, x1: -342, z0: -100, z1: 340 },
   towerSouq: { x: 4, z: 356, h: 27.5 },       // Najdi watchtower closing the souq
   towerBrick: { x: 258, z: 374, h: 43 },      // striped tower on the skyline
   majlis: { x: 158, z: 246 },                 // the rooftop terrace block
@@ -903,15 +917,14 @@ const ROAD_W = 17;
 /* --- axes of the street grid ------------------------------------------- */
 const ROADS = [
   // [x0,z0,x1,z1,width,kind]  kind 0 = vehicular, 1 = pedestrian, 2 = service
-  [-420, 104, 420, 104, 21, 0],        // Canopy Boulevard, east-west
-  [-420, 378, 420, 378, 19, 0],        // North Boulevard
-  [-420, -96, 420, -96, 18, 0],        // South Boulevard
-  [-88, -240, -88, 690, 18, 0],        // West Avenue
-  [88, -240, 88, 690, 18, 0],          // East Avenue
-  [-352, -240, -352, 690, 15, 0],      // Commercial edge street
-  [212, -240, 212, 690, 15, 0],        // Entertainment edge street
-  [-420, 250, 420, 250, 12, 2],        // mid service street
-  [-420, 520, 420, 520, 15, 0],        // residential street
+  [-380, 104, 380, 104, 21, 0],        // Canopy Boulevard, east-west
+  [-380, 378, 380, 378, 19, 0],        // North Boulevard
+  [-380, -96, 380, -96, 18, 0],        // South Boulevard
+  [-88, -140, -88, 470, 18, 0],        // West Avenue
+  [88, -140, 88, 470, 18, 0],          // East Avenue
+  [-352, -140, -352, 470, 15, 0],      // Commercial edge street
+  [212, -140, 212, 470, 15, 0],        // Entertainment edge street
+  [-380, 250, 380, 250, 12, 2],        // mid service street
 ];
 
 /* ------------------------------------------------------- ground platforms *
@@ -2613,6 +2626,24 @@ function routeSceneParts(key, prefix, opts) {
    the frame, and visibly destroyed. Every asset now keeps its full geometry
    anywhere in the walkable district; only the ring beyond LOD_FULL drops. */
 const LOD_FULL = 340;
+/* Whether the far level can ever be selected at all. Since the district was
+   halved, every corner of the plan sits inside LOD_FULL of a near-field
+   viewpoint and the answer is no — which is worth knowing at load time,
+   because it means the loader can skip a second GLB fetch, parse and
+   in-memory geometry copy for all 87 props. Measured rather than assumed, so
+   that widening the plan again turns the far level back on by itself. */
+const LOD_FAR_USED = (function () {
+  const B = PLAN.bounds;
+  for (const c of [[B.x0, B.z0], [B.x1, B.z0], [B.x0, B.z1], [B.x1, B.z1]]) {
+    let best = 1e9;
+    for (const p of NEARFIELD) {
+      const d = (c[0] - p[0]) * (c[0] - p[0]) + (c[1] - p[1]) * (c[1] - p[1]);
+      if (d < best) best = d;
+    }
+    if (best > LOD_FULL * LOD_FULL) return true;
+  }
+  return false;
+})();
 function modelLOD(r, x, z) {
   if (r.parts.length < 2) return 0;
   const rad = Math.max(r.near, LOD_FULL);
@@ -3897,6 +3928,28 @@ function block(x0, z0, x1, z1, o) {
       a.add(G_BOXT, xf(cx, top - 0.14, cz, 0, w + 0.56, 0.18, d + 0.56), pcol, surfBase, shade * 1.10);
     }
     for (const S4 of SIDES) parapet(a, S4.x0, S4.z0, S4.x1, S4.z1, top, ph, pcol, surfBody, shade * 1.04, pstyle);
+    /* Greenery spilling over the parapet onto the street elevation. The
+       reference renders are full of it — planting on every roof terrace and
+       balcony, trailing down the wall below — and the district had vines only
+       as a shopfront dressing item at ankle height. This is the same plant
+       seen from the street, which is where it actually reads. */
+    if (MODEL_ROUTE.vinepanel) {
+      for (let si2 = 0; si2 < 4; si2++) {
+        if (sides[si2] < 1 || !chance(0.42)) continue;
+        const S4 = SIDES[si2];
+        const l2 = Math.hypot(S4.x1 - S4.x0, S4.z1 - S4.z0);
+        if (l2 < 7) continue;
+        const ang2 = Math.atan2(S4.x1 - S4.x0, S4.z1 - S4.z0);
+        const n2 = 1 + (chance(0.45) ? 1 : 0);
+        for (let k = 0; k < n2; k++) {
+          const t2 = mix(l2 * 0.18, l2 * 0.82, rnd());
+          const vx = S4.x0 + (S4.x1 - S4.x0) / l2 * t2 + S4.nx * 0.5;
+          const vz = S4.z0 + (S4.z1 - S4.z0) / l2 * t2 + S4.nz * 0.5;
+          inst('vinepanel', xf3(vx, top - 2.3 - rnd() * 1.4, vz, 0, ang2 + Math.PI / 2, 0,
+            0.9 + rnd() * 0.5, 1.15 + rnd() * 0.5, 0.9), pick([K.leaf, K.leafDk, K.leafLt]));
+        }
+      }
+    }
   } else {
     for (const S4 of SIDES) wallSeg(a, S4.x0, S4.z0, S4.x1, S4.z1, top, top + 0.7, 0.3, pcol, surfBody, shade * 1.02);
   }
@@ -3958,6 +4011,15 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
       if (b % 3 === 1) {
         const sp = at(t, -0.85);
         inst('sign', xf(sp[0], gy + oh + 0.55, sp[1], ang + Math.PI / 2), pick([0xe8c48c, 0xd8a25b, 0xf0e0c8]));
+      }
+      /* A wall lantern on the pier between shops. The asset was made for
+         exactly this and had never been placed anywhere; a shopfront street
+         at dusk is a row of warm points at head height before it is anything
+         else, and this district had none of them. */
+      if (MODEL_ROUTE.wlantern && chance(0.62)) {
+        const lp = at(b * bw + pierW / 2, -0.34);
+        inst('wlantern', xf(lp[0], gy + 2.85, lp[1], ang + Math.PI / 2), 0xffd9a4);
+        PRACTICALS.push({ x: lp[0] - nx * 0.3, y: gy + 2.85, z: lp[1] - nz * 0.3, c: 0xffc98a, i: 2.6, r: 8.5 });
       }
       // a step and a threshold slab
       a.add(G_BOXT, xf(at(t, -1.35)[0], gy - 0.06, at(t, -1.35)[1], ang, ow + 0.6, 0.14, 1.0), 0xc9b795, S.TRAVERTINE, shade * 0.95);
@@ -4025,6 +4087,19 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         a.add(G_BOXT, xf(at(t, -RD * 0.5)[0], y + head - 0.02, at(t, -RD * 0.5)[1], ang, ow * 0.86 + jw * 2, 0.10, RD), baseCol, surfBase, shade * 0.80);
         // projecting sill and a lintel with a shadow line
         a.add(G_BOXT, xf(at(t, -0.24)[0], y + sill - 0.10, at(t, -0.24)[1], ang, ow + 0.3, 0.14, 0.5), baseCol, surfBase, shade * 1.06);
+        /* A split unit under the window on the quieter elevations. Every
+           building in the Gulf has them and this district had none: the asset
+           was routed and never placed. Kept off the show frontages, which is
+           also where they are in life. */
+        if (MODEL_ROUTE.acunit && pub < 2 && chance(0.30)) {
+          const ap = at(t + ow * 0.28, -0.42);
+          inst('acunit', xf(ap[0], y + sill - 0.62, ap[1], ang + Math.PI / 2), pick([0xd8d4cc, 0xc9c5bc, 0xe2ded4]));
+        }
+        // a juliet rail across the opening, on the streets that show
+        if (MODEL_ROUTE.balcrail && pub >= 1 && chance(0.26)) {
+          const rp = at(t, -0.40);
+          inst('balcrail', xf3(rp[0], y + sill + 0.02, rp[1], 0, ang + Math.PI / 2, 0, ow * 0.86 / 1.6, 1, 1), pick([0x3c3a36, 0x4a463f, 0x2e2c29]));
+        }
       }
     }
     if (lvl > 0) a.add(G_BOXT, xf(at(len - pierW / 2, 0)[0], y, at(len - pierW / 2, 0)[1], ang, pierW, fh, 0.5), baseCol, surfBody, shade);
@@ -4373,7 +4448,12 @@ function outerFabric() {
   for (const r of rings) {
     for (const p of subdivide(r[0], r[1], r[2], r[3], 14, 30, 13)) {
       const cx = (p[0] + p[2]) / 2, cz = (p[1] + p[3]) / 2;
-      const dist = Math.max(Math.abs(cx) - 420, Math.abs(cz - 220) - 450);
+      /* derived from the plan rather than hard-coded, or halving the district
+         leaves the outer town thinning around a boundary that no longer
+         exists — a ring of full-detail blocks stranded out in the desert */
+      const cxL = (B.x1 - B.x0) / 2 + 40, czC = (B.z0 + B.z1) / 2;
+      const czL = (B.z1 - B.z0) / 2 + 60;
+      const dist = Math.max(Math.abs(cx) - cxL, Math.abs(cz - czC) - czL);
       if (rnd() < sstep(-40, 220, dist) * 0.85) continue;      // thins outward
       block(p[0], p[1], p[2], p[3], {
         floors: ri(1, 3), floorH: 3.2, style: 'sand',
@@ -6626,7 +6706,11 @@ function buildPlanting() {
     const ux = dx / len, uz = dz / len;
     const nx = uz, nz = -ux;
     const big = r[4] >= 19;
-    const step = big ? 11.5 : 15.5;
+    /* A tree every 11.5-15.5 m is a car park. Every street in the reference
+       set is planted close enough that the canopies touch, and the shade
+       pattern on the ground is most of what makes those images read as a
+       real place rather than a model. Halving the district paid for this. */
+    const step = big ? 7.2 : 9.0;
     const n = Math.floor(len / step);
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n * len + rr(-1.7, 1.7);
@@ -6639,9 +6723,19 @@ function buildPlanting() {
           inst('palm', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 0.9 + rnd() * 0.35, 0.85 + rnd() * 0.45, 0.9 + rnd() * 0.35),
             pick([0xffffff, 0xf2e8d8, 0xe8dcc4]));
           inst('shrub', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 1.7, 1.1, 1.7), pick([K.leaf, K.leafDk]));
-        } else if (chance(0.72)) {
+        } else if (chance(0.88)) {
           inst('tree', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 0.85 + rnd() * 0.5, 0.8 + rnd() * 0.5, 0.85 + rnd() * 0.5),
             pick([0xffffff, 0xe6f0d8, 0xd8e4c8, 0xf0e8d4]));
+          // understory. A street tree standing alone in paving is a diagram;
+          // the reference streets all have something green at ankle height.
+          if (chance(0.55)) inst('shrub', xf3(px + nx * s * 1.3, gy, pz + nz * s * 1.3, 0, rnd() * 6.28, 0, 1.25, 0.85, 1.25), pick([K.leaf, K.leafDk, K.leafLt]));
+          /* A ring bench round some of them. Both tree-seat assets were
+             generated and routed and never placed, and a seat built around a
+             tree is the piece of street furniture people actually use. */
+          else if ((MODEL_ROUTE.treeseat || MODEL_ROUTE.treeseat2) && chance(0.20)) {
+            inst(MODEL_ROUTE.treeseat2 && chance(0.5) ? 'treeseat2' : 'treeseat',
+              xf(px, gy, pz, rnd() * 6.28), pick([0xd6c6a8, 0xcbbb9c, 0xc2b08e]));
+          }
         }
         // street lights on a slower, offset rhythm
         if (i % 2 === 0 && chance(0.8)) {
@@ -6658,6 +6752,20 @@ function buildPlanting() {
         if (chance(0.07)) inst('bike', xf(px - nx * s * 1.1, gy, pz - nz * s * 1.1 + rr(-2, 2), rnd() * 6.28));
       }
     }
+    /* Festoon strung across the street, pole to pole. This existed only over
+       the souq spine, and it is the one thing present in every reference
+       render at dusk: a warm dotted line overhead is what turns a road into
+       somewhere people sit outside. Narrow streets only — a 21 m boulevard
+       is too wide to span and the catenary would read as a washing line. */
+    if (MODEL_ROUTE.bunting && !big) {
+      for (let t = 24; t < len - 24; t += rr(13, 21)) {
+        const bx = r[0] + ux * t, bz = r[1] + uz * t;
+        if (nearBuilding(bx, bz, 0.8)) continue;
+        inst('bunting', xf(bx, dressY(bx, bz) + 5.6 + rr(-0.25, 0.25), bz,
+          Math.atan2(nx, nz), r[4] / 5.4, 1, 1));
+      }
+    }
+
     // pedestrian crossings where two roads meet
     for (const r2 of ROADS) {
       if (r2 === r || r2[5] !== 0) continue;
@@ -6764,6 +6872,23 @@ function buildPlanting() {
     }
   }
 
+  /* Market stalls down the spine. `stall` is another asset that was generated,
+     processed, routed and then never placed — and a souq whose centre line is
+     empty paving is a shopping street, not a souq. They sit alternating sides
+     of the drainage channel, clear of it and of the walking line. */
+  if (MODEL_ROUTE.stall) {
+    let sside = 1;
+    for (let z = S1.z0 + 14; z < S1.z1 - 10; z += rr(11, 19)) {
+      const stx = sp + sside * rr(2.9, 3.9);
+      if (!nearBuilding(stx, z, 1.4)) {
+        inst('stall', xf3(stx, dressY(stx, z), z, 0, sside > 0 ? -Math.PI / 2 : Math.PI / 2, 0,
+          0.95 + rnd() * 0.25, 0.95 + rnd() * 0.2, 0.95 + rnd() * 0.25),
+          pick([0xf2e6d2, 0xe4d3b6, 0xd8c4a2, 0xefe0c8]));
+      }
+      sside = -sside;
+    }
+  }
+
   // the canvas ribbons stretched across the spine
   for (let z = S1.z0 + 22; z < S1.z1 - 14; z += rr(48, 78)) {
     const w = 15.0;
@@ -6791,6 +6916,13 @@ function buildPlanting() {
       for (let c = 0; c < 3; c++) {
         const ang = rnd() * 6.28;
         inst('chair', xf(px + Math.sin(ang) * 1.0, gy, pz + Math.cos(ang) * 1.0, ang + Math.PI), 0xefeade);
+      }
+      /* A parasol over most of them. The asset was generated, processed and
+         routed, and then never placed by anything — and a cafe table in the
+         open sun in Al Khobar is the one piece of furniture nobody sits at. */
+      if (MODEL_ROUTE.parasol && chance(0.72)) {
+        inst('parasol', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 1, 1, 1),
+          pick([0xf4ede0, 0xe8dcc8, 0xd9c9ae, 0xf0e4d2]));
       }
     } else {
       inst('palm', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 1, 1.15 + rnd() * 0.3, 1), 0xffffff);

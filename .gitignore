@@ -4,3 +4,4 @@ dist/
 
 # large shader dumps written by tests/_shaderdump.mjs for one-off diagnosis
 shots/*.glsl
+shots/
