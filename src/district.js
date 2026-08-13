@@ -645,6 +645,13 @@ const PLAN = {
   souq:   { x0: -74, x1: 74, z0: 132, z1: 348 },
   spineX: 4,                       // the souq's walking centreline
   enter:  { x0: 96, x1: 322, z0: 118, z1: 366 },
+  /* The downtown plaza: the one composed view in the district. The cinema and
+     the corner hotel used to stand 129 m apart with whatever the scan fabric
+     happened to drop between them; here they face each other across open
+     paving, with a colonnade block closing the north side and public art in
+     the middle, which is the arrangement in every one of the reference
+     renders. Nothing else is allowed to build inside it. */
+  dtplaza: { x0: 152, x1: 288, z0: 176, z1: 292 },
   comm:   { x0: -336, x1: -104, z0: 118, z1: 366 },
   court:  { x0: -282, x1: -166, z0: 178, z1: 282 },   // colonnade courtyard
   tensile:{ x0: -296, x1: -132, z0: -74, z1: 88 },    // shade-sail water court

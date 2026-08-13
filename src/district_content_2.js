@@ -575,9 +575,13 @@ function buildBlocks() {
     const Z = PLAN.enter;
     const plots = subdivide(Z.x0, Z.z0, Z.x1, Z.z1, 16, 40, 11);
     const MJ = { x0: PLAN.majlis.x - 22, x1: PLAN.majlis.x + 22, z0: PLAN.majlis.z - 20, z1: PLAN.majlis.z + 20 };
+    const DP = PLAN.dtplaza;
     for (const p of plots) {
       // the majlis block is placed by hand: nothing may overlap its plot
       if (p[0] < MJ.x1 && p[2] > MJ.x0 && p[1] < MJ.z1 && p[3] > MJ.z0) continue;
+      /* nor the downtown plaza, which is composed by hand and is the one view
+         in the district that has to hold up against the reference renders */
+      if (p[0] < DP.x1 + 24 && p[2] > DP.x0 - 24 && p[1] < DP.z1 + 24 && p[3] > DP.z0 - 24) continue;
       /* This quarter used to be brick end to end — a quarter of a kilometre
          of red masonry, which is the loudest thing in the district and is in
          none of the reference renders. The reference streets are sandstone
