@@ -3716,6 +3716,23 @@ function makeCityMaterial(cacheKey) {
         float lowT = smoothstep(1.05 * splash, 0.02, vWP.y) * (1.0 - aN.y);
         alb = mix(alb, alb * vec3(0.68, 0.65, 0.58), lowT * 0.62);
 
+        /* vertical drip staining: rain collects at ledges and runs down
+           in narrow tracks, darkening and slightly glossing the surface.
+           The tracks are fixed in world space — permanent water damage. */
+        float dripSeed = fb2(vec2(vWP.x * 6.8, vWP.z * 6.8), gFPg * 6.8);
+        float dripStrk = smoothstep(0.56, 0.80, dripSeed);
+        float dripV = (1.0 - abs(aN.y));
+        float dripZ = smoothstep(0.6, 3.0, vWP.y);
+        float drpT = dripStrk * dripV * dripZ * 0.36;
+        alb = mix(alb, alb * vec3(0.74, 0.72, 0.69), drpT);
+        rough = mix(rough, min(rough * 0.82, 0.68), drpT * 0.4);
+
+        /* building-scale warm/cool hue drift: no two facades should read
+           the same colour even if they are the same material, because
+           real stone weathers differently on each face */
+        float hueDrift = fb2(vWP.xz * 0.018, gFPg * 0.018);
+        alb *= mix(vec3(0.97, 0.98, 1.02), vec3(1.03, 1.01, 0.97), hueDrift);
+
         diffuseColor.rgb = alb;
         gRough = rough;
 
@@ -6135,8 +6152,8 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
       const p = at(t, 0);
       a.add(G_BOXT, xf(at(b * bw + pierW / 2, 0)[0], y, at(b * bw + pierW / 2, 0)[1], ang, pierW, fh, 0.5), baseCol, surfBody, shade);
       const ow = bw - pierW, sill = 0.95, head = fh - 0.75;
-      a.add(G_BOXT, xf(p[0], y, p[1], ang, ow, sill, 0.42), baseCol, surfBody, shade * 0.97);
-      a.add(G_BOXT, xf(p[0], y + head, p[1], ang, ow, fh - head, 0.42), baseCol, surfBody, shade * 0.97);
+      a.add(G_BOXT, xf(p[0], y, p[1], ang, ow, sill, 0.52), baseCol, surfBody, shade * 0.97);
+      a.add(G_BOXT, xf(p[0], y + head, p[1], ang, ow, fh - head, 0.52), baseCol, surfBody, shade * 0.97);
       if (lvl >= 2) {
         const r = rnd();
         const kind = (pub >= 2 && r < 0.30) ? 'mashrabiya' : (r < 0.46 ? 'shutter' : 'window');
@@ -7918,6 +7935,7 @@ function defineKit() {
     kitBox(L, 0, 0.94, 0, 1.04, 0.09, 0.14, 0xd8ceb8, S.CONCRETE, 1.05);
     for (const s of [-1, 1]) kitBox(L, s * 0.5, 0, 0, 0.08, 1.0, 0.14, 0xd8ceb8, S.CONCRETE, 1.0);
     kitBox(L, 0, 0.46, 0.02, 1.0, 0.05, 0.10, 0x3d3a34, S.METAL, 0.9);
+    kitBox(L, 0, 0.46, 0.02, 0.04, 0.96, 0.10, 0x3d3a34, S.METAL, 0.9);
     defInst('window', combine(L));
   }
   {
@@ -10243,7 +10261,7 @@ function dressY(x, z) {
 function nearDressing() {
   let placed = 0, scraps = 0;
   for (const s of DRESS_SPOTS) {
-    const n = Math.round(s.r * s.r * 0.14 * s.d);
+    const n = Math.round(s.r * s.r * 0.18 * s.d);
     for (let i = 0; i < n; i++) {
       const a = rnd() * 6.2831853, rr2 = Math.sqrt(rnd()) * s.r;
       let x = s.x + Math.cos(a) * rr2, z = s.z + Math.sin(a) * rr2;
@@ -10292,12 +10310,12 @@ function nearDressing() {
         else inst('bench', xf(px, gy, pz, ang), pick([0xd6c6a8, 0xcbbb9c]));
         scraps += litterDrift(px, pz, gy, _dw.ang, 3 + Math.floor(rnd() * 6));
         placed++;
-      } else if (rnd() < 0.5) {
+      } else if (rnd() < 0.58) {
         const roll = rnd();
-        // the middle of a street is not where a shop puts its stock: out here
-        // it is only what blows about and what a cafe pulls out of line
-        if (roll < 0.16) inst('chair', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xefeade, 0xd8d2c4, 0xb9b2a2]));
+        if (roll < 0.14) inst('chair', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xefeade, 0xd8d2c4, 0xb9b2a2]));
         else if (roll < 0.22) inst('table', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xe8e3d6, 0xd6c6a8]));
+        else if (roll < 0.30) inst('planter', xf3(x, gy, z, 0, rnd() * 6.28, 0, 0.85, 0.80, 0.85), pick([K.travert, K.plaster]));
+        else if (roll < 0.36) inst('pot', xf(x, gy, z, rnd() * 6.28, 0.75, 0.75, 0.75), pick([0xcbb79a, 0xb9a184]));
         else scraps += litterDrift(x, z, gy, rnd() * 6.28, 2 + Math.floor(rnd() * 4));
         placed++;
       }

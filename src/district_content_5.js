@@ -1536,7 +1536,7 @@ function dressY(x, z) {
 function nearDressing() {
   let placed = 0, scraps = 0;
   for (const s of DRESS_SPOTS) {
-    const n = Math.round(s.r * s.r * 0.14 * s.d);
+    const n = Math.round(s.r * s.r * 0.18 * s.d);
     for (let i = 0; i < n; i++) {
       const a = rnd() * 6.2831853, rr2 = Math.sqrt(rnd()) * s.r;
       let x = s.x + Math.cos(a) * rr2, z = s.z + Math.sin(a) * rr2;
@@ -1585,12 +1585,12 @@ function nearDressing() {
         else inst('bench', xf(px, gy, pz, ang), pick([0xd6c6a8, 0xcbbb9c]));
         scraps += litterDrift(px, pz, gy, _dw.ang, 3 + Math.floor(rnd() * 6));
         placed++;
-      } else if (rnd() < 0.5) {
+      } else if (rnd() < 0.58) {
         const roll = rnd();
-        // the middle of a street is not where a shop puts its stock: out here
-        // it is only what blows about and what a cafe pulls out of line
-        if (roll < 0.16) inst('chair', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xefeade, 0xd8d2c4, 0xb9b2a2]));
+        if (roll < 0.14) inst('chair', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xefeade, 0xd8d2c4, 0xb9b2a2]));
         else if (roll < 0.22) inst('table', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xe8e3d6, 0xd6c6a8]));
+        else if (roll < 0.30) inst('planter', xf3(x, gy, z, 0, rnd() * 6.28, 0, 0.85, 0.80, 0.85), pick([K.travert, K.plaster]));
+        else if (roll < 0.36) inst('pot', xf(x, gy, z, rnd() * 6.28, 0.75, 0.75, 0.75), pick([0xcbb79a, 0xb9a184]));
         else scraps += litterDrift(x, z, gy, rnd() * 6.28, 2 + Math.floor(rnd() * 4));
         placed++;
       }

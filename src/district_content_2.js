@@ -219,8 +219,8 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
       const p = at(t, 0);
       a.add(G_BOXT, xf(at(b * bw + pierW / 2, 0)[0], y, at(b * bw + pierW / 2, 0)[1], ang, pierW, fh, 0.5), baseCol, surfBody, shade);
       const ow = bw - pierW, sill = 0.95, head = fh - 0.75;
-      a.add(G_BOXT, xf(p[0], y, p[1], ang, ow, sill, 0.42), baseCol, surfBody, shade * 0.97);
-      a.add(G_BOXT, xf(p[0], y + head, p[1], ang, ow, fh - head, 0.42), baseCol, surfBody, shade * 0.97);
+      a.add(G_BOXT, xf(p[0], y, p[1], ang, ow, sill, 0.52), baseCol, surfBody, shade * 0.97);
+      a.add(G_BOXT, xf(p[0], y + head, p[1], ang, ow, fh - head, 0.52), baseCol, surfBody, shade * 0.97);
       if (lvl >= 2) {
         const r = rnd();
         const kind = (pub >= 2 && r < 0.30) ? 'mashrabiya' : (r < 0.46 ? 'shutter' : 'window');

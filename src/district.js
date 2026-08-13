@@ -1257,6 +1257,23 @@ function makeCityMaterial(cacheKey) {
         float lowT = smoothstep(1.05 * splash, 0.02, vWP.y) * (1.0 - aN.y);
         alb = mix(alb, alb * vec3(0.68, 0.65, 0.58), lowT * 0.62);
 
+        /* vertical drip staining: rain collects at ledges and runs down
+           in narrow tracks, darkening and slightly glossing the surface.
+           The tracks are fixed in world space — permanent water damage. */
+        float dripSeed = fb2(vec2(vWP.x * 6.8, vWP.z * 6.8), gFPg * 6.8);
+        float dripStrk = smoothstep(0.56, 0.80, dripSeed);
+        float dripV = (1.0 - abs(aN.y));
+        float dripZ = smoothstep(0.6, 3.0, vWP.y);
+        float drpT = dripStrk * dripV * dripZ * 0.36;
+        alb = mix(alb, alb * vec3(0.74, 0.72, 0.69), drpT);
+        rough = mix(rough, min(rough * 0.82, 0.68), drpT * 0.4);
+
+        /* building-scale warm/cool hue drift: no two facades should read
+           the same colour even if they are the same material, because
+           real stone weathers differently on each face */
+        float hueDrift = fb2(vWP.xz * 0.018, gFPg * 0.018);
+        alb *= mix(vec3(0.97, 0.98, 1.02), vec3(1.03, 1.01, 0.97), hueDrift);
+
         diffuseColor.rgb = alb;
         gRough = rough;
 
