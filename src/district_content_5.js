@@ -528,11 +528,14 @@ function buildLife() {
       const horiz = Math.abs(r[2] - r[0]) > Math.abs(r[3] - r[1]);
       const len = horiz ? r[2] - r[0] : r[3] - r[1];
       const lane = r[4] / 2 - 1.9;                    // parked against the kerb
-      // 18 m spacing with a gap wherever the plan needs the kerb clear
-      const n = Math.floor(Math.abs(len) / 18);
+      /* 12 m spacing rather than 18, and fuller. A downtown kerb in the
+         reference aerials is close to continuous, and at one car every
+         eighteen metres on half the bays the boulevards read as a Sunday
+         morning rather than as the busiest street in Al Khobar. */
+      const n = Math.floor(Math.abs(len) / 12);
       for (let i = 0; i < n; i++) {
         for (const side of [-1, 1]) {
-          if (!chance(0.52)) continue;                // a kerb is never full
+          if (!chance(0.68)) continue;                // a kerb is never full
           const t = (i + 0.5) / n;
           const px = horiz ? mix(r[0], r[2], t) : r[0] + side * lane;
           const pz = horiz ? r[1] + side * lane : mix(r[1], r[3], t);
@@ -548,6 +551,31 @@ function buildLife() {
             pick([0xffffff, 0xf4f2ee, 0xe8e8ea, 0xd8dade, 0xf0eeea,
                   0x2c2e30, 0x3a3c40, 0xc9ccd2, 0x1a1c20]));
           cars++;
+        }
+      }
+      /* Traffic in the running lanes on the wide roads. Every reference aerial
+         has the boulevards carrying cars, and ours had vehicles only against
+         the kerb — a downtown with full parking bays and empty carriageways.
+         These sit in-lane on the correct side for the direction they face. */
+      if (r[4] >= 18) {
+        const m = Math.floor(Math.abs(len) / 26);
+        for (let i = 0; i < m; i++) {
+          for (const side of [-1, 1]) {
+            if (!chance(0.44)) continue;
+            const t = (i + 0.5) / m + rr(-0.012, 0.012);
+            const off = side * (r[4] / 2 - 5.6);
+            const px = horiz ? mix(r[0], r[2], t) : r[0] + off;
+            const pz = horiz ? r[1] + off : mix(r[1], r[3], t);
+            if (nearBuilding(px, pz, 1.2)) continue;
+            const gy = groundAt(px, pz);
+            if (gy < -50) continue;
+            // facing with the flow of its own side, not at random
+            const yaw = (horiz ? Math.PI / 2 : 0) + (side > 0 ? Math.PI : 0);
+            inst('car', xf(px, gy, pz, yaw + rr(-0.02, 0.02)),
+              pick([0xffffff, 0xf2f0ec, 0x2c2e30, 0x3a3c40, 0xc9ccd2,
+                    0x8e1f22, 0x1a1c20, 0xd8dade]));
+            cars++;
+          }
         }
       }
     }
