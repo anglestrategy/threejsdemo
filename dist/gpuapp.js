@@ -663,13 +663,14 @@ async function loadProps() {
       });
       if (!parts.length) return;
       const rec = Object.assign({ parts }, index[key]);
-      /* The far level, where the intake produced one AND anything in the plan
-         is far enough away to want it. Since the district was halved, every
-         point in it falls inside LOD_FULL of a near-field viewpoint, so the
-         far level is never selected — and loading it anyway costs a second
-         GLB fetch and parse per prop, and a second copy of the geometry held
-         in memory, for something that is never drawn. */
-      if (index[key].lod1 && LOD_FAR_USED) {
+      /* The far level, wherever the intake produced one. This was switched off
+         when the plan halved, on the reasoning that every point was inside
+         LOD_FULL of a viewpoint so the far level would never be selected.
+         That reasoning was correct about the build-time selector and wrong
+         about the cost: with no far level the district drew 275 M triangles
+         from the air and 108 M standing in the plaza. Level of detail is a
+         runtime decision — see lodUpdate — so the geometry has to be here. */
+      if (index[key].lod1) {
         try {
           const g1 = await gl.loadAsync(index[key].lod1.file);
           const p1 = [];
@@ -1763,7 +1764,7 @@ cityScene.background = null;
 const CITY_FOG = 0.00145;
 cityScene.fog = new THREE.FogExp2(0x7286a8, CITY_FOG);
 
-const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.11, 3400);
+const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.11, 1900);
 
 /* 20 degrees WSW, not 12. With shadows finally switched on, a twelve-degree
    sun puts three hundred metres of building between the light and every point
@@ -2627,40 +2628,6 @@ function routeSceneParts(key, prefix, opts) {
   return kits;
 }
 
-/* The far level is for things genuinely out on the perimeter, and nothing
-   else. It used to be chosen off per-asset radii of 55-90 m, which put the
-   decimated level on buildings a hundred metres away — in full view, filling
-   the frame, and visibly destroyed. Every asset now keeps its full geometry
-   anywhere in the walkable district; only the ring beyond LOD_FULL drops. */
-const LOD_FULL = 340;
-/* Whether the far level can ever be selected at all. Since the district was
-   halved, every corner of the plan sits inside LOD_FULL of a near-field
-   viewpoint and the answer is no — which is worth knowing at load time,
-   because it means the loader can skip a second GLB fetch, parse and
-   in-memory geometry copy for all 87 props. Measured rather than assumed, so
-   that widening the plan again turns the far level back on by itself. */
-const LOD_FAR_USED = (function () {
-  const B = PLAN.bounds;
-  for (const c of [[B.x0, B.z0], [B.x1, B.z0], [B.x0, B.z1], [B.x1, B.z1]]) {
-    let best = 1e9;
-    for (const p of NEARFIELD) {
-      const d = (c[0] - p[0]) * (c[0] - p[0]) + (c[1] - p[1]) * (c[1] - p[1]);
-      if (d < best) best = d;
-    }
-    if (best > LOD_FULL * LOD_FULL) return true;
-  }
-  return false;
-})();
-function modelLOD(r, x, z) {
-  if (r.parts.length < 2) return 0;
-  const rad = Math.max(r.near, LOD_FULL);
-  let best = 1e9;
-  for (const p of NEARFIELD) {
-    const d = (x - p[0]) * (x - p[0]) + (z - p[1]) * (z - p[1]);
-    if (d < best) best = d;
-  }
-  return best <= rad * rad ? 0 : r.parts.length - 1;
-}
 
 /* a stable per-instance hash off the world position — see routePropSet */
 function posHash(x, z) {
@@ -2677,7 +2644,6 @@ function inst(name, mtx, colour) {
   }
   if (r) {
     _routeP.setFromMatrixPosition(mtx);
-    const lv = r.parts[modelLOD(r, _routeP.x, _routeP.z)];
     // the scans are one plant each; without a per-instance tint an avenue of
     // them reads as a photocopy. A few percent of warmth either way is enough.
     let c = 0xffffff;
@@ -2686,8 +2652,19 @@ function inst(name, mtx, colour) {
       c = (Math.min(255, (255 * j) | 0) << 16) | (Math.min(255, (255 * (j * 0.99 + 0.01)) | 0) << 8)
         | Math.min(255, (255 * (j * 0.94 + 0.05)) | 0);
     }
-    _fitM.multiplyMatrices(mtx, lv.fit);
-    for (const nm of lv.names) inst(nm, _fitM.clone(), c);
+    /* BOTH levels are emitted, at the same matrix, and the renderer picks
+       between them per tile per frame by distance (see lodUpdate).
+       Choosing one at build time — which is what modelLOD did — cannot work:
+       a building is near when you stand beside it and far when you do not,
+       and the build has no idea where you will be standing. That is why the
+       far level had to be switched off entirely when the plan halved, and why
+       switching it off cost 275 M triangles in the aerial view. */
+    for (let li = 0; li < r.parts.length; li++) {
+      const lv = r.parts[li];
+      _fitM.multiplyMatrices(mtx, lv.fit);
+      const m = _fitM.clone();
+      for (const nm of lv.names) inst(nm, m, c);
+    }
     return;
   }
   let e = INST[name];
@@ -2735,6 +2712,12 @@ function flushInstances() {
       b.push(i);
     }
 
+    /* '_l1' in a kit name marks the far level. Both levels carry the same
+       instances at the same matrices, so a tile's near and far meshes are a
+       pair and exactly one of them is visible at a time. */
+    const far = name.indexOf('_l1:') >= 0;
+    const pairKey = far ? name.replace('_l1:', ':') : name;
+
     let first = null;
     for (const [key, idx] of buckets) {
       const im = new THREE.InstancedMesh(def.geo, mat, idx.length);
@@ -2757,10 +2740,41 @@ function flushInstances() {
       im.computeBoundingSphere();
       cityRoot.add(im);
       if (!first) first = im;
+
+      if (chunked) {
+        const pk = pairKey + '#' + key;
+        let slot = LOD_PAIRS.get(pk);
+        if (!slot) LOD_PAIRS.set(pk, slot = { near: null, far: null, x: 0, z: 0 });
+        slot[far ? 'far' : 'near'] = im;
+        if (im.boundingSphere) { slot.x = im.boundingSphere.center.x; slot.z = im.boundingSphere.center.z; }
+      }
     }
     INSTCOUNT[name] = e.m.length;
     // dynamic kinds are single-bucket, so this is the object they rewrite
     def.mesh = first;
+  }
+  /* a tile with no far level keeps its near one on for good; everything else
+     is decided per frame */
+  for (const s of LOD_PAIRS.values()) if (s.far) s.far.visible = false;
+  LOD_LIST = [...LOD_PAIRS.values()].filter((s) => s.near && s.far);
+}
+
+/* ------------------------------------------------------------ runtime LOD *
+   Level of detail is a runtime decision, because a building is near when you
+   stand beside it and far when you do not. Choosing at build time — which is
+   what modelLOD did — is why the far level had to be abandoned when the plan
+   halved, and abandoning it is why the district drew 275 M triangles from the
+   air. Both levels of every tile now exist; this picks between them.        */
+const LOD_PAIRS = new Map();
+let LOD_LIST = [];
+const LOD_NEAR = 175;          // metres; beyond this a tile drops to 1/8 detail
+function lodUpdate(camPos) {
+  const r2 = LOD_NEAR * LOD_NEAR;
+  for (let i = 0; i < LOD_LIST.length; i++) {
+    const s = LOD_LIST[i];
+    const dx = s.x - camPos.x, dz = s.z - camPos.z;
+    const near = dx * dx + dz * dz < r2;
+    if (s.near.visible !== near) { s.near.visible = near; s.far.visible = !near; }
   }
 }
 
@@ -9437,6 +9451,8 @@ function update(dt, t) {
   diveUpdate(dt);
   if (sceneState === 'city') {
     navUpdate(dt);
+    // pick a detail level per tile before anything is drawn from this pose
+    lodUpdate(cityCam.position);
     /* `.uniforms` on a ShaderMaterial, `.userData.u` on the node material the
        seam substitutes — the same handle under the two renderers' own spellings */
     (citySkyMat.uniforms || citySkyMat.userData.u).uTime.value = t;

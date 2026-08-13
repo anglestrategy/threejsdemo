@@ -413,13 +413,14 @@ async function loadProps() {
       });
       if (!parts.length) return;
       const rec = Object.assign({ parts }, index[key]);
-      /* The far level, where the intake produced one AND anything in the plan
-         is far enough away to want it. Since the district was halved, every
-         point in it falls inside LOD_FULL of a near-field viewpoint, so the
-         far level is never selected — and loading it anyway costs a second
-         GLB fetch and parse per prop, and a second copy of the geometry held
-         in memory, for something that is never drawn. */
-      if (index[key].lod1 && LOD_FAR_USED) {
+      /* The far level, wherever the intake produced one. This was switched off
+         when the plan halved, on the reasoning that every point was inside
+         LOD_FULL of a viewpoint so the far level would never be selected.
+         That reasoning was correct about the build-time selector and wrong
+         about the cost: with no far level the district drew 275 M triangles
+         from the air and 108 M standing in the plaza. Level of detail is a
+         runtime decision — see lodUpdate — so the geometry has to be here. */
+      if (index[key].lod1) {
         try {
           const g1 = await gl.loadAsync(index[key].lod1.file);
           const p1 = [];
@@ -1513,7 +1514,7 @@ cityScene.background = null;
 const CITY_FOG = 0.00145;
 cityScene.fog = new THREE.FogExp2(0x7286a8, CITY_FOG);
 
-const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.11, 3400);
+const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.11, 1900);
 
 /* 20 degrees WSW, not 12. With shadows finally switched on, a twelve-degree
    sun puts three hundred metres of building between the light and every point
@@ -2364,6 +2365,8 @@ function update(dt, t) {
   diveUpdate(dt);
   if (sceneState === 'city') {
     navUpdate(dt);
+    // pick a detail level per tile before anything is drawn from this pose
+    lodUpdate(cityCam.position);
     /* `.uniforms` on a ShaderMaterial, `.userData.u` on the node material the
        seam substitutes — the same handle under the two renderers' own spellings */
     (citySkyMat.uniforms || citySkyMat.userData.u).uTime.value = t;
