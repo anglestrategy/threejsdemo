@@ -1078,11 +1078,11 @@ const waterMat = MATERIALS && MATERIALS.water ? MATERIALS.water({}) : new THREE.
     uTime: { value: 0 }, uSun: { value: CSUN.clone() },
     /* absorption per metre, linear RGB. Clean water: red goes first, which is
        why a metre of it is blue-green and ten metres of it is blue. */
-    uAbsorb: { value: new THREE.Vector3(0.62, 0.16, 0.085) },
+    uAbsorb: { value: new THREE.Vector3(0.68, 0.12, 0.08) },
     /* the light the body scatters back out of itself, which is what makes a
        shallow pool glow rather than just darken */
-    uScatter: { value: C(0x2f8f92) },
-    uTank: { value: C(0x27403f) }, uGrout: { value: C(0x16292a) },
+    uScatter: { value: C(0x35a09a) },
+    uTank: { value: C(0x2a4742) }, uGrout: { value: C(0x16292a) },
     uFoam: { value: C(0xe8f2f2) },
     uSky: { value: C(0x7c8fc4) }, uWarm: { value: C(0xffc98a) },
     uFogColor: { value: C(0x62789f) }, uFogWarm: { value: C(0xe6bd92) }, uFogD: { value: CITY_FOG },
