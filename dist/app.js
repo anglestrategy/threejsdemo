@@ -2382,6 +2382,17 @@ const hud = (function () {
   };
 })();
 window.__hud = hud;
+/* What the renderer actually paid for the frame just drawn, as opposed to what
+   the scene contains. These are different numbers by two orders of magnitude
+   once instances are chunked and culled, and reading the wrong one is how a
+   district that submits 457 M triangles per frame gets reported as fine. */
+window.__perf = () => ({
+  calls: renderer.info.render.calls,
+  triangles: renderer.info.render.triangles,
+  geometries: renderer.info.memory.geometries,
+  textures: renderer.info.memory.textures,
+  programs: renderer.info.programs ? renderer.info.programs.length : 0,
+});
 window.__scenes = SCENES;
 window.__three = THREE;
 ui.cityBack.addEventListener('click', () => { if (SCENES.city) SCENES.city.exit(); });

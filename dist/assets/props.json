@@ -28,19 +28,19 @@
  "arcade": {
   "v": 4,
   "file": "assets/props/arcade.glb",
-  "tris": 900000,
-  "w": 1.9036999940872192,
-  "height": 0.7329989969730377,
-  "depth": 1.0636579990386963,
-  "base": -0.36692801117897034,
-  "kb": 9282,
+  "tris": 169996,
+  "w": 1.9036979675292969,
+  "height": 0.7328560054302216,
+  "depth": 1.0635859966278076,
+  "base": -0.366907000541687,
+  "kb": 5399,
   "tex": 4096,
   "source": "Meshy_AI_arcaded_colonnade_bui_0812054346_image-to-3d-texture.glb",
   "src_tris": 1982484,
   "lod1": {
    "file": "assets/props/arcade_lod1.glb",
-   "tris": 89998,
-   "kb": 1663
+   "tris": 21250,
+   "kb": 1160
   }
  },
  "canopypav": {
@@ -59,55 +59,55 @@
  "bluehall": {
   "v": 4,
   "file": "assets/props/bluehall.glb",
-  "tris": 900000,
-  "w": 1.9036169648170471,
-  "height": 0.5775409936904907,
-  "depth": 1.1749240159988403,
-  "base": -0.29302600026130676,
-  "kb": 12334,
+  "tris": 399998,
+  "w": 1.9035919904708862,
+  "height": 0.5775359869003296,
+  "depth": 1.1749039888381958,
+  "base": -0.29302099347114563,
+  "kb": 9607,
   "tex": 4096,
   "source": "Meshy_AI_blue_roofed_building__0812060516_image-to-3d-texture.glb",
   "src_tris": 1996522,
   "lod1": {
    "file": "assets/props/bluehall_lod1.glb",
-   "tris": 89998,
-   "kb": 2593
+   "tris": 50000,
+   "kb": 2311
   }
  },
  "shophouse": {
   "v": 4,
   "file": "assets/props/shophouse.glb",
-  "tris": 899996,
-  "w": 1.901144027709961,
+  "tris": 399990,
+  "w": 1.9010730385780334,
   "height": 0.536421000957489,
-  "depth": 0.46487800776958466,
+  "depth": 0.4648369997739792,
   "base": -0.26892998814582825,
-  "kb": 13149,
+  "kb": 10287,
   "tex": 4096,
   "source": "Meshy_AI_arcade_shophouse_row__0812060413_image-to-3d-texture.glb",
   "src_tris": 1988150,
   "lod1": {
    "file": "assets/props/shophouse_lod1.glb",
-   "tris": 89996,
-   "kb": 2893
+   "tris": 49994,
+   "kb": 2587
   }
  },
  "resblock": {
   "v": 4,
   "file": "assets/props/resblock.glb",
-  "tris": 699982,
-  "w": 1.7263080477714539,
-  "height": 1.903557002544403,
-  "depth": 1.7229320406913757,
-  "base": -0.952422022819519,
-  "kb": 7133,
+  "tris": 169982,
+  "w": 1.7260890007019043,
+  "height": 1.90344899892807,
+  "depth": 1.7227429747581482,
+  "base": -0.9523410201072693,
+  "kb": 3576,
   "tex": 2048,
   "source": "Meshy_AI_residential_apartment_0812060442_image-to-3d-texture.glb",
   "src_tris": 1848548,
   "lod1": {
    "file": "assets/props/resblock_lod1.glb",
-   "tris": 69978,
-   "kb": 1387
+   "tris": 21234,
+   "kb": 927
   }
  },
  "fountain": {
