@@ -262,6 +262,40 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         inst('wlantern', xf(lp[0], gy + 2.85, lp[1], ang + Math.PI / 2), 0xffd9a4);
         PRACTICALS.push({ x: lp[0] - nx * 0.3, y: gy + 2.85, z: lp[1] - nz * 0.3, c: 0xffc98a, i: 2.6, r: 8.5 });
       }
+      /* A fabric awning over the shopfront. There is no awning anywhere in the
+         87-asset library and none in the district, and it is on the hotel and
+         half the frontages in every downtown reference — the one piece of
+         colour in an otherwise stone street, and the thing that puts a band of
+         shade over the café tables underneath. Built here rather than
+         generated because it is four boxes: a sloped canopy on a front rail,
+         two side cheeks and a valance. */
+      if (chance(0.46) && ow > 1.8) {
+        const AC = pick([0x9d4a3c, 0xb5613f, 0x7a5b3a, 0x4f5f52, 0x8e6a3e, 0xa8503f]);
+        const ah = gy + oh * 0.90;                 // springs from above the head
+        const proj = 1.55;
+        /* Stepped rather than tilted. xf3 composes its Euler as XYZ, so a roll
+           term here would be applied about the world axis and not about the
+           canopy's own length once the yaw has turned it — a tilt whose
+           direction depends on which way the elevation faces. Four short
+           horizontal treads stepping down as they project read as the same
+           slope from the street and cannot be wrong by an axis. */
+        const NS = 4;
+        for (let k = 0; k < NS; k++) {
+          const t0 = proj * (k / NS), t1 = proj * ((k + 1) / NS);
+          const mp = at(t, -(t0 + t1) / 2);
+          f.add(G_BOXT, xf(mp[0], ah - 0.10 - k * 0.14, mp[1], ang,
+            ow + 0.24, 0.055, t1 - t0), AC, S.FABRIC, shade * (1.04 - k * 0.03));
+        }
+        // the front rail it hangs off, and the valance below it
+        const fp = at(t, -proj);
+        f.add(G_BOXT, xf(fp[0], ah - 0.10 - (NS - 1) * 0.14, fp[1], ang, ow + 0.28, 0.07, 0.09), K.steelDk, S.METAL, 0.95);
+        f.add(G_BOXT, xf(fp[0], ah - 0.36 - (NS - 1) * 0.14, fp[1], ang, ow + 0.24, 0.26, 0.045), AC, S.FABRIC, shade * 0.94);
+        // and a cheek at each end, closing it against the wall
+        for (const s2 of [-1, 1]) {
+          const cp = at(t + s2 * (ow + 0.2) / 2, -proj / 2);
+          f.add(G_BOXT, xf(cp[0], ah - 0.30, cp[1], ang, 0.04, 0.42, proj), AC, S.FABRIC, shade * 0.88);
+        }
+      }
       /* The glazed vitrine, standing in the opening in front of the lit room.
          The asset exists for exactly this — the comment where it was routed
          says so — and it had never been placed anywhere. Scaled uniformly off
