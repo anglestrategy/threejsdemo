@@ -624,9 +624,16 @@ function bakeProbes() {
    another around a public core, on a walkable grid with a water course
    threading through it. Everything else in the file places itself against
    these rectangles.                                                        */
+/* Halved, deliberately. This was 940 x 950 m — a small city, most of it
+   residential filler nobody walks through, and every triangle spent out
+   there is a triangle not spent on the street you are standing in. It is a
+   DOWNTOWN district: the core is the product. 760 x 610 m keeps every set
+   piece — plaza, canopy, souq, entertainment quarter, commercial edge,
+   colonnade court, water court, both towers and the jamaa — and drops the
+   outer housing estates to a framing band. */
 const PLAN = {
-  bounds: { x0: -470, x1: 470, z0: -250, z1: 700 },
-  ring: 400,                       // perimeter road half-extent
+  bounds: { x0: -380, x1: 380, z0: -140, z1: 470 },
+  ring: 310,                       // perimeter road half-extent
   plaza: { x0: -112, x1: 112, z0: -78, z1: 122 },
   canopy: { x0: -104, x1: 104, z0: -66, z1: 112, h: 15.4 },
   water:  { x: -34, w: 5.4 },      // the main north-south channel
@@ -636,9 +643,11 @@ const PLAN = {
   comm:   { x0: -336, x1: -104, z0: 118, z1: 366 },
   court:  { x0: -282, x1: -166, z0: 178, z1: 282 },   // colonnade courtyard
   tensile:{ x0: -296, x1: -132, z0: -74, z1: 88 },    // shade-sail water court
-  resN:   { x0: -340, x1: 336, z0: 392, z1: 640 },
-  resS:   { x0: 150, x1: 430, z0: -230, z1: 96 },
-  resW:   { x0: -450, x1: -356, z0: -120, z1: 340 },
+  /* framing bands rather than estates: enough fabric to close the view down
+     every street out of the core, and no more */
+  resN:   { x0: -300, x1: 300, z0: 392, z1: 452 },
+  resS:   { x0: 150, x1: 348, z0: -128, z1: 96 },
+  resW:   { x0: -378, x1: -342, z0: -100, z1: 340 },
   towerSouq: { x: 4, z: 356, h: 27.5 },       // Najdi watchtower closing the souq
   towerBrick: { x: 258, z: 374, h: 43 },      // striped tower on the skyline
   majlis: { x: 158, z: 246 },                 // the rooftop terrace block
@@ -653,15 +662,14 @@ const ROAD_W = 17;
 /* --- axes of the street grid ------------------------------------------- */
 const ROADS = [
   // [x0,z0,x1,z1,width,kind]  kind 0 = vehicular, 1 = pedestrian, 2 = service
-  [-420, 104, 420, 104, 21, 0],        // Canopy Boulevard, east-west
-  [-420, 378, 420, 378, 19, 0],        // North Boulevard
-  [-420, -96, 420, -96, 18, 0],        // South Boulevard
-  [-88, -240, -88, 690, 18, 0],        // West Avenue
-  [88, -240, 88, 690, 18, 0],          // East Avenue
-  [-352, -240, -352, 690, 15, 0],      // Commercial edge street
-  [212, -240, 212, 690, 15, 0],        // Entertainment edge street
-  [-420, 250, 420, 250, 12, 2],        // mid service street
-  [-420, 520, 420, 520, 15, 0],        // residential street
+  [-380, 104, 380, 104, 21, 0],        // Canopy Boulevard, east-west
+  [-380, 378, 380, 378, 19, 0],        // North Boulevard
+  [-380, -96, 380, -96, 18, 0],        // South Boulevard
+  [-88, -140, -88, 470, 18, 0],        // West Avenue
+  [88, -140, 88, 470, 18, 0],          // East Avenue
+  [-352, -140, -352, 470, 15, 0],      // Commercial edge street
+  [212, -140, 212, 470, 15, 0],        // Entertainment edge street
+  [-380, 250, 380, 250, 12, 2],        // mid service street
 ];
 
 /* ------------------------------------------------------- ground platforms *

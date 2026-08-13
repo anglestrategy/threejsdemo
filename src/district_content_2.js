@@ -621,7 +621,12 @@ function outerFabric() {
   for (const r of rings) {
     for (const p of subdivide(r[0], r[1], r[2], r[3], 14, 30, 13)) {
       const cx = (p[0] + p[2]) / 2, cz = (p[1] + p[3]) / 2;
-      const dist = Math.max(Math.abs(cx) - 420, Math.abs(cz - 220) - 450);
+      /* derived from the plan rather than hard-coded, or halving the district
+         leaves the outer town thinning around a boundary that no longer
+         exists — a ring of full-detail blocks stranded out in the desert */
+      const cxL = (B.x1 - B.x0) / 2 + 40, czC = (B.z0 + B.z1) / 2;
+      const czL = (B.z1 - B.z0) / 2 + 60;
+      const dist = Math.max(Math.abs(cx) - cxL, Math.abs(cz - czC) - czL);
       if (rnd() < sstep(-40, 220, dist) * 0.85) continue;      // thins outward
       block(p[0], p[1], p[2], p[3], {
         floors: ri(1, 3), floorH: 3.2, style: 'sand',
