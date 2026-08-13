@@ -187,6 +187,23 @@ function buildPlanting() {
     }
   }
 
+  /* Market stalls down the spine. `stall` is another asset that was generated,
+     processed, routed and then never placed — and a souq whose centre line is
+     empty paving is a shopping street, not a souq. They sit alternating sides
+     of the drainage channel, clear of it and of the walking line. */
+  if (MODEL_ROUTE.stall) {
+    let sside = 1;
+    for (let z = S1.z0 + 14; z < S1.z1 - 10; z += rr(11, 19)) {
+      const stx = sp + sside * rr(2.9, 3.9);
+      if (!nearBuilding(stx, z, 1.4)) {
+        inst('stall', xf3(stx, dressY(stx, z), z, 0, sside > 0 ? -Math.PI / 2 : Math.PI / 2, 0,
+          0.95 + rnd() * 0.25, 0.95 + rnd() * 0.2, 0.95 + rnd() * 0.25),
+          pick([0xf2e6d2, 0xe4d3b6, 0xd8c4a2, 0xefe0c8]));
+      }
+      sside = -sside;
+    }
+  }
+
   // the canvas ribbons stretched across the spine
   for (let z = S1.z0 + 22; z < S1.z1 - 14; z += rr(48, 78)) {
     const w = 15.0;
@@ -214,6 +231,13 @@ function buildPlanting() {
       for (let c = 0; c < 3; c++) {
         const ang = rnd() * 6.28;
         inst('chair', xf(px + Math.sin(ang) * 1.0, gy, pz + Math.cos(ang) * 1.0, ang + Math.PI), 0xefeade);
+      }
+      /* A parasol over most of them. The asset was generated, processed and
+         routed, and then never placed by anything — and a cafe table in the
+         open sun in Al Khobar is the one piece of furniture nobody sits at. */
+      if (MODEL_ROUTE.parasol && chance(0.72)) {
+        inst('parasol', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 1, 1, 1),
+          pick([0xf4ede0, 0xe8dcc8, 0xd9c9ae, 0xf0e4d2]));
       }
     } else {
       inst('palm', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 1, 1.15 + rnd() * 0.3, 1), 0xffffff);
