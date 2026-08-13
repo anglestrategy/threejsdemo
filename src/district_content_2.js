@@ -85,6 +85,14 @@ function block(x0, z0, x1, z1, o) {
   /* and the bay rhythm varies per building rather than being one constant for
      the whole district: 3.15 m everywhere is what made every facade a grid */
   const bayJit = 0.85 + rnd() * 0.34;
+  /* MODERN vs VERNACULAR. The whole district spoke one language — crenellated
+     parapets, mashrabiya screens, small punched openings — which is right for
+     the souq and wrong for everywhere the reference renders actually look.
+     Those are a modern downtown: flat parapets, wide bays, tall glazed
+     colonnades. The souq keeps the vernacular; the downtown and commercial
+     quarters get the language they are drawn in. */
+  const modern = o.modern === undefined
+    ? (style === 'office' || style === 'trav') : o.modern;
   const surfBody = style === 'brick' ? S.BRICK : (fam === 'trav' ? S.TRAVERTINE : S.RENDER);
   const surfBase = style === 'brick' ? S.BRICK : S.ASHLAR;
   const tone = 0.90 + rnd() * 0.22;
@@ -128,12 +136,15 @@ function block(x0, z0, x1, z1, o) {
        side of the same block. On a thin infill block the two rooms otherwise
        overlap and one shop's back wall stands in the other one's window. */
     const avail = (S4.ax === 1 ? d : w) / 2 - 0.35;
-    elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail, bayJit, si);
+    elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail, bayJit, si, modern);
   }
 
   // ---- parapet all round
   const pcol = fam === 'brick' ? K.brickLt : (fam === 'trav' ? K.travert : K.sandLt);
-  const pstyle = o.parapet || (style === 'brick' ? 'crenel' : (fam === 'trav' ? 'step' : (chance(0.5) ? 'crenel' : 'step')));
+  /* a battlement on a downtown office block is a category error, and it was
+     on every third one of them */
+  const pstyle = modern ? 'step'
+    : (o.parapet || (style === 'brick' ? 'crenel' : (fam === 'trav' ? 'step' : (chance(0.5) ? 'crenel' : 'step'))));
   const ph = o.parapetH || (style === 'office' ? 0.95 : 1.15);
   if (detail > 0) {
     /* A cornice under the parapet. The wall used to run straight into the
@@ -178,15 +189,22 @@ function block(x0, z0, x1, z1, o) {
 }
 
 /* --------------------------------------------------------- one elevation */
-function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail, bayJit, si) {
+function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, surfBase, shade, o, avail, bayJit, si, modern) {
   const a = ACC.arch, f = ACC.fine;
   const ux = (S4.x1 - S4.x0) / len, uz = (S4.z1 - S4.z0) / len;
   const ang = Math.atan2(S4.x1 - S4.x0, S4.z1 - S4.z0);
   const nx = S4.nx, nz = S4.nz;
-  const bayW = (style === 'office' ? 2.55 : (style === 'souq' ? 3.5 : 3.15)) * (bayJit || 1);
+  /* A modern block is a colonnade: wide bays between slim piers, carrying a
+     tall opening. The vernacular is the opposite — narrow bays, deep piers,
+     small openings — and building the whole district to the second set of
+     numbers is why the downtown blocks read as a fort rather than as the
+     stone-and-glass frontages in the references. */
+  const bayW = (modern ? 4.35 : (style === 'souq' ? 3.5 : 3.15)) * (bayJit || 1);
   const nb = Math.max(1, Math.round(len / bayW));
   const bw = len / nb;
-  const pierW = style === 'office' ? 0.34 : 0.62;
+  const pierW = modern ? 0.40 : (style === 'office' ? 0.34 : 0.62);
+  // how much of the bay between piers is actually opening
+  const owF = modern ? 0.94 : 0.86;
   const at = (t, off) => [S4.x0 + ux * t + nx * (off || 0), S4.z0 + uz * t + nz * (off || 0)];
 
   // ---- ground floor
@@ -248,7 +266,7 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
       a.add(G_BOXT, xf(p[0], gy + head, p[1], ang, ow, gh - head, 0.42), baseCol, surfBase, shade * 0.88);
       if (lvl >= 2) {
         if (isDoor) inst('door', xf(at(t, -0.30)[0], gy, at(t, -0.30)[1], ang + Math.PI / 2), pick([0x6b4526, 0x54361d, 0x7d5730]));
-        else openingKit(p[0], gy + sill, p[1], ang, ow * 0.86, head - sill, 'window', style);
+        else openingKit(p[0], gy + sill, p[1], ang, ow * owF, head - sill, 'window', style);
       }
     }
   }
@@ -267,8 +285,13 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
        every storey of every building is a spreadsheet, not a facade: upper
        storeys are shorter than the piano nobile in every street in the
        reference set. */
-    const sillF = 0.95 + (isTop ? 0.16 : 0.0) + rnd() * 0.22;
-    const headF = fh - 0.75 - rnd() * 0.20;
+    /* A modern floor is mostly glass: the sill drops to a spandrel rail and
+       the head goes almost to the slab, which is the proportion in every
+       reference elevation. The vernacular keeps its deep wall above and below
+       the opening. */
+    const sillF = modern ? (0.42 + rnd() * 0.12)
+      : (0.95 + (isTop ? 0.16 : 0.0) + rnd() * 0.22);
+    const headF = modern ? (fh - 0.34 - rnd() * 0.10) : (fh - 0.75 - rnd() * 0.20);
     for (let b = 0; b < nb; b++) {
       const t = (b + 0.5) * bw;
       const p = at(t, 0);
@@ -283,25 +306,28 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         /* not every bay is a window. A blank bay is what a stair, a flue or a
            party wall looks like from the street, and a facade without any is
            the giveaway that nobody lives behind it. */
-        if (chance(0.13)) {
+        if (chance(modern ? 0.05 : 0.13)) {
           a.add(G_BOXT, xf(p[0], y + sill, p[1], ang, ow, head - sill, 0.52), baseCol, surfBody, shade * 0.95);
           continue;
         }
         const r = rnd();
-        const kind = (pub >= 2 && r < 0.30) ? 'mashrabiya' : (r < 0.46 ? 'shutter' : 'window');
+        /* mashrabiya on a downtown office block is the same category error as
+           the battlement above it */
+        const kind = modern ? 'window'
+          : ((pub >= 2 && r < 0.30) ? 'mashrabiya' : (r < 0.46 ? 'shutter' : 'window'));
         /* set into a real reveal rather than flush with the wall. The opening
            used to sit on the wall plane, so it had no shadow of its own and
            every window in the district read as a decal. RD is the depth of the
            jamb; the two returns are what actually cast. */
         const RD = 0.22;
-        openingKit(p[0] - nx * RD, y + sill, p[1] - nz * RD, ang, ow * 0.86, head - sill, kind, style);
+        openingKit(p[0] - nx * RD, y + sill, p[1] - nz * RD, ang, ow * owF, head - sill, kind, style);
         const jw = ow * 0.07;
         for (const s of [-1, 1]) {
-          const jp = at(t + s * (ow * 0.86 * 0.5 + jw * 0.5), -RD * 0.5);
+          const jp = at(t + s * (ow * owF * 0.5 + jw * 0.5), -RD * 0.5);
           a.add(G_BOXT, xf(jp[0], y + sill, jp[1], ang, jw, head - sill, RD), baseCol, surfBase, shade * 0.82);
         }
         // the head of the reveal, which throws the line down the glass
-        a.add(G_BOXT, xf(at(t, -RD * 0.5)[0], y + head - 0.02, at(t, -RD * 0.5)[1], ang, ow * 0.86 + jw * 2, 0.10, RD), baseCol, surfBase, shade * 0.80);
+        a.add(G_BOXT, xf(at(t, -RD * 0.5)[0], y + head - 0.02, at(t, -RD * 0.5)[1], ang, ow * owF + jw * 2, 0.10, RD), baseCol, surfBase, shade * 0.80);
         // projecting sill and a lintel with a shadow line
         a.add(G_BOXT, xf(at(t, -0.24)[0], y + sill - 0.10, at(t, -0.24)[1], ang, ow + 0.3, 0.14, 0.5), baseCol, surfBase, shade * 1.06);
         /* A split unit under the window on the quieter elevations. Every
@@ -315,7 +341,7 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         // a juliet rail across the opening, on the streets that show
         if (MODEL_ROUTE.balcrail && pub >= 1 && chance(0.26)) {
           const rp = at(t, -0.40);
-          inst('balcrail', xf3(rp[0], y + sill + 0.02, rp[1], 0, ang + Math.PI / 2, 0, ow * 0.86 / 1.6, 1, 1), pick([0x3c3a36, 0x4a463f, 0x2e2c29]));
+          inst('balcrail', xf3(rp[0], y + sill + 0.02, rp[1], 0, ang + Math.PI / 2, 0, ow * owF / 1.6, 1, 1), pick([0x3c3a36, 0x4a463f, 0x2e2c29]));
         }
       }
     }
@@ -592,7 +618,8 @@ function buildBlocks() {
       block(p[0], p[1], p[2], p[3], {
         floors: ri(2, 5), floorH: 3.6 + rnd() * 0.35,
         style: brickHere ? 'brick' : (chance(0.5) ? 'sand' : 'trav'), detail: 2,
-        parapet: chance(0.7) ? 'crenel' : 'step', green: chance(0.4),
+        // this is the downtown: it is drawn as stone and glass, not as a fort
+        modern: true, green: chance(0.4),
       });
     }
   }
