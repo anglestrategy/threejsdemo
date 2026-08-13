@@ -67,6 +67,20 @@ function buildPlanting() {
         if (chance(0.07)) inst('bike', xf(px - nx * s * 1.1, gy, pz - nz * s * 1.1 + rr(-2, 2), rnd() * 6.28));
       }
     }
+    /* Festoon strung across the street, pole to pole. This existed only over
+       the souq spine, and it is the one thing present in every reference
+       render at dusk: a warm dotted line overhead is what turns a road into
+       somewhere people sit outside. Narrow streets only — a 21 m boulevard
+       is too wide to span and the catenary would read as a washing line. */
+    if (MODEL_ROUTE.bunting && !big) {
+      for (let t = 24; t < len - 24; t += rr(13, 21)) {
+        const bx = r[0] + ux * t, bz = r[1] + uz * t;
+        if (nearBuilding(bx, bz, 0.8)) continue;
+        inst('bunting', xf(bx, dressY(bx, bz) + 5.6 + rr(-0.25, 0.25), bz,
+          Math.atan2(nx, nz), r[4] / 5.4, 1, 1));
+      }
+    }
+
     // pedestrian crossings where two roads meet
     for (const r2 of ROADS) {
       if (r2 === r || r2[5] !== 0) continue;
