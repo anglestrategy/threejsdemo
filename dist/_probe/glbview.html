@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="utf-8"><title>glb view</title>
+<style>html,body{margin:0;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three.js","three-core":"../vendor/three-core.js","three/addons/":"../vendor/addons__"}}</script></head>
+<body><script type="module">
+/* Render one GLB against a LOUD background, so a hole reads as a hole and a
+   black cap reads as a cap. That distinction is invisible against the black
+   backdrop most model viewers use, which is the whole reason this page
+   exists. */
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/addons__GLTFLoader.js';
+const Q = new URLSearchParams(location.search);
+const rn = new THREE.WebGLRenderer({ antialias: true });
+rn.setSize(innerWidth, innerHeight); document.body.appendChild(rn.domElement);
+rn.toneMapping = THREE.ACESFilmicToneMapping;
+const sc = new THREE.Scene();
+sc.background = new THREE.Color(Q.get('bg') || '#d43a2a');   // signal red
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.01, 100);
+sc.add(new THREE.HemisphereLight(0xbfd4ff, 0x6b5136, 2.2));
+const k = new THREE.DirectionalLight(0xffffff, 2.4); k.position.set(3, 5, 4); sc.add(k);
+const k2 = new THREE.DirectionalLight(0xffe0c0, 1.1); k2.position.set(-4, 2, -3); sc.add(k2);
+const g = await new GLTFLoader().loadAsync('../assets/' + (Q.get('m') || 'probe') + '.glb');
+/* DoubleSide, exactly as the district's model material uses — a single-sided
+   asset seen from behind is the other way a hole turns black */
+g.scene.traverse(o => { if (o.isMesh) { o.material.side = THREE.DoubleSide; o.frustumCulled = false; } });
+sc.add(g.scene);
+const bb = new THREE.Box3().setFromObject(g.scene);
+const c = bb.getCenter(new THREE.Vector3()), s = bb.getSize(new THREE.Vector3());
+const r = Math.max(s.x, s.y, s.z);
+/* look down the object's THINNEST axis. A ring's hole is only a hole from one
+   direction, and the first attempt at this shot was edge-on — which proved
+   nothing and cost a render. */
+const e = [s.x, s.y, s.z];
+const thin = e.indexOf(Math.min(...e));
+const d3 = [0, 0, 0]; d3[thin] = r * 2.1;
+cam.position.set(c.x + d3[0] + r * 0.06, c.y + d3[1] + r * 0.04, c.z + d3[2]);
+cam.lookAt(c);
+let f = 0;
+rn.setAnimationLoop(() => { rn.render(sc, cam); if (++f === 4) window.__ready = true; });
+</script></body></html>

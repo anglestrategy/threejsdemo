@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8"><title>contact sheet</title>
+<style>html,body{margin:0;overflow:hidden;background:#c8352a}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three.js","three-core":"../vendor/three-core.js"}}</script>
+</head><body><script type="module">
+/* EVERY generated asset, once, in a grid, against signal red.
+
+   Built after mapping three assets to the wrong names in a row by trusting the
+   order they arrived in. Arrival order is not identity — the only reliable way
+   to know which file is the olive tree is to look at all of them together, and
+   one render of forty tiles costs less than one render of one. */
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/addons__GLTFLoader.js';
+const Q = new URLSearchParams(location.search);
+const names = (Q.get('m') || '').split(',').filter(Boolean);
+const rn = new THREE.WebGLRenderer({ antialias: true });
+rn.setSize(innerWidth, innerHeight); document.body.appendChild(rn.domElement);
+rn.toneMapping = THREE.ACESFilmicToneMapping; rn.toneMappingExposure = 1.0;
+const sc = new THREE.Scene(); sc.background = new THREE.Color('#c8352a');
+sc.add(new THREE.HemisphereLight(0xcfe0ff, 0x7a6a52, 2.4));
+const k = new THREE.DirectionalLight(0xffffff, 2.2); k.position.set(4, 6, 5); sc.add(k);
+const k2 = new THREE.DirectionalLight(0xffe6cc, 1.0); k2.position.set(-5, 3, -4); sc.add(k2);
+const cols = Math.ceil(Math.sqrt(names.length)), rows = Math.ceil(names.length / cols);
+const loader = new GLTFLoader();
+const lbl = [];
+for (let i = 0; i < names.length; i++) {
+  try {
+    const g = await loader.loadAsync('../assets/sheet/' + names[i] + '.glb');
+    g.scene.traverse(o => { if (o.isMesh) { o.material.side = THREE.DoubleSide; o.frustumCulled = false; } });
+    const bb = new THREE.Box3().setFromObject(g.scene);
+    const s = bb.getSize(new THREE.Vector3()), c = bb.getCenter(new THREE.Vector3());
+    const r = Math.max(s.x, s.y, s.z) || 1;
+    g.scene.scale.setScalar(0.82 / r);
+    g.scene.position.set(-c.x * 0.82 / r + (i % cols) - (cols - 1) / 2,
+                         -bb.min.y * 0.82 / r - 0.42 - (Math.floor(i / cols)) + (rows - 1) / 2,
+                         -c.z * 0.82 / r);
+    sc.add(g.scene);
+    lbl.push(names[i]);
+  } catch (e) { lbl.push(names[i] + ' FAILED'); }
+}
+const cam = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.01, 100);
+const span = Math.max(cols, rows);
+cam.position.set(0, 0.05, span / (2 * Math.tan(19 * Math.PI / 180)) * 1.06);
+cam.lookAt(0, 0, 0);
+window.__labels = lbl;
+let f = 0;
+rn.setAnimationLoop(() => { rn.render(sc, cam); if (++f === 4) window.__ready = true; });
+</script></body></html>

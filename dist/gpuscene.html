@@ -1,0 +1,220 @@
+<!doctype html><html><head><meta charset="utf-8"><title>SDC · WebGPU street testbed</title>
+<style>html,body{margin:0;background:#0b0d12;overflow:hidden}canvas{display:block}
+#l{position:fixed;left:8px;top:8px;color:#cfd8e6;font:11px/1.55 ui-monospace,monospace;
+   z-index:9;text-shadow:0 1px 2px #000;pointer-events:none}</style>
+<script type="importmap">{"imports": {"three": "./gpuvendor/three.js", "three/webgpu": "./gpuvendor/three.js", "three/tsl": "./gpuvendor/three.tsl.js", "three/addons/": "./gpuvendor/jsm/"}}</script></head><body><div id="l">booting…</div>
+<script type="module">
+/* ==========================================================================
+   A street, not a swatch board.
+
+   `gpuprobe.html` proved the surface law on eleven flat panels. Nothing in the
+   post stack can be judged on flat panels: GTAO needs a corner, SSGI needs a
+   lit wall facing a shaded floor, TRAA needs sub-pixel geometry to alias, and
+   cascaded shadows need a street long enough for one cascade to hand over to
+   the next. So this page builds the smallest thing that has all four — an
+   arcaded frontage down one side, a colonnade, palms, people, and 120 m of
+   paving — and it is the stepping stone to running the real district on this
+   renderer rather than a throwaway.
+
+   Query flags, all default on:
+     ?ao=0 ?ssgi=0 ?traa=0 ?bloom=0   drop one post node
+     ?post=0                          bypass the whole stack
+     ?shadow=0                        no shadows
+     ?tod=19                          time of day for the colour script
+     ?view=street|arcade|aerial|top   camera bookmarks
+     ?forcegl=1                       force the WebGL2 backend
+   ========================================================================== */
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { makeCityMaterial, cityFogNode } from './gpu/material.js';
+import { SURF } from './gpu/surface.js';
+import { buildSun } from './gpu/lighting.js';
+import { buildPost } from './gpu/post.js';
+
+const Q = new URLSearchParams(location.search);
+const flag = (k, d = true) => (Q.get(k) === null ? d : Q.get(k) !== '0');
+const log = [];
+const say = (s) => { log.push(s); document.getElementById('l').innerHTML = log.join('<br>'); };
+window.__scene = { log };
+window.__frames = 0;
+
+try {
+  const rn = new THREE.WebGPURenderer({ antialias: false, forceWebGL: Q.get('forcegl') === '1' });
+  await rn.init();
+  const isGPU = !!(rn.backend && rn.backend.isWebGPUBackend);
+  say('renderer: ' + (isGPU ? 'WebGPU' : 'WebGL2 fallback'));
+  rn.setSize(innerWidth, innerHeight);
+  rn.setPixelRatio(1);
+  /* AgX, not ACES — see the note in src/gpuapp.js. A low warm key is the one
+     case where ACES's hue shift toward yellow-white is the wrong answer. */
+  if (Q.get('tone') === 'aces' || !THREE.AgXToneMapping) {
+    rn.toneMapping = THREE.ACESFilmicToneMapping; rn.toneMappingExposure = 1.0;
+  } else {
+    rn.toneMapping = THREE.AgXToneMapping;
+    rn.toneMappingExposure = parseFloat(Q.get('exp') || '1.2');
+  }
+  rn.shadowMap.enabled = flag('shadow');
+  document.body.appendChild(rn.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x8fa8c8);
+  scene.fogNode = cityFogNode();
+  const cam = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.08, 900);
+
+  const mat = makeCityMaterial();
+  const matInt = makeCityMaterial({ roomAdd: [1.05, 0.86, 0.62] });
+
+  /* Surface class rides on `aSurf`, per vertex, exactly as in the WebGL2
+     build. Its integer part is the class and its fraction is the walk-cycle
+     limb tag, which is why every read of it in the shader is floored. */
+  const tag = (g, cls) => {
+    const n = g.attributes.position.count;
+    g.setAttribute('aSurf', new THREE.BufferAttribute(new Float32Array(n).fill(cls), 1));
+    if (!g.attributes.color) {
+      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(1), 3));
+    }
+    return g;
+  };
+  const tint = (g, r, gr, b) => {
+    const c = g.attributes.color.array;
+    for (let i = 0; i < c.length; i += 3) { c[i] = r; c[i + 1] = gr; c[i + 2] = b; }
+    return g;
+  };
+  const box = (w, h, d, cls, col) => tint(tag(new THREE.BoxGeometry(w, h, d), cls), ...col);
+  const put = (g, x, y, z, ry = 0, m = mat) => {
+    const o = new THREE.Mesh(g, m);
+    o.position.set(x, y, z); o.rotation.y = ry;
+    o.castShadow = true; o.receiveShadow = true;
+    scene.add(o); return o;
+  };
+
+  // ---- ground: 160 x 90 m of paving, plus an asphalt carriageway ----------
+  const ground = new THREE.Mesh(
+    tint(tag(new THREE.BoxGeometry(160, 0.4, 90), SURF.PAVING), 0.80, 0.75, 0.66), mat);
+  ground.position.set(0, -0.2, 0);
+  ground.receiveShadow = true;
+  scene.add(ground);
+  const road = new THREE.Mesh(
+    tint(tag(new THREE.BoxGeometry(160, 0.06, 11), SURF.ASPHALT), 0.36, 0.35, 0.35), mat);
+  road.position.set(0, 0.03, 16);
+  road.receiveShadow = true;
+  scene.add(road);
+
+  /* ---- the frontage ------------------------------------------------------
+     Six bays of a four-storey arcaded block down the sunward side. Travertine
+     piers, rendered spandrels, a recessed shopfront behind the arcade — enough
+     of a corner for GTAO to find and enough of a bright wall opposite a shaded
+     floor for SSGI to bounce off. Dimensions are the district's own: 3.4 m
+     floor to floor, 4.6 m arcade head, 1.05 m piers at 6.2 m centres. */
+  const BAY = 6.2, BAYS = 11, H = 3.4;
+  const pier = box(1.05, 4.6, 1.05, SURF.TRAVERTINE, [0.86, 0.81, 0.70]);
+  const lintel = box(BAY, 0.75, 1.05, SURF.TRAVERTINE, [0.86, 0.81, 0.70]);
+  const wall = box(BAY, H * 3, 0.55, SURF.RENDER, [0.83, 0.78, 0.68]);
+  const shop = box(BAY - 0.4, 4.2, 0.3, SURF.CONCRETE, [0.30, 0.27, 0.24]);
+  const sill = box(BAY, 0.28, 1.5, SURF.ASHLAR, [0.80, 0.76, 0.68]);
+  for (let i = 0; i < BAYS; i++) {
+    const x = (i - (BAYS - 1) / 2) * BAY;
+    put(pier, x - BAY / 2, 2.3, 4.0);
+    put(lintel, x, 4.6 + 0.375, 4.0);
+    put(wall, x, 4.975 + H * 1.5, 6.0);
+    put(shop, x, 2.1, 6.4, 0, matInt);
+    put(sill, x, 5.4, 5.6);
+    if (i % 2 === 0) {
+      // a balcony every other bay, for a shadow with a real edge on it
+      put(box(BAY * 0.72, 0.22, 1.35, SURF.TRAVERTINE, [0.86, 0.81, 0.70]), x, 8.6, 6.4);
+      put(box(BAY * 0.72, 0.95, 0.09, SURF.METAL, [0.34, 0.33, 0.31]), x, 9.15, 7.0);
+    }
+  }
+  put(pier, ((BAYS - 1) / 2) * BAY + BAY / 2, 2.3, 4.0);
+
+  // the opposite kerb: a lower brick terrace, so the street has two sides
+  for (let i = 0; i < BAYS; i++) {
+    const x = (i - (BAYS - 1) / 2) * BAY;
+    put(box(BAY - 0.3, 7.2, 9, SURF.BRICK, [0.78, 0.70, 0.62]), x, 3.6, 27);
+    put(box(BAY - 0.3, 0.5, 9.6, SURF.TIMBER, [0.55, 0.42, 0.30]), x, 7.55, 27);
+  }
+
+  say('frontage: ' + BAYS + ' bays, ' + (BAYS * BAY).toFixed(0) + ' m');
+
+  // ---- real assets: the thing flat panels cannot stand in for ------------
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  const fit = async (file, height, xs, z, ry = 0) => {
+    const g = await loader.loadAsync('assets/props/' + file);
+    g.scene.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(g.scene);
+    const s = height / Math.max(0.001, bb.max.y - bb.min.y);
+    for (const x of xs) {
+      const o = g.scene.clone(true);
+      o.scale.setScalar(s);
+      o.position.set(x, -bb.min.y * s, z);
+      o.rotation.y = ry;
+      o.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+      scene.add(o);
+    }
+    return g;
+  };
+  /* Palms are the TRAA case in one object: a date palm at eighty metres is a
+     few hundred bladed leaflets, each thinner than a pixel. */
+  await fit('palm2.glb', 9.4, [-24, -6, 12, 30], 12.5).catch(e => say('palm2: ' + e.message));
+  await fit('bench2.glb', 0.86, [-18, 4, 22], 9.2).catch(e => say('bench2: ' + e.message));
+  await fit('lamppost.glb', 5.2, [-30, -12, 6, 24], 10.6).catch(e => say('lamppost: ' + e.message));
+  await fit('people5s.glb', 1.72, [-14, 2, 17], 8.4, 0.6).catch(e => say('people5s: ' + e.message));
+  say('assets: palms, benches, lampposts, people');
+
+  // ---- sun ---------------------------------------------------------------
+  const lit = await buildSun(scene, cam, { webgpu: isGPU, cascades: 3, maxFar: 260, mapSize: 2048 });
+  say('sun: ' + (lit.csm ? '3-cascade CSM' : 'single shadow camera (WebGL2 path)'));
+
+  // ---- camera bookmarks --------------------------------------------------
+  const VIEWS = {
+    street: [[-34, 1.65, 20], [26, 3.2, 6]],       // eye height, down the street
+    arcade: [[-9.5, 1.65, 8.6], [22, 2.6, 5.2]],   // under the arcade, looking along it
+    aerial: [[-70, 46, 96], [0, 6, 8]],
+    top: [[0, 130, 60], [0, 0, 8]],
+  };
+  const v = VIEWS[Q.get('view')] || VIEWS.street;
+  cam.position.set(...v[0]);
+  cam.lookAt(...v[1]);
+
+  // ---- post --------------------------------------------------------------
+  let post = null, setTime = null;
+  if (flag('post')) {
+    const built = buildPost(rn, scene, cam, {
+      ao: flag('ao'),
+      // tri-state: unset lets post.js decide by backend, 1 forces, 0 drops
+      ssgi: Q.get('ssgi') === null ? undefined : Q.get('ssgi') === '1',
+      traa: flag('traa'), bloom: flag('bloom'),
+      webgpu: isGPU,
+    });
+    post = built.post; setTime = built.setTime;
+    setTime(parseFloat(Q.get('tod') || '19'));
+    say('post: ' + Object.keys(built.nodes).join(' → ')
+      + (built.nodes.ssgiSkipped ? '  [ssgi: ' + built.nodes.ssgiSkipped + ']' : ''));
+  } else {
+    say('post: bypassed');
+  }
+
+  /* TRAA needs frames to accumulate; swiftshader needs them to not take two
+     minutes. `?frames=` lets a quick structural check run at 2 and a grading
+     judgement run at 16, rather than one number serving both badly. */
+  const READY_AT = Math.max(1, +(Q.get('frames') || 16));
+  let n = 0;
+  rn.setAnimationLoop(() => {
+    lit.update();
+    if (post) post.render(); else rn.render(scene, cam);
+    window.__frames++;
+    if (++n === READY_AT) { window.__ready = true; }
+  });
+  window.__stats = () => ({
+    backend: isGPU ? 'webgpu' : 'webgl2',
+    calls: rn.info.render.drawCalls, tris: rn.info.render.triangles,
+    csm: !!lit.csm,
+  });
+  say('rendering');
+} catch (e) {
+  say('FAILED: ' + (e && e.message ? e.message : e));
+  window.__scene.err = String((e && e.stack) || e);
+  window.__ready = true;
+}
+</script></body></html>
