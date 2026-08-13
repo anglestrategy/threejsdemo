@@ -703,6 +703,26 @@ function defineKit() {
     kitBox(L, 0, -0.5, -0.70, 1.22, 0.68, 0.04, 0x2f2a24, S.METAL, 0.7);
     defInst('sign', combine(L));
   }
+  /* ---- freestanding signage totem ------------------------------------
+     A lit vertical panel on a plinth, standing in the paving. It is in every
+     one of the downtown reference renders — usually two or three of them
+     across a square — and the district had only the wall-mounted bracket
+     above, which is a different object doing a different job. Kept plain:
+     the display face is emissive and carries the light, the surround is dark
+     metal, and the plinth grounds it so it does not look pasted onto the
+     paving. */
+  {
+    const L = [];
+    kitBox(L, 0, 0, 0, 1.02, 0.16, 0.42, 0x2a2723, S.METAL, 0.72);        // plinth
+    kitBox(L, 0, 0.14, 0, 0.92, 2.42, 0.26, 0x33302b, S.METAL, 0.86);     // body
+    kitBox(L, 0, 0.22, -0.14, 0.80, 2.20, 0.05, 0xf2ece0, S.METAL, 1.06); // face
+    for (const s of [-1, 1]) kitBox(L, s * 0.46, 0.14, 0, 0.05, 2.42, 0.28, 0x1f1d1a, S.METAL, 0.7);
+    defInst('totem', combine(L));
+    // the display face again, emissive, so it reads as lit rather than pale
+    const E = [];
+    E.push({ geo: G_BOXT, mtx: xf3(0, 1.32, -0.17, 0, 0, 0, 0.76, 2.14, 0.02), col: 0xffffff, surf: 0, shade: 1 });
+    defInst('totemlit', combine(E), { mat: emisSoftMat, shadow: false });
+  }
   /* ---- timber pergola bracket ---------------------------------------- */
   {
     const L = [];

@@ -716,6 +716,16 @@ function downtownPlaza() {
     if (MODEL_ROUTE.treeseat) inst('treeseat', xf(p[0], py, p[1], rnd() * 6.28), pick([0xd6c6a8, 0xcbbb9c]));
   }
 
+  /* ---- the signage totems. Two or three stand in every reference square,
+     and they are what gives the paving a foreground object at eye height
+     between the buildings and the crowd. */
+  for (const p of [[mx - 14, mz + 18, 0.4], [mx + 34, mz - 18, 2.4], [mx - 40, mz - 12, 1.3]]) {
+    const py = groundAt(p[0], p[1]);
+    inst('totem', xf(p[0], py, p[1], p[2]), 0xffffff);
+    inst('totemlit', xf(p[0], py, p[1], p[2]), pick([0xffe6c0, 0xf4ecd8, 0xffdcae]));
+    PRACTICALS.push({ x: p[0], y: py + 1.6, z: p[1], c: 0xffe0b8, i: 1.5, r: 6.0 });
+  }
+
   /* ---- palms standing in the paving, each with its own base. `palmpit` was
      generated precisely so a palm could stand on hard landscape without a
      planter being built under it, and it had never been placed. The reference
