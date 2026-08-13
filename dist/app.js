@@ -3690,7 +3690,7 @@ function makeCityMaterial(cacheKey) {
         // ---- macro band: 2-50 m drift so no material ever tiles
         float macro = fb2(vWP.xz * 0.045, gFPg * 0.045) * 0.62
                     + fb3(vWP.xz * 0.011, gFPg * 0.011) * 0.38;
-        alb *= 0.84 + 0.34 * macro;
+        alb *= 0.82 + 0.38 * macro;
 
         // ---- albedo and roughness follow the same height field, so the
         //      recesses are dark and matt exactly where they are recessed
@@ -3953,7 +3953,7 @@ cityScene.add(cityBounce);
 const PRACTICALS = [];
 const POOL = [];
 for (let i = 0; i < 12; i++) {
-  const l = new THREE.PointLight(0xffc98a, 0, 26, 1.8);
+  const l = new THREE.PointLight(0xffcc8e, 0, 28, 1.7);
   l.castShadow = false;
   cityScene.add(l);
   POOL.push(l);
@@ -3965,7 +3965,7 @@ function updatePracticals(cam) {
   for (let i = 0; i < PRACTICALS.length; i++) {
     const p = PRACTICALS[i];
     const d = (p.x - cam.x) * (p.x - cam.x) + (p.y - cam.y) * (p.y - cam.y) + (p.z - cam.z) * (p.z - cam.z);
-    if (d < 3600) _pd.push([d, p]);
+    if (d < 4900) _pd.push([d, p]);
   }
   _pd.sort((a, b) => a[0] - b[0]);
   for (let i = 0; i < POOL.length; i++) {
@@ -3975,7 +3975,7 @@ function updatePracticals(cam) {
     POOL[i].position.set(p.x, p.y, p.z);
     POOL[i].color.setHex(p.c);
     POOL[i].distance = p.r;
-    POOL[i].intensity = p.i * (1 - sstep(2000, 3600, e[0]));
+    POOL[i].intensity = p.i * (1 - sstep(2800, 4900, e[0]));
   }
 }
 
@@ -4102,8 +4102,8 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
          One horizon colour makes a flat band all the way round and is most of
          what reads as haze rather than as evening. */
       c = mix(c, mix(uHorizon, uWarmHz, pow(sd, 1.15)), hz * 0.94);
-      c += uGlow * pow(sd, 5.0) * 0.55 * (0.35 + 0.65 * hz);
-      c += uGlow * pow(sd, 24.0) * 0.7;
+      c += uGlow * pow(sd, 5.0) * 0.60 * (0.35 + 0.65 * hz);
+      c += uGlow * pow(sd, 24.0) * 0.75;
       // high cirrus taking the last of the sun
       vec2 sp = d.xz / max(d.y + 0.16, 0.05);
       float cl = fb(sp * 0.52 + vec2(uTime * 0.0035, 0.0));
@@ -4170,7 +4170,7 @@ const cityMat = makeCityMaterial();
 /* the same law, with the ceiling switched on. Everything inside a shop uses
    this: the shell, the fittings, the stock and the shopkeeper. */
 const cityIntMat = makeCityMaterial('room');
-cityIntMat.userData.u.uRoomAdd.value.setRGB(1.05, 0.86, 0.62);
+cityIntMat.userData.u.uRoomAdd.value.setRGB(1.15, 0.92, 0.68);
 cityIntMat.side = THREE.DoubleSide;
 const DISPOSE = [];
 
