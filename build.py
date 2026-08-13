@@ -217,11 +217,41 @@ for page in ('gpuprobe.html', 'gpuscene.html', 'gpuapp.html'):
                       src_html, count=1, flags=re.S)
     open(p('dist', page), 'w', encoding='utf-8').write(src_html)
 
+# ---- gzip pre-compression ---------------------------------------------------
+# The dev server serves these when the client sends Accept-Encoding: gzip,
+# and any production CDN will do the same. Text assets compress 60-90% and
+# even base64 JSON drops 20-30%.
+import gzip as _gzip
+
+COMPRESS_EXT = {'.js', '.json', '.html', '.css', '.svg'}
+gz_saved = 0
+gz_count = 0
+for root, dirs, files in os.walk(dist):
+    for f in files:
+        _, ext = os.path.splitext(f)
+        if ext not in COMPRESS_EXT:
+            continue
+        fp = os.path.join(root, f)
+        with open(fp, 'rb') as fh:
+            raw = fh.read()
+        compressed = _gzip.compress(raw, compresslevel=9)
+        if len(compressed) < len(raw) * 0.95:
+            with open(fp + '.gz', 'wb') as fh:
+                fh.write(compressed)
+            gz_saved += len(raw) - len(compressed)
+            gz_count += 1
+
 total = sum(os.path.getsize(os.path.join(r, f))
-            for r, _, fs in os.walk(dist) for f in fs)
+            for r, _, fs in os.walk(dist) for f in fs
+            if not f.endswith('.gz'))
+gz_total = sum(os.path.getsize(os.path.join(r, f))
+               for r, _, fs in os.walk(dist) for f in fs
+               if f.endswith('.gz'))
 src_only = re.sub(r'data:image/\w+;base64,[A-Za-z0-9+/=]+', '<img>', main)
 print('dist/  %.2f MB total   app.js %d KB   (app source %d lines)'
       % (total / 1048576, os.path.getsize(p('dist/app.js')) // 1024,
          src_only.count('\n') + 1))
 for name, n in sizes:
     print('   assets/%-9s %7d KB' % (name + '.json', n // 1024))
+print('gzip:  %d files pre-compressed, %.1f MB saved (%.2f MB on wire)'
+      % (gz_count, gz_saved / 1048576, gz_total / 1048576))

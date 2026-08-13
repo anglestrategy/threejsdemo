@@ -30,35 +30,31 @@ def load(name, suffix):
     raise FileNotFoundError(name + ' ' + suffix)
 
 
-def pack(key, name, diff_q=94, nrm_q=96):
+def pack(key, name, diff_q=92, nrm_q=95):
     d = load(name, 'diff').convert('RGB').resize((SIZE, SIZE), Image.LANCZOS)
-    n = load(name, 'nor_gl').convert('RGB').resize((SIZE, SIZE), Image.LANCZOS)
+    nrm = load(name, 'nor_gl').convert('RGB').resize((SIZE, SIZE), Image.LANCZOS)
     a = load(name, 'arm').convert('RGB').resize((SIZE, SIZE), Image.LANCZOS)
-    # normal XY into RG, roughness (arm green) into B
-    nr, ng, _ = n.split()
+    nr, ng, _ = nrm.split()
     _, ar, _ = a.split()
     packed = Image.merge('RGB', (nr, ng, ar))
 
-    # the shader samples these through an sRGB decode, so the normalising mean
-    # has to be the LINEAR mean. Averaging in sRGB and dividing by it in linear
-    # space darkens every surface by about three times.
     px = d.load()
     tot = 0.0
-    n = 0
+    cnt = 0
     for y in range(0, SIZE, 4):
         for x in range(0, SIZE, 4):
             for c in px[x, y]:
                 v = c / 255.0
                 tot += v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
-            n += 3
-    mean = tot / n
+            cnt += 3
+    mean = tot / cnt
 
     bd, bn = io.BytesIO(), io.BytesIO()
-    d.save(bd, 'JPEG', quality=diff_q, optimize=True)
-    packed.save(bn, 'JPEG', quality=nrm_q, subsampling=0, optimize=True)
+    d.save(bd, 'WEBP', quality=diff_q, method=6)
+    packed.save(bn, 'WEBP', quality=nrm_q, method=6)
     OUT[key] = {
-        'diff': 'data:image/jpeg;base64,' + base64.b64encode(bd.getvalue()).decode(),
-        'nrm': 'data:image/jpeg;base64,' + base64.b64encode(bn.getvalue()).decode(),
+        'diff': 'data:image/webp;base64,' + base64.b64encode(bd.getvalue()).decode(),
+        'nrm': 'data:image/webp;base64,' + base64.b64encode(bn.getvalue()).decode(),
         'mean': round(mean, 4),
         'credit': name + ' (Poly Haven, CC0)',
     }
