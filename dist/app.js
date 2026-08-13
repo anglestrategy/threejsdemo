@@ -1906,8 +1906,8 @@ const DOFShader = {
     tDiffuse: { value: null }, tDepth: { value: aoDepth },
     uProjInv: { value: new THREE.Matrix4() },
     uRes: { value: new THREE.Vector2(1, 1) },
-    uFocus: { value: 18 }, uRange: { value: 110 }, uFar: { value: 200 },
-    uMaxCoC: { value: 5.0 }, uOn: { value: 0 },
+    uFocus: { value: 18 }, uRange: { value: 95 }, uFar: { value: 180 },
+    uMaxCoC: { value: 5.8 }, uOn: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
@@ -9145,7 +9145,7 @@ function buildLife() {
 
   // seated groups: at every café table already placed, plus the majlis
   const seatSpots = [];
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < 48; i++) {
     const p = pick(PATHS);
     const seg = ri(0, p.length - 2);
     const t = rnd();
@@ -9183,11 +9183,11 @@ function buildLife() {
       const horiz = Math.abs(r[2] - r[0]) > Math.abs(r[3] - r[1]);
       const len = horiz ? r[2] - r[0] : r[3] - r[1];
       const lane = r[4] / 2 - 1.9;                    // parked against the kerb
-      // 24 m spacing with a gap wherever the plan needs the kerb clear
-      const n = Math.floor(Math.abs(len) / 24);
+      // 18 m spacing with a gap wherever the plan needs the kerb clear
+      const n = Math.floor(Math.abs(len) / 18);
       for (let i = 0; i < n; i++) {
         for (const side of [-1, 1]) {
-          if (!chance(0.42)) continue;                // a kerb is never full
+          if (!chance(0.52)) continue;                // a kerb is never full
           const t = (i + 0.5) / n;
           const px = horiz ? mix(r[0], r[2], t) : r[0] + side * lane;
           const pz = horiz ? r[1] + side * lane : mix(r[1], r[3], t);
@@ -9200,7 +9200,8 @@ function buildLife() {
              cars all pointing the same way is a car park, not a street */
           const yaw = (horiz ? Math.PI / 2 : 0) + (chance(0.5) ? Math.PI : 0);
           inst('car', xf(px, gy, pz, yaw + rr(-0.03, 0.03)),
-            pick([0xffffff, 0xe8e8ea, 0xd8dade, 0xf0eeea, 0xc9ccd2]));
+            pick([0xffffff, 0xf4f2ee, 0xe8e8ea, 0xd8dade, 0xf0eeea,
+                  0x2c2e30, 0x3a3c40, 0xc9ccd2, 0x1a1c20]));
           cars++;
         }
       }
@@ -9918,7 +9919,7 @@ function buildScannedPeople() {
   CURCHUNK = 'people';
   let n = 0;
   for (const s of DRESS_SPOTS) {
-    const want = Math.round(s.r * s.r * 0.010 * s.d);
+    const want = Math.round(s.r * s.r * 0.013 * s.d);
     for (let i = 0; i < want; i++) {
       const a = rnd() * 6.2831853, rr2 = Math.sqrt(rnd()) * s.r;
       const x = s.x + Math.cos(a) * rr2, z = s.z + Math.sin(a) * rr2;
@@ -9928,8 +9929,8 @@ function buildScannedPeople() {
       const face = rnd() * 6.2831853;
       inst(pick(STANDERS), xf(x, gy, z, face));
       n++;
-      // roughly a third of them are with someone
-      if (chance(0.34)) {
+      // roughly two in five are with someone
+      if (chance(0.40)) {
         const d = rr(0.85, 1.35);
         const px = x + Math.sin(face) * d, pz = z + Math.cos(face) * d;
         if (!insideSolid(px, pz, gy + 0.9)) {

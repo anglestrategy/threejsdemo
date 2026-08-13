@@ -1906,8 +1906,8 @@ const DOFShader = {
     tDiffuse: { value: null }, tDepth: { value: aoDepth },
     uProjInv: { value: new THREE.Matrix4() },
     uRes: { value: new THREE.Vector2(1, 1) },
-    uFocus: { value: 18 }, uRange: { value: 110 }, uFar: { value: 200 },
-    uMaxCoC: { value: 5.0 }, uOn: { value: 0 },
+    uFocus: { value: 18 }, uRange: { value: 95 }, uFar: { value: 180 },
+    uMaxCoC: { value: 5.8 }, uOn: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
