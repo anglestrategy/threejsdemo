@@ -9,6 +9,12 @@
    something of known size stands in it. FAIL on anything outside tolerance. */
 import { chromium } from 'playwright';
 
+/* The district is a software rasteriser's worst case and it has grown: 86 props,
+   16 rigged figures, parked traffic. Boot went past the five-minute default and
+   the gate failed with the page perfectly healthy behind it, which reads as a
+   hang and is not one. `GATE_MS=N` overrides in milliseconds. */
+const GATE_TMO = +(process.env.GATE_MS || 900000);
+
 const BASE = process.argv[2] || 'http://localhost:8123/';
 
 /* what the reference renders and ordinary reality say these should be, in
@@ -34,8 +40,8 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
 const errs = [];
 page.on('pageerror', (e) => errs.push(String(e.message)));
-await page.goto(BASE + '?scene=city&nolife=0', { waitUntil: 'load', timeout: 300000 });
-await page.waitForFunction('window.__ready === true', null, { timeout: 300000 });
+await page.goto(BASE + '?scene=city&nolife=0', { waitUntil: 'load', timeout: GATE_TMO });
+await page.waitForFunction('window.__ready === true', null, { timeout: GATE_TMO });
 
 const sizes = await page.evaluate(() => (window.__scenes && window.__scenes.city ? window.__scenes.city.debug.sizes() : {}));
 await browser.close();

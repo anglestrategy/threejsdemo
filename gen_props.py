@@ -210,6 +210,11 @@ PROPS = [
     # alpha-cutout leaf cards the imposter baker wants, and the best one this
     # project has had
     ('local:leafcard.glb',          'leafcard',     8000, 2048,   900),
+    # --- public art. The district had no art in it at all, which for a
+    #     masterplan that is largely about public realm is a gap you notice
+    #     once it is named: every plaza in the four SDC renders has a piece in
+    #     it and every plaza here had a fountain or nothing.
+    ('local:art_ring.glb',          'art_ring',   140000, 4096, 14000),
 ]
 
 

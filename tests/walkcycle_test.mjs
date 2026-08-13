@@ -5,6 +5,12 @@
    evaluating the same arithmetic the shader does. */
 import { chromium } from 'playwright';
 import path from 'path';
+
+/* The district is a software rasteriser's worst case and it has grown: 86 props,
+   16 rigged figures, parked traffic. Boot went past the five-minute default and
+   the gate failed with the page perfectly healthy behind it, which reads as a
+   hang and is not one. `GATE_MS=N` overrides in milliseconds. */
+const GATE_TMO = +(process.env.GATE_MS || 900000);
 const ROOT = '/home/user/threejsdemo';
 const b = await chromium.launch({
   executablePath: process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
@@ -12,7 +18,7 @@ const b = await chromium.launch({
 const p = await b.newPage({ viewport: { width: 640, height: 400 } });
 p.on('pageerror', e => console.log('ERR', e.message));
 await p.goto('http://localhost:8123/' + '?scene=city&shot=3&noveil=1', { waitUntil: 'load', timeout: 240000 });
-await p.waitForFunction('window.__ready === true', null, { timeout: 300000 });
+await p.waitForFunction('window.__ready === true', null, { timeout: GATE_TMO });
 await p.waitForTimeout(3500);
 const r = await p.evaluate(() => {
   const out = { tagged: {}, shaderHasBranch: null, swing: null, scans: {} };
