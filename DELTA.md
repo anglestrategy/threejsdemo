@@ -705,3 +705,100 @@ term has been multiplied by nothing since the channel was written and the whole
 district has had stagnant water. Nothing pointed at it: the water still
 animated, it just animated as a still tank does. `Acc` now auto-forwards any
 attribute the source geometry carries.
+
+---
+
+# The downtown pass — models, plan, vocabulary
+
+Prompted by the client saying the district looked "completely ruined" beside
+the source models, and then by two sets of reference renders: first four
+sandstone waterfront images, then five of a modern downtown square. The second
+set is the target and it moved the brief.
+
+## 1. The foundation really was rotten, and it was the intake
+
+Every Meshy-sourced asset arrives at ~2 M triangles and was shipping at
+**96–100% cut**: bollard 1,993,800 → 14,000; bench 1,999,182 → 28,000; kerb
+1,991,072 → 13,998; shophouse 1,988,150 → 199,998. Those budgets were written
+for the single-file HTML constraint, which CLAUDE.md records as dead.
+
+On top of that, `modelLOD` selected a **second** 90% cut from per-asset radii of
+55–90 m, so a building a hundred metres away — in full view, filling the frame —
+was drawn from the decimated level. That is the garbling in the client's
+screenshot, and it was two compounding cuts, not a shader fault.
+
+Fixed: budgets raised, far level restricted to genuinely distant work.
+
+**Then over-corrected, and corrected back.** Raising *every* budget 4–10× left a
+bollard at 100 k triangles and a café table at 120 k, projecting 26.4 M unique
+triangles. Budgets are now set by what a thing is on screen, not by its source
+count — buildings keep everything, street props come back to sane numbers.
+26.4 M → 17.5 M with nothing lost from anything that fills the frame.
+
+| | source | was | now |
+|---|---|---|---|
+| shophouse | 1,988,150 | 199,998 | 899,996 |
+| mosque | — | 399,994 | 1,199,998 |
+| bollard | 1,993,800 | 14,000 | 20,000 |
+| café table | — | 30,000 | 20,000 |
+
+**Pipeline bug found while doing it:** `work/props.json` was written once at the
+end of an hour-long run. Two container deaths silently threw away every
+completed model, because the index never recorded them as current. It now
+writes after each asset.
+
+## 2. The plan is half the size
+
+940 × 950 m was a small city, most of it residential filler nobody walks
+through. Now **760 × 610 m — 52%**. Every set piece survives; the outer estates
+became framing bands.
+
+Consequence worth knowing: every corner of the halved plan now sits inside
+`LOD_FULL` of a near-field viewpoint (worst corner 297 m against 340 m), so the
+far level is never selected at all. `LOD_FAR_USED` measures this rather than
+assuming it, and the loader skips a second GLB fetch, parse and geometry copy
+for all 87 props. Widening the plan turns it back on by itself.
+
+## 3. There was no composed view anywhere
+
+The cinema and the corner hotel — the two best assets in the build — stood
+129 m apart on separate streets, each swallowed by whatever the scan fabric
+dropped around them. Everything in the district was *sampled*; nothing was
+*composed*.
+
+`PLAN.dtplaza` is now the one place where what goes where is decided: cinema
+west facing east, hotel east facing west, colonnade block north, arcade south,
+public art on the centre line, tree rings on the diagonal, café spill along the
+hotel under parasols, a lamp ring on a 17 m rhythm, and the densest crowd in the
+district. Both the procedural pass and the scan fabric are locked out of it.
+
+Yaw convention, confirmed against the navigation code before placing anything:
+**0 faces +Z, so π/2 faces east and −π/2 west.**
+
+## 4. The vocabulary was wrong for three quarters of the district
+
+Crenellated parapets, mashrabiya, narrow bays, small punched openings —
+correct for the souq, a category error everywhere the references look. `block()`
+now carries a `modern` flag: step parapets, 4.35 m bays between 0.40 m piers,
+openings glazing 94% of the bay, sills down to a 0.42 m spandrel. The souq keeps
+the vernacular untouched.
+
+**Regression this caused, and the fix.** Mixing the downtown's materials moved
+two thirds of its plots off `brick`; neither sand nor travertine qualified for
+the shopfront test, so the quarter quietly lost its ground-floor retail — a
+downtown of blank plinths. Any modern block on a public frontage is now a
+shopfront.
+
+## 5. Thirteen assets were generated, processed, routed — and never placed
+
+An audit of the 66 routed kit names found 13 with no placement path at all.
+Placed since: `parasol`, `stall`, `wlantern` (with practicals), `acunit`,
+`balcrail`, `treeseat`/`treeseat2`, `vitrine`. Still unplaced: `clothrail`,
+`planterset`, `palmpit`, `slabstep`, `screen`, `bench3`. `sail1` is genuinely
+redundant — the water court builds better hand-made hypar sails.
+
+The audit is worth re-running after any asset batch:
+
+```
+routed kit names: 66   never instanced: 25   no placement path at all: 13
+```
