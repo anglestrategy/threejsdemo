@@ -36,6 +36,7 @@ hundredth of that, and does not need it: it is four flat rectangles.
 import json
 import os
 import struct
+import shutil
 import subprocess
 import sys
 
@@ -130,6 +131,53 @@ PROPS = [
     # a scanned palm with its own base: the base is why this gets a budget
     # closer to palm2's than a bench's — the frond crown is most of the mesh
     ('Meshy_AI_palm_tree_on_base_3d_0812151615_image-to-3d-texture.glb',   'palmbase',   60000, 2048, 7000),
+
+    # ---------------------------------------------------- THE GENERATED SET
+    # Everything below came out of `models3d_generate` from a single reference
+    # image each, rather than out of the release zip, so the source is a local
+    # file — the `local:` prefix, handled in the fetch below. Tripo v3.1 at
+    # detailed texture quality; the face limits sent to the generator were 120k
+    # for props, 180k for cars and 300k for buildings, and these are the
+    # budgets the district gets AFTER reduction.
+    #
+    # The rule for the budgets is the same one the rest of the table follows:
+    # a thing you walk past at two metres keeps its silhouette, a thing you see
+    # from forty gets a level that is mostly texture. Buildings are the
+    # exception in both directions — they carry the most geometry AND need the
+    # most aggressive far level, because there are a lot of them and each one
+    # fills the frame when you are beside it.
+    ('local:shophouse_stair.glb',   'shopstair',  240000, 4096, 24000),
+    ('local:shopblock_iso.glb',     'shopblk1',   240000, 4096, 24000),
+    ('local:shopblock_corner.glb',  'shopblk2',   240000, 4096, 24000),
+    ('local:shopblock_jewel.glb',   'shopblk3',   240000, 4096, 24000),
+    ('local:hotelcorner.glb',       'hotelcnr',   260000, 4096, 26000),
+    ('local:cinema.glb',            'cinema',     200000, 4096, 20000),
+    # shopfronts: these go INTO the arcade bays, so they are near-field always
+    ('local:front_cloth_w.glb',     'frontclw',    90000, 4096,  9000),
+    ('local:front_cloth_v.glb',     'frontclv',    90000, 4096,  9000),
+    ('local:front_elec_w.glb',      'frontelw',    90000, 4096,  9000),
+    ('local:front_elec_c.glb',      'frontelc',    90000, 4096,  9000),
+    ('local:clothrail.glb',         'clothrail',   40000, 2048,  4000),
+    # outdoor seating, which is the thing the district had least of: it had a
+    # bench, and it used the bench everywhere
+    ('local:benchslat.glb',         'benchslat',   30000, 2048,  3200),
+    ('local:treebench_ring.glb',    'treebench',   60000, 2048,  6000),
+    ('local:treebench_open.glb',    'treebench2',  60000, 2048,  6000),
+    ('local:seatbowl.glb',          'seatbowl',    70000, 2048,  7000),
+    ('local:deckpuzzle.glb',        'deckisle',    80000, 4096,  8000),
+    ('local:deckwave.glb',          'deckwave',    70000, 4096,  7000),
+    # street furniture and traffic
+    ('local:walllantern.glb',       'lantern',     16000, 2048,  1800),
+    ('local:lamppost2.glb',         'lamppost3',   30000, 2048,  3200),
+    ('local:car_sedan.glb',         'car_sedan',   90000, 4096,  9000),
+    ('local:car_suv.glb',           'car_suv',     90000, 4096,  9000),
+    ('local:car_hatch.glb',         'car_hatch',   90000, 4096,  9000),
+    # the cafe set, from the first generator test
+    ('local:chair.glb',             'cafechair',   40000, 2048,  4000),
+    ('local:cafetable.glb',         'cafetable',   30000, 2048,  3200),
+    ('local:railing.glb',           'balcrail',    30000, 2048,  3200),
+    ('local:acunit.glb',            'acunit',      20000, 2048,  2200),
+    ('local:parasol.glb',           'parasol',     40000, 2048,  4000),
 ]
 
 
@@ -273,9 +321,18 @@ for fn, key, budget, tex, lod1 in PROPS:
         print('==', key, '(cached)')
         continue
     print('==', key, flush=True)
-    ok = zfetch(fn, RAW) if fn in ZIDX else (
-        subprocess.run(['curl', '-sSL', '-o', RAW, REL + fn], capture_output=True).returncode == 0
-        and os.path.exists(RAW))
+    if fn.startswith('local:'):
+        # generated here rather than pulled from the release zip
+        srcp = os.path.join('work/gen', fn[6:])
+        ok = os.path.exists(srcp)
+        if ok:
+            shutil.copyfile(srcp, RAW)
+        else:
+            print('   missing', srcp)
+    else:
+        ok = zfetch(fn, RAW) if fn in ZIDX else (
+            subprocess.run(['curl', '-sSL', '-o', RAW, REL + fn], capture_output=True).returncode == 0
+            and os.path.exists(RAW))
     if not ok:
         print('   fetch failed'); continue
     try:
