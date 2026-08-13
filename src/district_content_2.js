@@ -229,6 +229,15 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         const sp = at(t, -0.85);
         inst('sign', xf(sp[0], gy + oh + 0.55, sp[1], ang + Math.PI / 2), pick([0xe8c48c, 0xd8a25b, 0xf0e0c8]));
       }
+      /* A wall lantern on the pier between shops. The asset was made for
+         exactly this and had never been placed anywhere; a shopfront street
+         at dusk is a row of warm points at head height before it is anything
+         else, and this district had none of them. */
+      if (MODEL_ROUTE.wlantern && chance(0.62)) {
+        const lp = at(b * bw + pierW / 2, -0.34);
+        inst('wlantern', xf(lp[0], gy + 2.85, lp[1], ang + Math.PI / 2), 0xffd9a4);
+        PRACTICALS.push({ x: lp[0] - nx * 0.3, y: gy + 2.85, z: lp[1] - nz * 0.3, c: 0xffc98a, i: 2.6, r: 8.5 });
+      }
       // a step and a threshold slab
       a.add(G_BOXT, xf(at(t, -1.35)[0], gy - 0.06, at(t, -1.35)[1], ang, ow + 0.6, 0.14, 1.0), 0xc9b795, S.TRAVERTINE, shade * 0.95);
     } else {
@@ -295,6 +304,19 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
         a.add(G_BOXT, xf(at(t, -RD * 0.5)[0], y + head - 0.02, at(t, -RD * 0.5)[1], ang, ow * 0.86 + jw * 2, 0.10, RD), baseCol, surfBase, shade * 0.80);
         // projecting sill and a lintel with a shadow line
         a.add(G_BOXT, xf(at(t, -0.24)[0], y + sill - 0.10, at(t, -0.24)[1], ang, ow + 0.3, 0.14, 0.5), baseCol, surfBase, shade * 1.06);
+        /* A split unit under the window on the quieter elevations. Every
+           building in the Gulf has them and this district had none: the asset
+           was routed and never placed. Kept off the show frontages, which is
+           also where they are in life. */
+        if (MODEL_ROUTE.acunit && pub < 2 && chance(0.30)) {
+          const ap = at(t + ow * 0.28, -0.42);
+          inst('acunit', xf(ap[0], y + sill - 0.62, ap[1], ang + Math.PI / 2), pick([0xd8d4cc, 0xc9c5bc, 0xe2ded4]));
+        }
+        // a juliet rail across the opening, on the streets that show
+        if (MODEL_ROUTE.balcrail && pub >= 1 && chance(0.26)) {
+          const rp = at(t, -0.40);
+          inst('balcrail', xf3(rp[0], y + sill + 0.02, rp[1], 0, ang + Math.PI / 2, 0, ow * 0.86 / 1.6, 1, 1), pick([0x3c3a36, 0x4a463f, 0x2e2c29]));
+        }
       }
     }
     if (lvl > 0) a.add(G_BOXT, xf(at(len - pierW / 2, 0)[0], y, at(len - pierW / 2, 0)[1], ang, pierW, fh, 0.5), baseCol, surfBody, shade);
