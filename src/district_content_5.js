@@ -36,7 +36,7 @@ function buildPlanting() {
         const off = r[4] / 2 + (big ? 4.6 : 4.2);
         const px = r[0] + ux * t + nx * off * s, pz = r[1] + uz * t + nz * off * s;
         if (nearBuilding(px, pz, 1.6)) continue;
-        const gy = terrainY(px, pz);
+        const gy = dressY(px, pz);
         if (big) {
           inst('palm', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 0.9 + rnd() * 0.35, 0.85 + rnd() * 0.45, 0.9 + rnd() * 0.35),
             pick([0xffffff, 0xf2e8d8, 0xe8dcc4]));
@@ -49,9 +49,10 @@ function buildPlanting() {
         if (i % 2 === 0 && chance(0.8)) {
           const lx = px + ux * step * 0.5, lz = pz + uz * step * 0.5;
           if (!nearBuilding(lx, lz, 1.2)) {
-            inst('streetlight', xf(lx, terrainY(lx, lz), lz, Math.atan2(-nx * s, -nz * s)), 0xffffff);
-            PRACTICALS.push({ x: lx, y: terrainY(lx, lz) + 4.2, z: lz, c: 0xffe0b0, i: 6.5, r: 18 });
-            inst('pool', xf3(lx, terrainY(lx, lz) + 0.14, lz, 0, 0, 0, 13, 1, 13), 0xffdcaa);
+            const lgy = dressY(lx, lz);
+            inst('streetlight', xf(lx, lgy, lz, Math.atan2(-nx * s, -nz * s)), 0xffffff);
+            PRACTICALS.push({ x: lx, y: lgy + 4.2, z: lz, c: 0xffe0b0, i: 6.5, r: 18 });
+            inst('pool', xf3(lx, lgy + 0.14, lz, 0, 0, 0, 13, 1, 13), 0xffdcaa);
           }
         }
         if (chance(0.18)) inst('bin', xf(px + nx * s * 1.5, gy, pz + nz * s * 1.5, rnd() * 6.28), 0xffffff);
@@ -71,10 +72,10 @@ function buildPlanting() {
           // pedestrian signal beside the crossing it governs
           const sx2 = cxp + nx * (r[4] / 2 + 2.2), sz2 = czp + nz * (r[4] / 2 + 2.2);
           if (!nearBuilding(sx2, sz2, 1.0)) {
-            inst('tsignal', xf(sx2, terrainY(sx2, sz2), sz2, Math.atan2(-ux * s, -uz * s)));
+            inst('tsignal', xf(sx2, dressY(sx2, sz2), sz2, Math.atan2(-ux * s, -uz * s)));
             if (MODEL_ROUTE.psignal && chance(0.7)) {
               const px2 = cxp - nx * (r[4] / 2 + 2.0), pz2 = czp - nz * (r[4] / 2 + 2.0);
-              inst('psignal', xf(px2, terrainY(px2, pz2), pz2, Math.atan2(nx, nz)));
+              inst('psignal', xf(px2, dressY(px2, pz2), pz2, Math.atan2(nx, nz)));
             }
           }
         }
@@ -92,7 +93,7 @@ function buildPlanting() {
   for (let z = S1.z0 - 16; z < S1.z1 + 24; z += rr(7.5, 11.5)) {
     for (const s of [-1, 1]) {
       const px = sp + s * rr(4.9, 5.9), pz = z + rr(-1.2, 1.2);
-      const gy = terrainY(px, pz);
+      const gy = dressY(px, pz);
       const r = rnd() * 0.82;      // the street is mostly trees and planting
       if (r < 0.30) {
         inst('tree', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 1.30 + rnd() * 0.5, 1.35 + rnd() * 0.55, 1.30 + rnd() * 0.5),
@@ -130,11 +131,11 @@ function buildPlanting() {
         inst('pot', xf(px, gy, pz, rnd() * 6.28, 1.3, 1.3, 1.3), 0xd8ccb2);
         inst('olive', xf3(px, gy + 0.6, pz, 0, rnd() * 6.28, 0, 0.9, 0.9, 0.9), pick([K.leaf, 0x6d7f52]));
       }
-      if (chance(0.35)) inst('bollard', xf(sp + s * 6.4, terrainY(sp + s * 6.4, pz), pz + rr(-3, 3), 0), 0xffffff);
+      if (chance(0.35)) inst('bollard', xf(sp + s * 6.4, dressY(sp + s * 6.4, pz), pz + rr(-3, 3), 0), 0xffffff);
       // the shopkeeper's own frontage: crates, a rail of cloth, an A-board,
       // rolled mats — the layer that turns an elevation into a trade
       const wx = sp + s * 6.15, wz = pz + rr(-3.5, 3.5);
-      const wy = terrainY(wx, wz);
+      const wy = dressY(wx, wz);
       const face = s > 0 ? -Math.PI / 2 : Math.PI / 2;
       const q = rnd();
       if (q < 0.16) inst('crate', xf3(wx - s * 0.9, wy, wz, 0, face + rr(-0.3, 0.3), 0, 1, 1, 1), pick([0x9a7444, 0x86643a, 0xa88254]));
@@ -146,29 +147,31 @@ function buildPlanting() {
   for (let z = S1.z0 - 10; z < S1.z1 + 18; z += rr(17, 24)) {
     const s = chance(0.5) ? 1 : -1;
     const px = sp + s * 6.0;
-    inst('streetlight', xf(px, terrainY(px, z), z, s > 0 ? Math.PI / 2 : -Math.PI / 2), 0xffffff);
-    PRACTICALS.push({ x: px, y: terrainY(px, z) + 4.2, z: z, c: 0xffdcaa, i: 5.0, r: 15 });
-    inst('pool', xf3(px - s * 1.2, terrainY(px, z) + 0.16, z, 0, 0, 0, 12, 1, 12), 0xffdcaa);
+    const sgy = dressY(px, z);
+    inst('streetlight', xf(px, sgy, z, s > 0 ? Math.PI / 2 : -Math.PI / 2), 0xffffff);
+    PRACTICALS.push({ x: px, y: sgy + 4.2, z: z, c: 0xffdcaa, i: 5.0, r: 15 });
+    inst('pool', xf3(px - s * 1.2, sgy + 0.16, z, 0, 0, 0, 12, 1, 12), 0xffdcaa);
   }
 
   for (let z = S1.z0 - 20; z < S1.z1 + 30; z += 1.0) {
     for (const sd of [-1, 1]) {
       const dx2 = sp + sd * 5.35;
-      inst('drain', xf(dx2, terrainY(dx2, z) + 0.152, z, 0), 0xbfae92);
+      inst('drain', xf(dx2, dressY(dx2, z) + 0.002, z, 0), 0xbfae92);
     }
   }
 
   if (MODEL_ROUTE.bunting) {
     for (let z = S1.z0 - 6; z < S1.z1 + 12; z += rr(9, 14)) {
-      inst('bunting', xf(sp, terrainY(sp, z) + 5.1 + rr(-0.2, 0.2), z, Math.PI / 2, 2.5, 1, 1));
+      inst('bunting', xf(sp, dressY(sp, z) + 5.0 + rr(-0.2, 0.2), z, Math.PI / 2, 2.5, 1, 1));
     }
   }
 
   // the canvas ribbons stretched across the spine
   for (let z = S1.z0 + 22; z < S1.z1 - 14; z += rr(48, 78)) {
     const w = 15.0;
+    const rgy = dressY(sp, z);
     for (let k = 0; k < 4; k++) {
-      inst('ribbon', xf3(sp + rr(-0.6, 0.6), terrainY(sp, z) + 8.2 + k * 0.42 + rr(-0.15, 0.15), z + k * 2.1, 0, 0, 0, w, 1.35, 3.0),
+      inst('ribbon', xf3(sp + rr(-0.6, 0.6), rgy + 8.1 + k * 0.42 + rr(-0.15, 0.15), z + k * 2.1, 0, 0, 0, w, 1.35, 3.0),
         pick([0xfbf7ee, 0xf2ece0, 0xfefcf6]));
     }
   }
@@ -178,7 +181,7 @@ function buildPlanting() {
   for (let i = 0; i < 26; i++) {
     const px = rr(CP.x0 + 6, CP.x1 - 6), pz = rr(CP.z0 + 6, CP.z1 - 6);
     if (Math.abs(px - PLAN.water.x) < 6) continue;
-    const gy = terrainY(px, pz) + 0.18;
+    const gy = dressY(px, pz);
     const r = rnd();
     if (r < 0.34) {
       inst('bench', xf(px, gy, pz, rnd() * 6.28), pick([0xd6c6a8, 0xcbbb9c]));
@@ -201,7 +204,7 @@ function buildPlanting() {
     for (let i = 0; i < 90; i++) {
       const px = rr(Z.x0, Z.x1), pz = rr(Z.z0, Z.z1);
       if (nearBuilding(px, pz, 2.6)) continue;
-      const gy = terrainY(px, pz);
+      const gy = dressY(px, pz);
       if (chance(0.45)) inst('palm', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 0.85 + rnd() * 0.4, 0.8 + rnd() * 0.5, 0.85 + rnd() * 0.4), pick([0xffffff, 0xeee4d2]));
       else inst('tree', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 0.8 + rnd() * 0.5, 0.75 + rnd() * 0.5, 0.8 + rnd() * 0.5), pick([0xffffff, 0xdfe8cf]));
     }
@@ -211,7 +214,7 @@ function buildPlanting() {
   for (let i = 0; i < 420; i++) {
     const px = rr(PLAN.bounds.x0, PLAN.bounds.x1), pz = rr(PLAN.bounds.z0, PLAN.bounds.z1);
     if (nearBuilding(px, pz, 0.5)) continue;
-    ACC.ground.add(G_PLANE, xf3(px, terrainY(px, pz) + 0.20, pz, 0, rnd() * 6.28, 0, rr(0.5, 2.4), 1, rr(0.5, 2.4)),
+    ACC.ground.add(G_PLANE, xf3(px, dressY(px, pz) + 0.05, pz, 0, rnd() * 6.28, 0, rr(0.5, 2.4), 1, rr(0.5, 2.4)),
       pick([0x8f7c56, 0x9c8a63, 0x7c6c4c, 0xa89571]), S.SAND, rr(0.55, 0.95));
   }
 }
@@ -244,7 +247,7 @@ function buildGreen() {
   const LAWN = [0x4a6b34, 0x53743a, 0x415f2d, 0x5b7c40];
   const bed = (x0, z0, x1, z1, y) => {
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-    inst('lawn', xf(cx, (y === undefined ? terrainY(cx, cz) : y) + 0.055, cz, 0,
+    inst('lawn', xf(cx, (y === undefined ? dressY(cx, cz) : y) + 0.035, cz, 0,
       x1 - x0, 1, z1 - z0), pick(LAWN));
   };
 
@@ -256,12 +259,12 @@ function buildGreen() {
     if (insideSolid(bx + bw / 2, bz + bd / 2, 0.6)) continue;
     bed(bx, bz, bx + bw, bz + bd);
     for (let e = 0; e < Math.round(bw); e += 1.0) {
-      inst('hedge', xf(bx + e + 0.5, terrainY(bx + e, bz) + 0.05, bz, 0, 1.0, 0.8, 1.0), 0xffffff);
-      inst('hedge', xf(bx + e + 0.5, terrainY(bx + e, bz + bd) + 0.05, bz + bd, 0, 1.0, 0.8, 1.0), 0xffffff);
+      inst('hedge', xf(bx + e + 0.5, dressY(bx + e, bz), bz, 0, 1.0, 0.8, 1.0), 0xffffff);
+      inst('hedge', xf(bx + e + 0.5, dressY(bx + e, bz + bd), bz + bd, 0, 1.0, 0.8, 1.0), 0xffffff);
     }
     for (let k = 0; k < 5; k++) {
       const px = rr(bx + 1, bx + bw - 1), pz = rr(bz + 1, bz + bd - 1);
-      inst('shrub', xf3(px, terrainY(px, pz) + 0.06, pz, 0, rnd() * 6.28, 0, 1, 1, 1), pick([K.leaf, K.leafDk]));
+      inst('shrub', xf3(px, dressY(px, pz), pz, 0, rnd() * 6.28, 0, 1, 1, 1), pick([K.leaf, K.leafDk]));
     }
   }
   // the colonnade court and the sail court get a planted apron
@@ -298,7 +301,7 @@ function buildGreen() {
 
 function buildIdentity() {
   CURCHUNK = 'canopy';
-  const cx = 4, cz = PLAN.canopy.z0 - 22, gy = terrainY(cx, cz);
+  const cx = 4, cz = PLAN.canopy.z0 - 22, gy = dressY(cx, cz);
   // a low travertine plinth carrying the lettering
   ACC.arch.add(G_BOXT, xf(cx, gy + 0.16, cz, 0, 40, 1.25, 2.0), K.travert, S.TRAVERTINE, 1.05);
   ACC.arch.add(G_BOXT, xf(cx, gy + 1.41, cz, 0, 41, 0.16, 2.4), K.travDk, S.TRAVERTINE, 1.1);
@@ -1613,7 +1616,7 @@ function buildSustainability() {
   let n = 0;
   const put = (kit, x, z, ry, y) => {
     if (!MODEL_ROUTE[kit]) return false;
-    inst(kit, xf3(x, y === undefined ? terrainY(x, z) : y, z, 0, ry, 0, 1, 1, 1));
+    inst(kit, xf3(x, y === undefined ? dressY(x, z) : y, z, 0, ry, 0, 1, 1, 1));
     n++;
     return true;
   };

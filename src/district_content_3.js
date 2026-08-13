@@ -146,7 +146,7 @@ function buildCanopy() {
       const pz = CP.z0 + (j + 0.5) * dsz + rr(-1.6, 1.6);
       if (inVoid(px, pz)) continue;
       if (Math.abs(px - PLAN.water.x) < 5.5) continue;
-      const gy = terrainY(px, pz) + 0.18;
+      const gy = dressY(px, pz);
       const r = rnd() * 2.4;      // most modules stay open floor
       if (r < 0.30) {
         // a planted bed with its own kerb, a palm and massed shrubs
@@ -181,12 +181,13 @@ function buildCanopy() {
     const n = Math.round((v.x1 - v.x0) * (v.z1 - v.z0) / 62);
     for (let i = 0; i < n; i++) {
       const px = mix(v.x0 + 3, v.x1 - 3, rnd()), pz = mix(v.z0 + 3, v.z1 - 3, rnd());
-      inst('palm', xf3(px, terrainY(px, pz), pz, 0, rnd() * 6.28, 0, 1, 1.15 + rnd() * 0.55, 1), 0xffffff);
+      inst('palm', xf3(px, dressY(px, pz), pz, 0, rnd() * 6.28, 0, 1, 1.15 + rnd() * 0.55, 1), 0xffffff);
     }
     for (let i = 0; i < 8; i++) {
       const px = mix(v.x0 + 2, v.x1 - 2, rnd()), pz = mix(v.z0 + 2, v.z1 - 2, rnd());
-      inst('planter', xf3(px, terrainY(px, pz) + 0.24, pz, 0, rnd() * 6.28, 0, 1.8, 1, 1.8), 0xcabb9d);
-      inst('shrub', xf3(px, terrainY(px, pz) + 0.86, pz, 0, rnd() * 6.28, 0, 1.6, 1.3, 1.6), pick([K.leaf, K.leafLt]));
+      const vgy = dressY(px, pz);
+      inst('planter', xf3(px, vgy + 0.06, pz, 0, rnd() * 6.28, 0, 1.8, 1, 1.8), 0xcabb9d);
+      inst('shrub', xf3(px, vgy + 0.68, pz, 0, rnd() * 6.28, 0, 1.6, 1.3, 1.6), pick([K.leaf, K.leafLt]));
     }
   }
   occluder(cx, cz, W / 2, D / 2, y);
