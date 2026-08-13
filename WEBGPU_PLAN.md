@@ -464,3 +464,54 @@ recess, which is the surface law working):
 | + colorNode | 162 149 155 159 159 155 157 163 160 155 160 |
 | + roughnessNode | same |
 | + relief normal (full) | 164 148 134 156 156 155 159 161 160 151 159 |
+
+## Step 6, open defect: water across the souq
+
+`gpuapp.html?shot=3` draws a water surface down the souq spine. The shipping
+build at the same pose shows paving. It is the one category error left in the
+port and it is written up in full because six measurements narrowed it and none
+closed it — a future pass should start from the table, not from scratch.
+
+| measured | shipping build | WebGPU port |
+|---|---|---|
+| water meshes | 4 | 4 (+1 unexplained 1x1 quad at the origin, 4 verts) |
+| big channel bbox | x[-120,270] z[-84,560] y -0.339..0.299 | identical |
+| vertices within 10 m x 40 m of (4,178) | **none** | **none** |
+| `aFlow` attribute | absent on all four | absent on all four |
+| `transparent` / `depthWrite` / `renderOrder` | true / true / 2 | identical |
+| `CITY.debug.waterAt(4,178)` | false | false |
+| `terrainY(4,178)` | 0.293 (computed off the shared helpers, no renderer) | same source |
+| renders water at the souq | no | **yes** |
+
+**Ruled out by measurement, not by argument:**
+
+- *the mirror* — `?norefl=1` leaves `uReflOn` at 0 and the surface is unchanged.
+- *the flow term* — `?wdbg=flow` paints the surface with `aFlow` and it renders
+  black. The value is 0, as it is in the shipping build.
+- *material flags* — `depthWrite: false` and `DoubleSide` were mine and were
+  wrong, and removing them (the material now carries exactly the shipping
+  build's `transparent: true` and nothing else) did not change the frame.
+- *my geometry mutation* — the port used to add a zero-filled `aFlow` so TSL
+  had something to read. Removed; no change. Worth removing anyway: it was the
+  only thing this build did to that geometry that the shipping build does not.
+- *it being some other surface* — `?nowater=1` hides every water body and the
+  souq paving underneath is correct, so the water material is what draws it.
+
+**What that leaves.** Identical geometry, identical depth state, no vertices
+anywhere near the camera, and fragments on screen. The only shapes that fit are
+that the fragments come from triangles whose vertices lie outside the search
+window and which span across it, or that something in the node pipeline moves
+the vertices. The next probe is therefore a *positional* one: render the water
+with `positionWorld` as colour (`wdbg=wpos`, one line beside the existing
+flags) and read where those fragments think they are. That is one render and it
+distinguishes the two.
+
+**One thing this hunt found that outlives it.** `aFlow` is dead code in the
+shipping build. `Acc` merges every water run into one mesh and copies
+position/normal/uv/colour/surface — not `aFlow` — so the roundabout basin, the
+only place that authors it, loses it in the merge. All four water meshes report
+`aFlow: null`. GLSL reads a missing attribute as zero, so **the district has
+been still water everywhere, always**: the crossed ripple trains and the
+turquoise of a moving channel have never once been seen in either build.
+Fixing it means carrying the attribute through `Acc`, which is a change to the
+shared district and needs the WebGL2 build re-gated with it — its own step.
