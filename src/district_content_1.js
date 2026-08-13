@@ -363,6 +363,194 @@ function routeWalkerParts(key, prefix, targetH) {
   return kits;
 }
 
+
+/* ====================================================== THE RIGGED CROWD ==
+   This replaces the limb-tagging above, and the reason is worth recording
+   because it is the second time on this project that the answer was to look
+   at what the tool actually returned rather than at what I assumed it did.
+
+   `tagWalker()` exists because there was no rigger. There still is no rigging
+   TOOL — `models3d_rig` is named in another tool's description and is not
+   exposed, which I checked twice. But the image-to-3D generator returns a
+   figure ALREADY RIGGED: every one of these comes back as `model-rigged.glb`
+   with a 41-63 joint skeleton, JOINTS_0 and WEIGHTS_0, and smooth weights.
+
+   So the crowd is skinned rather than labelled. What that buys, concretely:
+
+     * no tear. A binary skin rips at the hip and splits a robe up the middle,
+       and the two ramps in `tagWalker` are damage control for exactly that.
+       A weighted skin deforms, which is what cloth does.
+     * knees. A limb tag can rotate a leg about the hip and nothing else; a
+       chain can bend the knee, roll the ankle and swing the arm from the
+       shoulder AND the elbow. A straight-legged walk is uncanny in a way that
+       is hard to name and impossible to miss.
+     * the figures keep their own proportions. No pivot heights assumed.
+
+   `tagWalker` stays for the ten-figure people10 scan, which has no skeleton.
+   Both crowds walk; only this one bends.
+
+   ---- what has to be worked out, and how -------------------------------
+
+   The joints are named `tripo::Root`, `tripo::0_Left_Limb_0`, `Head_0` and
+   then `bone_5` ... `bone_62`. So the names carry almost nothing and the
+   skeleton has to be read from its own REST POSE, which is more reliable
+   anyway: a bone's rest position on the body says what it is far better than
+   a name a generator picked.
+
+     lateral axis   the figure is widest across the shoulders, so the wider
+                    horizontal extent of the 0.72-0.90 H band is left-right
+     hip / shoulder measured from the bone cloud rather than assumed: the hip
+                    line is where the leg chains start and the shoulder line
+                    is where the arm chains do
+     limbs          a bone below the hip and inboard of the arm line is a leg;
+                    one between hip and shoulder and outboard of it is an arm.
+                    Sign of the lateral coordinate splits left from right.
+     chain order    sort each limb's bones by height, descending. That is
+                    hip, knee, ankle, toe — and shoulder, elbow, wrist —
+                    without needing the parent hierarchy to be sane.
+   ========================================================================== */
+const RIGGED = [];        // { name, mesh, height, limbs }
+const RIG_INSTANCES = []; // { obj, bones, rest, phase, speed, path, t, lane }
+
+/* Clone a SkinnedMesh so each walker has its own pose.
+
+   three ships SkeletonUtils for this and it is not vendored here; it is also
+   thirty lines, and the thirty lines are worth having in the open because the
+   subtle part is not the cloning — Object3D.clone() does that — it is that
+   the clone's SkinnedMesh still points at the ORIGINAL skeleton's bones. Miss
+   the rebind and all 108 walkers share one skeleton and move as one body,
+   which looks like a bug in the walk cycle and is not. */
+function cloneSkinned(src) {
+  const out = src.clone(true);
+  const map = new Map();
+  const walk = (a, b) => {
+    map.set(a.name, b);
+    for (let i = 0; i < a.children.length; i++) walk(a.children[i], b.children[i]);
+  };
+  walk(src, out);
+  out.traverse((o) => {
+    if (!o.isSkinnedMesh) return;
+    const s = o.skeleton;
+    const bones = s.bones.map((b) => map.get(b.name) || b);
+    o.bind(new THREE.Skeleton(bones, s.boneInverses), o.bindMatrix.clone());
+  });
+  return out;
+}
+
+/* Read a skeleton's rest pose and work out which bones are which. */
+function classifyRig(mesh, H) {
+  const sk = mesh.skeleton;
+  const P = [];
+  mesh.updateMatrixWorld(true);
+  for (const b of sk.bones) {
+    b.updateMatrixWorld(true);
+    const v = new THREE.Vector3().setFromMatrixPosition(b.matrixWorld);
+    P.push(v);
+  }
+  /* the lateral axis: the wider horizontal spread of the shoulder band */
+  let sx = 0, sz = 0, n = 0;
+  for (const v of P) {
+    if (v.y < H * 0.66 || v.y > H * 0.92) continue;
+    sx = Math.max(sx, Math.abs(v.x)); sz = Math.max(sz, Math.abs(v.z)); n++;
+  }
+  const lat = (n && sz > sx) ? 'z' : 'x';       // which component is left-right
+  const sag = lat === 'x' ? 'z' : 'x';          // and which is front-back
+  let latMax = 1e-4;
+  for (const v of P) if (v.y > H * 0.45 && v.y < H * 0.92) latMax = Math.max(latMax, Math.abs(v[lat]));
+
+  const HIP = H * 0.55, SHO = H * 0.80, ARM = latMax * 0.42;
+  const L = { ll: [], rl: [], la: [], ra: [], spine: [] };
+  for (let i = 0; i < P.length; i++) {
+    const v = P[i], a = v[lat];
+    if (v.y < HIP && Math.abs(a) < latMax * 0.55) (a < 0 ? L.ll : L.rl).push(i);
+    else if (v.y >= HIP && v.y <= SHO * 1.06 && Math.abs(a) > ARM) (a < 0 ? L.la : L.ra).push(i);
+    else L.spine.push(i);
+  }
+  // top of each chain first: hip, knee, ankle — shoulder, elbow, wrist
+  for (const k of ['ll', 'rl', 'la', 'ra']) L[k].sort((i, j) => P[j].y - P[i].y);
+  L.lat = lat; L.sag = sag;
+  return L;
+}
+
+/* Load every rigged figure once. Called from the district's async build. */
+async function loadRiggedPeople(targetH) {
+  let names = [];
+  try {
+    names = await (await fetch('assets/people.json')).json();
+  } catch (e) { return []; }
+  const loader = window.__gltfLoader || new THREE.GLTFLoader();
+  for (const nm of names) {
+    try {
+      const g = await loader.loadAsync('assets/people/' + nm + '.glb');
+      let mesh = null;
+      g.scene.traverse((o) => { if (o.isSkinnedMesh && !mesh) mesh = o; });
+      if (!mesh) continue;
+      g.scene.updateMatrixWorld(true);
+      const bb = new THREE.Box3().setFromObject(g.scene);
+      const h0 = Math.max(0.001, bb.max.y - bb.min.y);
+      const k = targetH / h0;
+      /* Scale and re-seat on the ROOT, not on the mesh: a SkinnedMesh ignores
+         its own transform for skinning (the bind matrix owns that), so scaling
+         the mesh moves the silhouette and not the skin, which produces a
+         figure standing in a puddle of its own geometry. */
+      g.scene.scale.setScalar(k);
+      g.scene.position.y = -bb.min.y * k;
+      g.scene.position.x = -(bb.min.x + bb.max.x) / 2 * k;
+      g.scene.position.z = -(bb.min.z + bb.max.z) / 2 * k;
+      const holder = new THREE.Group();
+      holder.add(g.scene);
+      holder.updateMatrixWorld(true);
+      const limbs = classifyRig(mesh, targetH);
+      mesh.frustumCulled = false;
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      RIGGED.push({ name: nm, obj: holder, mesh, height: targetH, limbs });
+    } catch (e) { /* a figure that fails to load simply is not in the crowd */ }
+  }
+  return RIGGED;
+}
+
+/* ---- the walk ---------------------------------------------------------
+   Angles in radians, at the phase of the stride. These are read off a human
+   gait rather than invented: the hip swings about 25 degrees peak to peak, the
+   knee bends only ONE WAY and only in the swing half — a knee that bends
+   backwards is the single most common tell in a hand-written walk cycle — the
+   ankle rolls a little late, and the arms swing opposed at about two thirds of
+   the leg amplitude, from the shoulder AND the elbow. */
+const _rq = new THREE.Quaternion();
+const _rax = new THREE.Vector3();
+const _rm3 = new THREE.Matrix4();
+
+function poseChain(chain, bones, rest, ang, sagAxis) {
+  for (let i = 0; i < chain.length && i < ang.length; i++) {
+    const b = bones[chain[i]];
+    const r = rest[chain[i]];
+    if (!b || !ang[i]) { if (b && r) b.quaternion.copy(r); continue; }
+    /* rotate about the FIGURE's sagittal axis, expressed in this bone's own
+       parent space — the generator's bone frames are arbitrary, so rotating
+       about the bone's local X would swing a leg sideways on half of them */
+    _rax.set(sagAxis === 'x' ? 1 : 0, 0, sagAxis === 'z' ? 1 : 0);
+    if (b.parent) {
+      _rm3.copy(b.parent.matrixWorld).invert();
+      _rax.transformDirection(_rm3).normalize();
+    }
+    b.quaternion.copy(r).multiply(_rq.setFromAxisAngle(_rax, ang[i]));
+  }
+}
+
+function poseWalker(r, ph, stride) {
+  const s = Math.sin(ph), c = Math.cos(ph);
+  const k = stride;
+  const L = r.limbs, B = r.mesh.skeleton.bones, R = r.rest;
+  // hip, knee (one way only), ankle
+  const kneeL = Math.max(0, -Math.sin(ph + 0.55)) * 0.62 * k;
+  const kneeR = Math.max(0, -Math.sin(ph + 0.55 + Math.PI)) * 0.62 * k;
+  poseChain(L.ll, B, R, [0.44 * s * k, -kneeL, 0.18 * Math.sin(ph + 1.1) * k], L.sag);
+  poseChain(L.rl, B, R, [-0.44 * s * k, -kneeR, -0.18 * Math.sin(ph + 1.1) * k], L.sag);
+  // arms, opposed to their own leg, from shoulder and elbow
+  poseChain(L.la, B, R, [-0.30 * s * k, -0.26 * (0.55 + 0.45 * c) * k], L.sag);
+  poseChain(L.ra, B, R, [0.30 * s * k, -0.26 * (0.55 - 0.45 * c) * k], L.sag);
+}
+
 /* Split a furnished scene into individually placeable pieces.
 
    `ghscene` is a complete residential interior: fifty-four meshes across

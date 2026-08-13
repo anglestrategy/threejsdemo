@@ -115,6 +115,25 @@ if os.path.exists(p('work/props.json')):
         if os.path.isdir(pdir) else 0
     sizes.append(('props (%d GLB)' % nprops, pbytes))
 
+# ---- the rigged crowd -------------------------------------------------------
+# These do NOT go through gen_props.py, and that is the point: the intake
+# reduces geometry, and every reduction path available here either drops
+# JOINTS_0/WEIGHTS_0 or rebinds them wrong. The figures arrive at 29 k
+# triangles and 1.3 MB already — small enough to ship untouched — so they are
+# copied verbatim and the skeleton survives.
+pfiles = sorted(f for f in os.listdir(p('work/gen')) if f.startswith('per_')) \
+    if os.path.isdir(p('work/gen')) else []
+if pfiles:
+    hdir = p('dist/assets/people')
+    os.makedirs(hdir, exist_ok=True)
+    idx = []
+    for f in pfiles:
+        shutil.copyfile(p('work/gen', f), os.path.join(hdir, f))
+        idx.append(f[:-4])
+    json.dump(idx, open(p('dist/assets/people.json'), 'w'), indent=1)
+    sizes.append(('people (%d rigged GLB)' % len(idx),
+                  sum(os.path.getsize(os.path.join(hdir, f)) for f in pfiles)))
+
 imports = {}
 for key, b64 in mods.items():
     fn = key.replace('/', '__') + ('' if key.endswith('.js') else '.js')

@@ -432,6 +432,14 @@ async function loadProps() {
     } catch (e) { console.warn('prop ' + key + ' failed', e); }
   }));
   INSTCOUNT.props = Object.keys(PROPS).length;
+  /* The rigged crowd, loaded in the same async phase and NOT through the prop
+     index: these keep their skeletons and go nowhere near the reducer. The
+     dressing pass runs after this resolves, so RIGGED is populated by the time
+     buildLife() reaches for it. */
+  try {
+    await loadRiggedPeople(1.72);
+    INSTCOUNT.rigged_kinds = RIGGED.length;
+  } catch (e) { console.warn('rigged people failed', e); }
 }
 
 const MODELPACK = /*@MODELS@*/;

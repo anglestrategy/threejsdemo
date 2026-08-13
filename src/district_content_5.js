@@ -389,6 +389,43 @@ function buildLife() {
             : pick([0xffffff, 0xe8e2d4, 0xd6dce4, 0xdcd2c2]),
     });
   }
+  /* ---- the rigged walkers ---------------------------------------------
+     A share of the crowd is replaced by the skinned figures. They are NOT
+     instanced — a SkinnedMesh cannot be — so each is its own object with its
+     own skeleton, which is why there are forty of them and not a hundred and
+     eight. Forty draw calls against a district that already issues several
+     hundred is nothing, and forty figures that bend their knees are worth
+     more than a hundred that do not.
+
+     They take the FOREGROUND share: every one is dropped on a path segment
+     inside the walkable core, because a skinned figure is only worth its
+     draw call where you can see it flex. The instanced crowd keeps the
+     distance. */
+  {
+    const nRig = Math.min(40, RIGGED.length ? 40 : 0);
+    for (let i = 0; i < nRig; i++) {
+      const r = RIGGED[i % RIGGED.length];
+      const obj = cloneSkinned(r.obj);
+      let mesh = null;
+      obj.traverse((o) => { if (o.isSkinnedMesh && !mesh) mesh = o; });
+      if (!mesh) continue;
+      /* the rest pose, kept per instance: every frame's angles are applied to
+         it rather than accumulated onto the last frame, which is the
+         difference between a walk and a figure slowly winding itself up */
+      const rest = mesh.skeleton.bones.map((b) => b.quaternion.clone());
+      obj.matrixAutoUpdate = true;
+      cityRoot.add(obj);
+      RIG_INSTANCES.push({
+        obj, mesh, rest, limbs: r.limbs,
+        path: PATHS[i % PATHS.length], t: rnd(), speed: rr(0.55, 1.30) / 100,
+        lane: rr(-2.2, 2.2), ph: rnd() * 6.2831853,
+        stride: rr(0.85, 1.15),
+        scale: rr(0.96, 1.05),
+      });
+    }
+    INSTCOUNT.__rigged = RIG_INSTANCES.length;
+  }
+
   // the instanced meshes the walkers drive
   WALK_KINDS = PROC.concat(SCANS);
   for (const k of WALK_KINDS) {
@@ -548,6 +585,34 @@ function updateLife(dt, t) {
     d.mesh.setMatrixAt(idx[w.kind]++, _wm);
   }
   for (const k in idx) { const d = defs[k]; if (d && d.mesh) d.mesh.instanceMatrix.needsUpdate = true; }
+
+  /* ---- the rigged walkers, posed bone by bone -------------------------
+     Same paths and the same lane offsets as the instanced crowd, so the two
+     read as one crowd rather than as two systems sharing a street. The gait
+     phase advances with DISTANCE rather than with time, which is the detail
+     that stops a slow walker from running on the spot: stride length is a
+     property of the body and speed follows from cadence, not the reverse. */
+  for (let i = 0; i < RIG_INSTANCES.length; i++) {
+    const w = RIG_INSTANCES[i];
+    w.t += w.speed * dt;
+    if (w.t >= 1) w.t -= 1;
+    const p = w.path;
+    const f = w.t * (p.length - 1);
+    const s0 = Math.min(p.length - 2, Math.floor(f));
+    const lt = f - s0;
+    const ax = mix(p[s0][0], p[s0 + 1][0], lt), az = mix(p[s0][1], p[s0 + 1][1], lt);
+    const dx = p[s0 + 1][0] - p[s0][0], dz = p[s0 + 1][1] - p[s0][1];
+    const l = Math.hypot(dx, dz) || 1;
+    const px = ax + (dz / l) * w.lane, pz = az - (dx / l) * w.lane;
+    const gy = groundAt(px, pz);
+    // 0.78 m of stride per half cycle, so cadence follows speed
+    w.ph += (w.speed * dt * l * (p.length - 1)) / 0.78 * Math.PI;
+    const bob = Math.abs(Math.sin(w.ph)) * 0.032;
+    w.obj.position.set(px, gy + bob, pz);
+    w.obj.rotation.set(0, Math.atan2(dx, dz) + Math.PI, Math.sin(w.ph) * 0.026);
+    w.obj.scale.setScalar(w.scale);
+    poseWalker({ mesh: w.mesh, limbs: w.limbs, rest: w.rest }, w.ph, w.stride);
+  }
 
   // birds
   const bd = defs.bird;
