@@ -28,7 +28,11 @@ function buildPlanting() {
     const ux = dx / len, uz = dz / len;
     const nx = uz, nz = -ux;
     const big = r[4] >= 19;
-    const step = big ? 11.5 : 15.5;
+    /* A tree every 11.5-15.5 m is a car park. Every street in the reference
+       set is planted close enough that the canopies touch, and the shade
+       pattern on the ground is most of what makes those images read as a
+       real place rather than a model. Halving the district paid for this. */
+    const step = big ? 7.2 : 9.0;
     const n = Math.floor(len / step);
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n * len + rr(-1.7, 1.7);
@@ -41,9 +45,12 @@ function buildPlanting() {
           inst('palm', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 0.9 + rnd() * 0.35, 0.85 + rnd() * 0.45, 0.9 + rnd() * 0.35),
             pick([0xffffff, 0xf2e8d8, 0xe8dcc4]));
           inst('shrub', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 1.7, 1.1, 1.7), pick([K.leaf, K.leafDk]));
-        } else if (chance(0.72)) {
+        } else if (chance(0.88)) {
           inst('tree', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 0.85 + rnd() * 0.5, 0.8 + rnd() * 0.5, 0.85 + rnd() * 0.5),
             pick([0xffffff, 0xe6f0d8, 0xd8e4c8, 0xf0e8d4]));
+          // understory. A street tree standing alone in paving is a diagram;
+          // the reference streets all have something green at ankle height.
+          if (chance(0.55)) inst('shrub', xf3(px + nx * s * 1.3, gy, pz + nz * s * 1.3, 0, rnd() * 6.28, 0, 1.25, 0.85, 1.25), pick([K.leaf, K.leafDk, K.leafLt]));
         }
         // street lights on a slower, offset rhythm
         if (i % 2 === 0 && chance(0.8)) {
