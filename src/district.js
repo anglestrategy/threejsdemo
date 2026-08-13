@@ -1240,7 +1240,7 @@ function makeCityMaterial(cacheKey) {
         alb *= mix(0.62 + 0.55 * dk, 1.0, foli);
         alb *= mix(0.80 + 0.42 * grain, 0.90 + 0.26 * grain, foli);
         // leaves are thin: they pass light, so a canopy never goes to black
-        alb += foli * vec3(0.070, 0.105, 0.038) * (0.45 + 0.55 * grain);
+        alb += foli * vec3(0.078, 0.120, 0.042) * (0.45 + 0.55 * grain);
         rough = clamp(rough * (1.10 - 0.28 * grain) + (1.0 - cav) * 0.20, 0.05, 1.0);
 
         if (s > 1.5 && s < 2.5) alb = mix(alb, alb * vec3(1.12, 0.93, 0.84), grain);

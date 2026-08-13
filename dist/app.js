@@ -3699,7 +3699,7 @@ function makeCityMaterial(cacheKey) {
         alb *= mix(0.62 + 0.55 * dk, 1.0, foli);
         alb *= mix(0.80 + 0.42 * grain, 0.90 + 0.26 * grain, foli);
         // leaves are thin: they pass light, so a canopy never goes to black
-        alb += foli * vec3(0.070, 0.105, 0.038) * (0.45 + 0.55 * grain);
+        alb += foli * vec3(0.078, 0.120, 0.042) * (0.45 + 0.55 * grain);
         rough = clamp(rough * (1.10 - 0.28 * grain) + (1.0 - cav) * 0.20, 0.05, 1.0);
 
         if (s > 1.5 && s < 2.5) alb = mix(alb, alb * vec3(1.12, 0.93, 0.84), grain);
@@ -6341,7 +6341,7 @@ function roofscape(cx, cz, w, d, top, o) {
     const bx = cx + (rnd() - 0.5) * (w - bw) * 0.6, bz = cz + (rnd() - 0.5) * (d - bd) * 0.6;
     a.add(G_BOXT, xf(bx, top, bz, 0, bw, 0.34, bd), 0xbdb2a0, S.CONCRETE, 0.95);
     inst('lawn', xf(bx, top + 0.34, bz, 0, bw * 0.94, 1, bd * 0.94),
-      pick([0x4a6b34, 0x53743a, 0x415f2d, 0x3d5c30]));
+      pick([0x528038, 0x5c8940, 0x4a7232, 0x466a35]));
     if (MODEL_ROUTE.hammock && bw > 5 && bd > 5 && chance(0.45)) {
       inst('hammock', xf(bx + rr(-bw * 0.25, bw * 0.25), top + 0.34,
         bz + rr(-bd * 0.25, bd * 0.25), rnd() * 6.28));

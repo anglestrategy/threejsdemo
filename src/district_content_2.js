@@ -404,7 +404,7 @@ function roofscape(cx, cz, w, d, top, o) {
     const bx = cx + (rnd() - 0.5) * (w - bw) * 0.6, bz = cz + (rnd() - 0.5) * (d - bd) * 0.6;
     a.add(G_BOXT, xf(bx, top, bz, 0, bw, 0.34, bd), 0xbdb2a0, S.CONCRETE, 0.95);
     inst('lawn', xf(bx, top + 0.34, bz, 0, bw * 0.94, 1, bd * 0.94),
-      pick([0x4a6b34, 0x53743a, 0x415f2d, 0x3d5c30]));
+      pick([0x528038, 0x5c8940, 0x4a7232, 0x466a35]));
     if (MODEL_ROUTE.hammock && bw > 5 && bd > 5 && chance(0.45)) {
       inst('hammock', xf(bx + rr(-bw * 0.25, bw * 0.25), top + 0.34,
         bz + rr(-bd * 0.25, bd * 0.25), rnd() * 6.28));

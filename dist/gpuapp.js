@@ -746,7 +746,7 @@ const PROBE = { step: 15, ystep: 7.5, ny: 5, y0: 1.6, nx: 0, nz: 0, x0: 0, z0: 0
 // the sky dome's own colour, in JS, so the bake and the shader agree
 function skyColourAt(dx, dy, dz) {
   const up = clamp(dy, 0, 1);
-  const zen = [0.063, 0.102, 0.231], mid = [0.239, 0.271, 0.431], hor = [0.761, 0.643, 0.584];
+  const zen = [0.055, 0.089, 0.202], mid = [0.231, 0.262, 0.423], hor = [0.774, 0.652, 0.592];
   const p = Math.pow(up, 0.62);
   let r = mid[0] + (zen[0] - mid[0]) * p;
   let g = mid[1] + (zen[1] - mid[1]) * p;
@@ -754,8 +754,8 @@ function skyColourAt(dx, dy, dz) {
   const hz = Math.pow(1 - up, 5.0);
   r = r + (hor[0] - r) * hz * 0.92; g = g + (hor[1] - g) * hz * 0.92; b = b + (hor[2] - b) * hz * 0.92;
   const sd = Math.max(dx * CSUN.x + dy * CSUN.y + dz * CSUN.z, 0);
-  const glow = Math.pow(sd, 5.0) * 0.55 * (0.35 + 0.65 * hz) + Math.pow(sd, 24.0) * 0.7;
-  return [r + 1.00 * glow, g + 0.82 * glow, b + 0.63 * glow];
+  const glow = Math.pow(sd, 5.0) * 0.60 * (0.35 + 0.65 * hz) + Math.pow(sd, 24.0) * 0.75;
+  return [r + 1.00 * glow, g + 0.83 * glow, b + 0.65 * glow];
 }
 
 function bakeProbes() {
@@ -1302,8 +1302,8 @@ function makeCityMaterial(cacheKey) {
     uProbeSky: { value: null }, uProbeGnd: { value: null },
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
-    uProbeInt: { value: 1.05 },
-    uFogWarm: { value: new THREE.Color(0xd9a878) }, uFogCool: { value: new THREE.Color(0x7286a8) },
+    uProbeInt: { value: 1.12 },
+    uFogWarm: { value: new THREE.Color(0xdcab7c) }, uFogCool: { value: new THREE.Color(0x7488ac) },
     uFogScaleH: { value: 150 },
     uSunW: { value: CSUN.clone() },
     /* A room the sun never enters is lit by its own ceiling, and no pooled
@@ -1466,7 +1466,7 @@ function makeCityMaterial(cacheKey) {
         const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
         vec3 gA = mix(vec3(dot(dA, LUM)), dA, 0.26) * kk;
         vec3 gB = mix(vec3(dot(dB, LUM)), dB, 0.18) * kk;
-        alb *= mix(vec3(1.0), gA, 0.58 * dw) * mix(vec3(1.0), gB, 0.34 * dw);
+        alb *= mix(vec3(1.0), gA, 0.64 * dw) * mix(vec3(1.0), gB, 0.40 * dw);
 
         vec4 nT = wood ? texture2D(uWoodN, fine) : texture2D(uDetN, fine);
         vec4 nB = wood ? texture2D(uWoodN, broad) : texture2D(uDetN, broad);
@@ -1481,7 +1481,7 @@ function makeCityMaterial(cacheKey) {
         // ---- macro band: 2-50 m drift so no material ever tiles
         float macro = fb2(vWP.xz * 0.045, gFPg * 0.045) * 0.62
                     + fb3(vWP.xz * 0.011, gFPg * 0.011) * 0.38;
-        alb *= 0.84 + 0.34 * macro;
+        alb *= 0.82 + 0.38 * macro;
 
         // ---- albedo and roughness follow the same height field, so the
         //      recesses are dark and matt exactly where they are recessed
@@ -1490,12 +1490,16 @@ function makeCityMaterial(cacheKey) {
         alb *= mix(0.62 + 0.55 * dk, 1.0, foli);
         alb *= mix(0.80 + 0.42 * grain, 0.90 + 0.26 * grain, foli);
         // leaves are thin: they pass light, so a canopy never goes to black
-        alb += foli * vec3(0.070, 0.105, 0.038) * (0.45 + 0.55 * grain);
+        alb += foli * vec3(0.078, 0.120, 0.042) * (0.45 + 0.55 * grain);
         rough = clamp(rough * (1.10 - 0.28 * grain) + (1.0 - cav) * 0.20, 0.05, 1.0);
 
-        if (s > 1.5 && s < 2.5) alb = mix(alb, alb * vec3(1.08, 0.95, 0.88), grain);
-        if (s > 3.5 && s < 4.5) alb *= 0.94 + 0.16 * grain;
+        if (s > 1.5 && s < 2.5) alb = mix(alb, alb * vec3(1.12, 0.93, 0.84), grain);
+        if (s > 3.5 && s < 4.5) alb *= vec3(0.96 + 0.14 * grain, 0.94 + 0.12 * grain, 0.91 + 0.10 * grain);
         if (s > 5.5 && s < 6.5) { gMetal = 0.44; rough = 0.26 + 0.34 * grain; }
+        if (s > 6.5 && s < 7.5) alb *= vec3(1.04, 1.01, 0.95);
+        if (s > 4.5 && s < 5.5) alb *= vec3(1.02, 1.01, 0.97);
+        if (s > 7.5 && s < 8.5) alb *= vec3(1.06, 1.02, 0.93);
+        if (s > 8.5 && s < 9.5) alb *= vec3(0.97, 0.97, 1.0);
 
         // ---- micro band: hue and value jitter, everywhere, at 6-40 cm
         float micro = fb3(vWP.xz * 3.7 + vWP.y * 2.1, gFPg * 3.7);
@@ -1504,8 +1508,25 @@ function makeCityMaterial(cacheKey) {
            desaturates in the first 900 mm, warmer where the ground bounces,
            and the splash line is uneven because rain is uneven */
         float splash = 0.55 + 0.45 * fb2(vec2(vWP.x, vWP.z) * 1.7, gFPg * 1.7);
-        float lowT = smoothstep(0.95 * splash, 0.02, vWP.y) * (1.0 - aN.y);
-        alb = mix(alb, alb * vec3(0.72, 0.69, 0.63), lowT * 0.55);
+        float lowT = smoothstep(1.05 * splash, 0.02, vWP.y) * (1.0 - aN.y);
+        alb = mix(alb, alb * vec3(0.68, 0.65, 0.58), lowT * 0.62);
+
+        /* vertical drip staining: rain collects at ledges and runs down
+           in narrow tracks, darkening and slightly glossing the surface.
+           The tracks are fixed in world space — permanent water damage. */
+        float dripSeed = fb2(vec2(vWP.x * 6.8, vWP.z * 6.8), gFPg * 6.8);
+        float dripStrk = smoothstep(0.56, 0.80, dripSeed);
+        float dripV = (1.0 - abs(aN.y));
+        float dripZ = smoothstep(0.6, 3.0, vWP.y);
+        float drpT = dripStrk * dripV * dripZ * 0.36;
+        alb = mix(alb, alb * vec3(0.74, 0.72, 0.69), drpT);
+        rough = mix(rough, min(rough * 0.82, 0.68), drpT * 0.4);
+
+        /* building-scale warm/cool hue drift: no two facades should read
+           the same colour even if they are the same material, because
+           real stone weathers differently on each face */
+        float hueDrift = fb2(vWP.xz * 0.018, gFPg * 0.018);
+        alb *= mix(vec3(0.97, 0.98, 1.02), vec3(1.03, 1.01, 0.97), hueDrift);
 
         diffuseColor.rgb = alb;
         gRough = rough;
@@ -1576,7 +1597,7 @@ function makeModelMaterial(src, foliage, walk) {
     map: src.map || null, normalMap: foliage ? null : (src.normalMap || null),
     roughnessMap: foliage ? null : (src.roughnessMap || null),
     aoMap: foliage ? null : (src.aoMap || null),
-    color: 0xffffff, roughness: foliage ? 0.88 : 0.94, metalness: 0.0,
+    color: 0xffffff, roughness: foliage ? 0.88 : 0.82, metalness: 0.0,
     side: THREE.DoubleSide, envMapIntensity: 1.0, fog: true,
     transparent: false,
     alphaTest: src.alphaTest > 0 ? src.alphaTest : (foliage && src.map ? 0.42 : 0),
@@ -1588,8 +1609,8 @@ function makeModelMaterial(src, foliage, walk) {
     uProbeSky: { value: null }, uProbeGnd: { value: null },
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
-    uProbeInt: { value: 1.05 },
-    uFogWarm: { value: new THREE.Color(0xd9a878) }, uFogCool: { value: new THREE.Color(0x7286a8) },
+    uProbeInt: { value: 1.12 },
+    uFogWarm: { value: new THREE.Color(0xdcab7c) }, uFogCool: { value: new THREE.Color(0x7488ac) },
     uFogScaleH: { value: 150 },
     uSunW: { value: CSUN.clone() },
   };
@@ -1714,25 +1735,25 @@ const cityCam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.11, 
    physically right and looks dead. At twenty the streets take long raking
    shadows and the west faces still carry the gold. */
 const CSUN = new THREE.Vector3(-0.9232, 0.3420, -0.1754).normalize();
-const cityHemi = new THREE.HemisphereLight(0x6f8ec6, 0x7d5730, 0.06);
+const cityHemi = new THREE.HemisphereLight(0x6f8ec6, 0x7d5730, 0.10);
 cityScene.add(cityHemi);
-const citySun = new THREE.DirectionalLight(0xffc596, 2.35);
+const citySun = new THREE.DirectionalLight(0xffc596, 2.75);
 citySun.position.copy(CSUN).multiplyScalar(300);
 citySun.castShadow = true;
 /* not quite to zero. A real shadow at this hour is filled by a whole sky, and
    the pillar is that nothing in this district ever goes to a grey void. */
-citySun.shadow.intensity = 0.92;
+citySun.shadow.intensity = 0.88;
 const SHADOW_MAP = 4096;
 citySun.shadow.mapSize.set(SHADOW_MAP, SHADOW_MAP);
 cityScene.add(citySun);
 cityScene.add(citySun.target);
 /* a cool counter-fill from the east sky so shadowed stone never goes grey —
    the shadow side reads blue-violet from the dusk dome, not black */
-const cityFill = new THREE.DirectionalLight(0x8aa4e8, 0.54);
+const cityFill = new THREE.DirectionalLight(0x8aa4e8, 0.70);
 cityFill.position.set(240, 130, 200);
 cityScene.add(cityFill);
 /* and a warm bounce from the paving, aimed up */
-const cityBounce = new THREE.DirectionalLight(0xff9a52, 0.74);
+const cityBounce = new THREE.DirectionalLight(0xff9a52, 0.88);
 cityBounce.position.set(40, -100, -30);
 cityScene.add(cityBounce);
 
@@ -1743,8 +1764,8 @@ cityScene.add(cityBounce);
    ever carrying more than eight dynamic lights.                           */
 const PRACTICALS = [];
 const POOL = [];
-for (let i = 0; i < 8; i++) {
-  const l = new THREE.PointLight(0xffc98a, 0, 26, 1.8);
+for (let i = 0; i < 12; i++) {
+  const l = new THREE.PointLight(0xffcc8e, 0, 28, 1.7);
   l.castShadow = false;
   cityScene.add(l);
   POOL.push(l);
@@ -1756,7 +1777,7 @@ function updatePracticals(cam) {
   for (let i = 0; i < PRACTICALS.length; i++) {
     const p = PRACTICALS[i];
     const d = (p.x - cam.x) * (p.x - cam.x) + (p.y - cam.y) * (p.y - cam.y) + (p.z - cam.z) * (p.z - cam.z);
-    if (d < 3600) _pd.push([d, p]);
+    if (d < 4900) _pd.push([d, p]);
   }
   _pd.sort((a, b) => a[0] - b[0]);
   for (let i = 0; i < POOL.length; i++) {
@@ -1766,7 +1787,7 @@ function updatePracticals(cam) {
     POOL[i].position.set(p.x, p.y, p.z);
     POOL[i].color.setHex(p.c);
     POOL[i].distance = p.r;
-    POOL[i].intensity = p.i * (1 - sstep(2000, 3600, e[0]));
+    POOL[i].intensity = p.i * (1 - sstep(2800, 4900, e[0]));
   }
 }
 
@@ -1872,9 +1893,9 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: {
     uSun: { value: CSUN.clone() }, uTime: { value: 0 },
-    uZen: { value: C(0x091a44) }, uMid: { value: C(0x1e3c74) },
-    uHorizon: { value: C(0x7286a8) }, uGlow: { value: C(0xffc98a) },
-    uWarmHz: { value: C(0xd9a878) },
+    uZen: { value: C(0x071538) }, uMid: { value: C(0x1c3870) },
+    uHorizon: { value: C(0x768aae) }, uGlow: { value: C(0xffce92) },
+    uWarmHz: { value: C(0xddae80) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
@@ -1893,8 +1914,8 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
          One horizon colour makes a flat band all the way round and is most of
          what reads as haze rather than as evening. */
       c = mix(c, mix(uHorizon, uWarmHz, pow(sd, 1.15)), hz * 0.94);
-      c += uGlow * pow(sd, 5.0) * 0.55 * (0.35 + 0.65 * hz);
-      c += uGlow * pow(sd, 24.0) * 0.7;
+      c += uGlow * pow(sd, 5.0) * 0.60 * (0.35 + 0.65 * hz);
+      c += uGlow * pow(sd, 24.0) * 0.75;
       // high cirrus taking the last of the sun
       vec2 sp = d.xz / max(d.y + 0.16, 0.05);
       float cl = fb(sp * 0.52 + vec2(uTime * 0.0035, 0.0));
@@ -1933,9 +1954,9 @@ function buildEnvironment() {
       void main(){
         vec3 d = normalize(vD);
         float down = clamp(-d.y, 0.0, 1.0);
-        vec3 c = mix(vec3(0.44,0.34,0.25), vec3(0.66,0.48,0.32), down);
-        c += vec3(0.50,0.32,0.14) * pow(max(dot(normalize(vec3(uSun.x,-uSun.y,uSun.z)), d),0.0), 3.0);
-        gl_FragColor = vec4(c * (0.35 + 0.65*down), 1.0);
+        vec3 c = mix(vec3(0.46,0.36,0.27), vec3(0.68,0.50,0.34), down);
+        c += vec3(0.52,0.34,0.16) * pow(max(dot(normalize(vec3(uSun.x,-uSun.y,uSun.z)), d),0.0), 2.6);
+        gl_FragColor = vec4(c * (0.38 + 0.62*down), 1.0);
       }`,
   });
   const ground = new THREE.Mesh(new THREE.SphereGeometry(58, 24, 16, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), gm);
@@ -1943,7 +1964,7 @@ function buildEnvironment() {
   const rt = pmrem.fromScene(s, 0.04);
   cityEnv = rt.texture;
   cityScene.environment = cityEnv;
-  cityScene.environmentIntensity = 0.42;
+  cityScene.environmentIntensity = 0.58;
   gm.dispose();
   ground.geometry.dispose();
   sky.geometry.dispose();
@@ -1961,7 +1982,7 @@ const cityMat = makeCityMaterial();
 /* the same law, with the ceiling switched on. Everything inside a shop uses
    this: the shell, the fittings, the stock and the shopkeeper. */
 const cityIntMat = makeCityMaterial('room');
-cityIntMat.userData.u.uRoomAdd.value.setRGB(1.05, 0.86, 0.62);
+cityIntMat.userData.u.uRoomAdd.value.setRGB(1.25, 0.96, 0.68);
 cityIntMat.side = THREE.DoubleSide;
 const DISPOSE = [];
 
@@ -3054,11 +3075,11 @@ const waterMat = MATERIALS && MATERIALS.water ? MATERIALS.water({}) : new THREE.
     uTime: { value: 0 }, uSun: { value: CSUN.clone() },
     /* absorption per metre, linear RGB. Clean water: red goes first, which is
        why a metre of it is blue-green and ten metres of it is blue. */
-    uAbsorb: { value: new THREE.Vector3(0.62, 0.16, 0.085) },
+    uAbsorb: { value: new THREE.Vector3(0.68, 0.12, 0.08) },
     /* the light the body scatters back out of itself, which is what makes a
        shallow pool glow rather than just darken */
-    uScatter: { value: C(0x2f8f92) },
-    uTank: { value: C(0x27403f) }, uGrout: { value: C(0x16292a) },
+    uScatter: { value: C(0x35a09a) },
+    uTank: { value: C(0x2a4742) }, uGrout: { value: C(0x16292a) },
     uFoam: { value: C(0xe8f2f2) },
     uSky: { value: C(0x7c8fc4) }, uWarm: { value: C(0xffc98a) },
     uFogColor: { value: C(0x62789f) }, uFogWarm: { value: C(0xe6bd92) }, uFogD: { value: CITY_FOG },
@@ -3926,8 +3947,8 @@ function elevation(S4, gy, floors, fh, len, lvl, pub, style, baseCol, surfBody, 
       const p = at(t, 0);
       a.add(G_BOXT, xf(at(b * bw + pierW / 2, 0)[0], y, at(b * bw + pierW / 2, 0)[1], ang, pierW, fh, 0.5), baseCol, surfBody, shade);
       const ow = bw - pierW, sill = 0.95, head = fh - 0.75;
-      a.add(G_BOXT, xf(p[0], y, p[1], ang, ow, sill, 0.42), baseCol, surfBody, shade * 0.97);
-      a.add(G_BOXT, xf(p[0], y + head, p[1], ang, ow, fh - head, 0.42), baseCol, surfBody, shade * 0.97);
+      a.add(G_BOXT, xf(p[0], y, p[1], ang, ow, sill, 0.52), baseCol, surfBody, shade * 0.97);
+      a.add(G_BOXT, xf(p[0], y + head, p[1], ang, ow, fh - head, 0.52), baseCol, surfBody, shade * 0.97);
       if (lvl >= 2) {
         const r = rnd();
         const kind = (pub >= 2 && r < 0.30) ? 'mashrabiya' : (r < 0.46 ? 'shutter' : 'window');
@@ -4111,7 +4132,7 @@ function roofscape(cx, cz, w, d, top, o) {
     const bx = cx + (rnd() - 0.5) * (w - bw) * 0.6, bz = cz + (rnd() - 0.5) * (d - bd) * 0.6;
     a.add(G_BOXT, xf(bx, top, bz, 0, bw, 0.34, bd), 0xbdb2a0, S.CONCRETE, 0.95);
     inst('lawn', xf(bx, top + 0.34, bz, 0, bw * 0.94, 1, bd * 0.94),
-      pick([0x4a6b34, 0x53743a, 0x415f2d, 0x3d5c30]));
+      pick([0x528038, 0x5c8940, 0x4a7232, 0x466a35]));
     if (MODEL_ROUTE.hammock && bw > 5 && bd > 5 && chance(0.45)) {
       inst('hammock', xf(bx + rr(-bw * 0.25, bw * 0.25), top + 0.34,
         bz + rr(-bd * 0.25, bd * 0.25), rnd() * 6.28));
@@ -4427,7 +4448,7 @@ function buildCanopy() {
   }
 
   // ---- the plaza floor under the canopy
-  paved(ACC.ground, CP.x0 - 4, CP.z0 - 4, CP.x1 + 4, CP.z1 + 4, 0.18, K.travert, 1.0);
+  paved(ACC.ground, CP.x0 - 4, CP.z0 - 4, CP.x1 + 4, CP.z1 + 4, 0.18, K.travert, 1.0, S.TRAVERTINE);
   platform(CP.x0 - 4, CP.z0 - 4, CP.x1 + 4, CP.z1 + 4, terrainY(cx, cz) + 0.18);
   /* NOTHING IS BARE: a 200 m plaza needs rows of palms, planting beds, café
      clusters and lit bollards, or the canopy is a car park with a roof. */
@@ -4723,7 +4744,7 @@ function buildCourtyard() {
   const a = ACC.arch, f = ACC.fine;
   const cx = (C4.x0 + C4.x1) / 2, cz = (C4.z0 + C4.z1) / 2;
   const gy = terrainY(cx, cz);
-  paved(ACC.ground, C4.x0 - 6, C4.z0 - 6, C4.x1 + 6, C4.z1 + 6, 0.14, K.travert, 1.0);
+  paved(ACC.ground, C4.x0 - 6, C4.z0 - 6, C4.x1 + 6, C4.z1 + 6, 0.14, K.travert, 1.0, S.TRAVERTINE);
   platform(C4.x0 - 6, C4.z0 - 6, C4.x1 + 6, C4.z1 + 6, gy + 0.14);
 
   // ---- the west colonnade: massive piers, deep reveals, dark glass behind
@@ -4895,7 +4916,7 @@ function buildTensile() {
   const a = ACC.arch, f = ACC.fine;
   const cx = (T.x0 + T.x1) / 2, cz = (T.z0 + T.z1) / 2;
   const gy = terrainY(cx, cz);
-  paved(ACC.ground, T.x0 - 8, T.z0 - 8, T.x1 + 8, T.z1 + 8, 0.14, 0xd2c4a8, 1.0);
+  paved(ACC.ground, T.x0 - 8, T.z0 - 8, T.x1 + 8, T.z1 + 8, 0.14, 0xd2c4a8, 1.0, S.TRAVERTINE);
   platform(T.x0 - 8, T.z0 - 8, T.x1 + 8, T.z1 + 8, gy + 0.14);
 
   // the basin
@@ -5709,6 +5730,7 @@ function defineKit() {
     kitBox(L, 0, 0.94, 0, 1.04, 0.09, 0.14, 0xd8ceb8, S.CONCRETE, 1.05);
     for (const s of [-1, 1]) kitBox(L, s * 0.5, 0, 0, 0.08, 1.0, 0.14, 0xd8ceb8, S.CONCRETE, 1.0);
     kitBox(L, 0, 0.46, 0.02, 1.0, 0.05, 0.10, 0x3d3a34, S.METAL, 0.9);
+    kitBox(L, 0, 0.46, 0.02, 0.04, 0.96, 0.10, 0x3d3a34, S.METAL, 0.9);
     defInst('window', combine(L));
   }
   {
@@ -6936,7 +6958,7 @@ function buildLife() {
 
   // seated groups: at every café table already placed, plus the majlis
   const seatSpots = [];
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < 48; i++) {
     const p = pick(PATHS);
     const seg = ri(0, p.length - 2);
     const t = rnd();
@@ -6974,11 +6996,11 @@ function buildLife() {
       const horiz = Math.abs(r[2] - r[0]) > Math.abs(r[3] - r[1]);
       const len = horiz ? r[2] - r[0] : r[3] - r[1];
       const lane = r[4] / 2 - 1.9;                    // parked against the kerb
-      // 24 m spacing with a gap wherever the plan needs the kerb clear
-      const n = Math.floor(Math.abs(len) / 24);
+      // 18 m spacing with a gap wherever the plan needs the kerb clear
+      const n = Math.floor(Math.abs(len) / 18);
       for (let i = 0; i < n; i++) {
         for (const side of [-1, 1]) {
-          if (!chance(0.42)) continue;                // a kerb is never full
+          if (!chance(0.52)) continue;                // a kerb is never full
           const t = (i + 0.5) / n;
           const px = horiz ? mix(r[0], r[2], t) : r[0] + side * lane;
           const pz = horiz ? r[1] + side * lane : mix(r[1], r[3], t);
@@ -6991,7 +7013,8 @@ function buildLife() {
              cars all pointing the same way is a car park, not a street */
           const yaw = (horiz ? Math.PI / 2 : 0) + (chance(0.5) ? Math.PI : 0);
           inst('car', xf(px, gy, pz, yaw + rr(-0.03, 0.03)),
-            pick([0xffffff, 0xe8e8ea, 0xd8dade, 0xf0eeea, 0xc9ccd2]));
+            pick([0xffffff, 0xf4f2ee, 0xe8e8ea, 0xd8dade, 0xf0eeea,
+                  0x2c2e30, 0x3a3c40, 0xc9ccd2, 0x1a1c20]));
           cars++;
         }
       }
@@ -7197,7 +7220,7 @@ function buildLandmarks() {
   const PW = 62, PD = 68, PY = gy + 1.15;
   const x0 = J.x - PW / 2, x1 = J.x + PW / 2, z0 = J.z - PD / 2, z1 = J.z + PD / 2;
   a.add(G_BOXT, xf(J.x, gy - 1.1, J.z, 0, PW, 2.25, PD), K.travDk, S.TRAVERTINE, 0.90);
-  paved(ACC.ground, x0 + 0.4, z0 + 0.4, x1 - 0.4, z1 - 0.4, PY - terrainY(J.x, J.z) + 0.01, K.travert, 1.08);
+  paved(ACC.ground, x0 + 0.4, z0 + 0.4, x1 - 0.4, z1 - 0.4, PY - terrainY(J.x, J.z) + 0.01, K.travert, 1.08, S.TRAVERTINE);
   platform(x0, z0, x1, z1, PY);
 
   // three steps and a walkable ramp down to the court on the south face
@@ -7491,7 +7514,7 @@ function buildRoundabout() {
     a.add(G_BOXT, xf(RX + mx * R * 0.995, gy - 0.1, RZ + mz * R * 0.995,
       Math.atan2(mx, mz), 0.9, 0.44, seg + 0.3), K.travDk, S.TRAVERTINE, 0.96);
   }
-  paved(ACC.ground, RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, 0.30, K.travert, 1.04);
+  paved(ACC.ground, RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, 0.30, K.travert, 1.04, S.TRAVERTINE);
   platform(RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, gy + 0.30);
   hole(RX - R, RZ - R, RX + R, RZ + R);
 
@@ -7709,7 +7732,7 @@ function buildScannedPeople() {
   CURCHUNK = 'people';
   let n = 0;
   for (const s of DRESS_SPOTS) {
-    const want = Math.round(s.r * s.r * 0.010 * s.d);
+    const want = Math.round(s.r * s.r * 0.013 * s.d);
     for (let i = 0; i < want; i++) {
       const a = rnd() * 6.2831853, rr2 = Math.sqrt(rnd()) * s.r;
       const x = s.x + Math.cos(a) * rr2, z = s.z + Math.sin(a) * rr2;
@@ -7719,8 +7742,8 @@ function buildScannedPeople() {
       const face = rnd() * 6.2831853;
       inst(pick(STANDERS), xf(x, gy, z, face));
       n++;
-      // roughly a third of them are with someone
-      if (chance(0.34)) {
+      // roughly two in five are with someone
+      if (chance(0.40)) {
         const d = rr(0.85, 1.35);
         const px = x + Math.sin(face) * d, pz = z + Math.cos(face) * d;
         if (!insideSolid(px, pz, gy + 0.9)) {
@@ -8033,7 +8056,7 @@ function dressY(x, z) {
 function nearDressing() {
   let placed = 0, scraps = 0;
   for (const s of DRESS_SPOTS) {
-    const n = Math.round(s.r * s.r * 0.14 * s.d);
+    const n = Math.round(s.r * s.r * 0.18 * s.d);
     for (let i = 0; i < n; i++) {
       const a = rnd() * 6.2831853, rr2 = Math.sqrt(rnd()) * s.r;
       let x = s.x + Math.cos(a) * rr2, z = s.z + Math.sin(a) * rr2;
@@ -8082,12 +8105,12 @@ function nearDressing() {
         else inst('bench', xf(px, gy, pz, ang), pick([0xd6c6a8, 0xcbbb9c]));
         scraps += litterDrift(px, pz, gy, _dw.ang, 3 + Math.floor(rnd() * 6));
         placed++;
-      } else if (rnd() < 0.5) {
+      } else if (rnd() < 0.58) {
         const roll = rnd();
-        // the middle of a street is not where a shop puts its stock: out here
-        // it is only what blows about and what a cafe pulls out of line
-        if (roll < 0.16) inst('chair', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xefeade, 0xd8d2c4, 0xb9b2a2]));
+        if (roll < 0.14) inst('chair', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xefeade, 0xd8d2c4, 0xb9b2a2]));
         else if (roll < 0.22) inst('table', xf(x, gy, z, rnd() * 6.28, 1, 1, 1), pick([0xe8e3d6, 0xd6c6a8]));
+        else if (roll < 0.30) inst('planter', xf3(x, gy, z, 0, rnd() * 6.28, 0, 0.85, 0.80, 0.85), pick([K.travert, K.plaster]));
+        else if (roll < 0.36) inst('pot', xf(x, gy, z, rnd() * 6.28, 0.75, 0.75, 0.75), pick([0xcbb79a, 0xb9a184]));
         else scraps += litterDrift(x, z, gy, rnd() * 6.28, 2 + Math.floor(rnd() * 4));
         placed++;
       }
