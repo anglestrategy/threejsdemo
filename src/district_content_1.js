@@ -595,13 +595,7 @@ function routeSceneParts(key, prefix, opts) {
 }
 
 function modelLOD(r, x, z) {
-  if (r.parts.length < 2) return 0;
-  let best = 1e9;
-  for (const p of NEARFIELD) {
-    const d = (x - p[0]) * (x - p[0]) + (z - p[1]) * (z - p[1]);
-    if (d < best) best = d;
-  }
-  return best <= r.near * r.near ? 0 : r.parts.length - 1;
+  return 0;
 }
 
 /* a stable per-instance hash off the world position — see routePropSet */
