@@ -1833,7 +1833,7 @@ const AOShader = {
     uRes: { value: new THREE.Vector2(1, 1) },
     uNear: { value: 0.1 }, uFar: { value: 1000 },
     uRadius: { value: 1.35 }, uIntensity: { value: 1.95 },
-    uTint: { value: new THREE.Color(0x574c5e) },
+    uTint: { value: new THREE.Color(0x524760) },
     uOn: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
@@ -1986,11 +1986,11 @@ const GradeShader = {
     uVeil: { value: 0 }, uCity: { value: 0 },
     /* the golden (t=19.0) and dusk (t=20.6) keyframes interpolated to this
        scene's hour. Kept as uniforms so the grade stays tunable in one place. */
-    uWB: { value: new THREE.Vector3(1.038, 0.981, 0.960) },
-    uShTint: { value: new THREE.Vector3(0.758, 0.914, 1.185) },
-    uHiTint: { value: new THREE.Vector3(1.168, 1.011, 0.838) },
-    uShAmt: { value: 0.55 }, uHiAmt: { value: 0.48 },
-    uSat: { value: 1.10 }, uCon: { value: 1.081 },
+    uWB: { value: new THREE.Vector3(1.042, 0.978, 0.955) },
+    uShTint: { value: new THREE.Vector3(0.742, 0.908, 1.210) },
+    uHiTint: { value: new THREE.Vector3(1.178, 1.014, 0.828) },
+    uShAmt: { value: 0.58 }, uHiAmt: { value: 0.52 },
+    uSat: { value: 1.12 }, uCon: { value: 1.088 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: `
@@ -2006,7 +2006,7 @@ const GradeShader = {
       vec2 d = uv-0.5;
       float r = length(d);
       // gentle chromatic separation at the frame edge
-      float ca = 0.0016*r*r;
+      float ca = 0.0022*r*r;
       vec3 c;
       c.r = texture2D(tDiffuse, uv - d*ca).r;
       c.g = texture2D(tDiffuse, uv).g;
@@ -2014,8 +2014,8 @@ const GradeShader = {
       // split tone: cool shadows, warm highlights. The district grade lifts
       // the warm end further and lets the shadows go violet rather than grey.
       float l = dot(c, vec3(0.2126,0.7152,0.0722));
-      c += mix(vec3(-0.010,0.002,0.030), vec3(0.004,-0.004,0.040), uCity)*(1.0-smoothstep(0.0,0.28,l));
-      c += mix(vec3(0.028,0.008,-0.014), vec3(0.048,0.018,-0.020), uCity)*smoothstep(0.35,1.0,l);
+      c += mix(vec3(-0.012,0.003,0.035), vec3(0.005,-0.005,0.045), uCity)*(1.0-smoothstep(0.0,0.26,l));
+      c += mix(vec3(0.030,0.010,-0.016), vec3(0.052,0.020,-0.022), uCity)*smoothstep(0.33,1.0,l);
       c = mix(c, c*vec3(1.035,1.005,0.955), uCity);
 
       /* ---- colour script -------------------------------------------------
@@ -2043,12 +2043,12 @@ const GradeShader = {
         c = mix(vec3(0.18), c, mix(1.0, uCon, uCity));    // contrast about mid grey
       }
       // vignette
-      float v = smoothstep(1.16, uVig*0.36, r*1.32);
-      c *= mix(0.60, 1.0, v);
+      float v = smoothstep(1.12, uVig*0.34, r*1.36);
+      c *= mix(0.55, 1.0, v);
       c *= 1.0-uDim*0.42;
       // fine grain keeps the gradients from banding
       float g = fract(sin(dot(uv*uRes+uTime, vec2(12.9898,78.233)))*43758.5453);
-      c += (g-0.5)*0.0075;
+      c += (g-0.5)*0.009;
       /* the dive veil: the beacon's own glare, thickened into a moving mist.
          It is a warm sheet with structure, not a white fade — the district is
          built behind it. */
@@ -3511,8 +3511,8 @@ function makeCityMaterial(cacheKey) {
     uProbeSky: { value: null }, uProbeGnd: { value: null },
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
-    uProbeInt: { value: 1.05 },
-    uFogWarm: { value: new THREE.Color(0xd9a878) }, uFogCool: { value: new THREE.Color(0x7286a8) },
+    uProbeInt: { value: 1.12 },
+    uFogWarm: { value: new THREE.Color(0xdcab7c) }, uFogCool: { value: new THREE.Color(0x7488ac) },
     uFogScaleH: { value: 150 },
     uSunW: { value: CSUN.clone() },
     /* A room the sun never enters is lit by its own ceiling, and no pooled
@@ -3675,7 +3675,7 @@ function makeCityMaterial(cacheKey) {
         const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
         vec3 gA = mix(vec3(dot(dA, LUM)), dA, 0.26) * kk;
         vec3 gB = mix(vec3(dot(dB, LUM)), dB, 0.18) * kk;
-        alb *= mix(vec3(1.0), gA, 0.58 * dw) * mix(vec3(1.0), gB, 0.34 * dw);
+        alb *= mix(vec3(1.0), gA, 0.64 * dw) * mix(vec3(1.0), gB, 0.40 * dw);
 
         vec4 nT = wood ? texture2D(uWoodN, fine) : texture2D(uDetN, fine);
         vec4 nB = wood ? texture2D(uWoodN, broad) : texture2D(uDetN, broad);
@@ -3713,8 +3713,8 @@ function makeCityMaterial(cacheKey) {
            desaturates in the first 900 mm, warmer where the ground bounces,
            and the splash line is uneven because rain is uneven */
         float splash = 0.55 + 0.45 * fb2(vec2(vWP.x, vWP.z) * 1.7, gFPg * 1.7);
-        float lowT = smoothstep(0.95 * splash, 0.02, vWP.y) * (1.0 - aN.y);
-        alb = mix(alb, alb * vec3(0.72, 0.69, 0.63), lowT * 0.55);
+        float lowT = smoothstep(1.05 * splash, 0.02, vWP.y) * (1.0 - aN.y);
+        alb = mix(alb, alb * vec3(0.68, 0.65, 0.58), lowT * 0.62);
 
         diffuseColor.rgb = alb;
         gRough = rough;
@@ -3797,8 +3797,8 @@ function makeModelMaterial(src, foliage, walk) {
     uProbeSky: { value: null }, uProbeGnd: { value: null },
     uProbeOrg: { value: new THREE.Vector3() }, uProbeStp: { value: new THREE.Vector3(1, 1, 1) },
     uProbeDim: { value: new THREE.Vector3(1, 1, 1) }, uProbeOn: { value: 0 },
-    uProbeInt: { value: 1.05 },
-    uFogWarm: { value: new THREE.Color(0xd9a878) }, uFogCool: { value: new THREE.Color(0x7286a8) },
+    uProbeInt: { value: 1.12 },
+    uFogWarm: { value: new THREE.Color(0xdcab7c) }, uFogCool: { value: new THREE.Color(0x7488ac) },
     uFogScaleH: { value: 150 },
     uSunW: { value: CSUN.clone() },
   };
@@ -4081,9 +4081,9 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: {
     uSun: { value: CSUN.clone() }, uTime: { value: 0 },
-    uZen: { value: C(0x091a44) }, uMid: { value: C(0x1e3c74) },
-    uHorizon: { value: C(0x7286a8) }, uGlow: { value: C(0xffc98a) },
-    uWarmHz: { value: C(0xd9a878) },
+    uZen: { value: C(0x081840) }, uMid: { value: C(0x1d3a72) },
+    uHorizon: { value: C(0x7488ac) }, uGlow: { value: C(0xffcc8e) },
+    uWarmHz: { value: C(0xdcab7c) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
@@ -4142,9 +4142,9 @@ function buildEnvironment() {
       void main(){
         vec3 d = normalize(vD);
         float down = clamp(-d.y, 0.0, 1.0);
-        vec3 c = mix(vec3(0.44,0.34,0.25), vec3(0.66,0.48,0.32), down);
-        c += vec3(0.50,0.32,0.14) * pow(max(dot(normalize(vec3(uSun.x,-uSun.y,uSun.z)), d),0.0), 3.0);
-        gl_FragColor = vec4(c * (0.35 + 0.65*down), 1.0);
+        vec3 c = mix(vec3(0.46,0.36,0.27), vec3(0.68,0.50,0.34), down);
+        c += vec3(0.52,0.34,0.16) * pow(max(dot(normalize(vec3(uSun.x,-uSun.y,uSun.z)), d),0.0), 2.6);
+        gl_FragColor = vec4(c * (0.38 + 0.62*down), 1.0);
       }`,
   });
   const ground = new THREE.Mesh(new THREE.SphereGeometry(58, 24, 16, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), gm);
