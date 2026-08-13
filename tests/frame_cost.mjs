@@ -43,8 +43,30 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errs = [];
 page.on('pageerror', (e) => errs.push(String(e.message)));
 
-await page.goto(BASE + '?scene=city&nolife=0', { waitUntil: 'load', timeout: GATE_TMO });
+/* The `cam=` parameter is what actually enters the district. `scene=city`
+   alone does nothing: main.js only calls SCENES.city.enter() inside the
+   branch guarded by QA.cam, so a load without it leaves the app on the relief
+   map with the district built but never rendered — and debug.sim then moves a
+   camera belonging to a scene that is not on screen. That produced six
+   byte-identical readings of the MAP and read as "culling rejects nothing".
+   The assertion below exists so this gate can never quietly measure the wrong
+   scene again. */
+const start = VIEWS[0][1];
+await page.goto(`${BASE}?scene=city&nolife=0&cam=${start[0]},${start[1]},${start[2]},`
+  + `${(start[3] / D).toFixed(1)},${(start[4] / D).toFixed(1)}`,
+{ waitUntil: 'load', timeout: GATE_TMO });
 await page.waitForFunction('window.__ready === true', null, { timeout: GATE_TMO });
+
+const inCity = await page.evaluate(() => !!(window.__scenes && window.__scenes.city
+  && window.__hudInfo !== undefined ? true : document.body.dataset.scene !== 'map'));
+const poseNow = await page.evaluate(() => window.__pose());
+if (!poseNow || poseNow.mode === undefined) {
+  console.error('NOT IN THE DISTRICT: __pose() returned', JSON.stringify(poseNow));
+  console.error('the district was never entered, so any number below would be the map');
+  await browser.close();
+  process.exit(2);
+}
+void inCity;
 
 const rows = [];
 for (const [name, pose] of VIEWS) {
