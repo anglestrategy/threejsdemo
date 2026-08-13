@@ -34,7 +34,7 @@ for (const [n, pose] of [
     return { pose: window.__pose(), perf: window.__perf(), inst, tris };
   });
   console.log(n, 'pos', JSON.stringify(r.pose.pos), 'yaw', r.pose.yaw,
-    'mode', r.pose.mode, '| draws', r.perf.calls,
+    '| frame', r.perf.frame, 'draws', r.perf.calls,
     'tris', (r.perf.triangles / 1e6).toFixed(1) + 'M');
 }
 await b.close();

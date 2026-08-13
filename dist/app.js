@@ -2387,6 +2387,10 @@ window.__hud = hud;
    once instances are chunked and culled, and reading the wrong one is how a
    district that submits 457 M triangles per frame gets reported as fine. */
 window.__perf = () => ({
+  /* frame increments once per render. Without it, a stopped render loop is
+     indistinguishable from a scene that culls nothing: both hold the numbers
+     below perfectly still while the camera moves. */
+  frame: renderer.info.render.frame,
   calls: renderer.info.render.calls,
   triangles: renderer.info.render.triangles,
   geometries: renderer.info.memory.geometries,
