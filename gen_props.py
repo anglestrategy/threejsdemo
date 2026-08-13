@@ -73,30 +73,30 @@ PROPS = [
     ('Meshy_AI_tram_stop_shelter_3d_0812060457_image-to-3d-texture.glb',   'tramstop',   350000, 2048, 0),
     ('Meshy_AI_small_kiosk_booth_3d_0812060504_image-to-3d-texture.glb',   'kiosk',      300000, 2048, 0),
     # --- near-field props: tens of instances, seen from two metres
-    ('Meshy_AI_bicycle_3d_0812052922_image-to-3d-texture.glb',             'bicycle',    250000, 2048, 25000),
-    ('Meshy_AI_wooden_bench_3d_0812052914_image-to-3d-texture.glb',        'benchw',     200000, 2048, 20000),
-    ('Meshy_AI_trash_recycling_bins__0812052908_image-to-3d-texture.glb',  'bins',       180000, 2048, 18000),
-    ('Meshy_AI_small_potted_plants_3_0812052829_image-to-3d-texture.glb',  'pots',       300000, 2048, 30000),
-    ('Meshy_AI_rooftop_hammock_3d_0812052837_image-to-3d-texture.glb',     'hammock',    150000, 2048, 15000),
-    ('Meshy_AI_ev_charging_station_3_0812052930_image-to-3d-texture.glb',  'evpoint',    160000, 2048, 16000),
-    ('Meshy_AI_vine_trellis_panel_3d_0812052859_image-to-3d-texture.glb',  'trellis',    350000, 2048, 35000),
-    ('Meshy_AI_waterside_shrubs_3d_0812054531_image-to-3d-texture.glb',    'watershrub', 600000, 2048, 60000),
-    ('Meshy_AI_outdoor_carpet_rug_3d_0812054335_image-to-3d-texture.glb',  'carpet',     80000, 2048, 0),
-    ('Meshy_AI_string_light_bunting__0812054217_image-to-3d-texture.glb',  'bunting',    60000, 1024, 7000),
-    ('Meshy_AI_single_shade_sail_3d_0812060450_image-to-3d-texture.glb',   'sail1',      120000, 2048, 12000),
-    ('Meshy_AI_street_bench_3d_0812060429_image-to-3d-texture.glb',        'bench2',     180000, 2048, 18000),
-    ('Meshy_AI_majlis_lounge_seating_0812054315_image-to-3d-texture.glb',  'majlisset',  400000, 2048, 40000),
-    ('Meshy_AI_palm_tree_masterplan__0812060509_image-to-3d-texture.glb',  'palm2',       250000, 2048, 25000),
+    ('Meshy_AI_bicycle_3d_0812052922_image-to-3d-texture.glb',             'bicycle',    50000, 2048, 6000),
+    ('Meshy_AI_wooden_bench_3d_0812052914_image-to-3d-texture.glb',        'benchw',     40000, 2048, 5000),
+    ('Meshy_AI_trash_recycling_bins__0812052908_image-to-3d-texture.glb',  'bins',       35000, 2048, 4500),
+    ('Meshy_AI_small_potted_plants_3_0812052829_image-to-3d-texture.glb',  'pots',       45000, 2048, 5500),
+    ('Meshy_AI_rooftop_hammock_3d_0812052837_image-to-3d-texture.glb',     'hammock',    25000, 2048, 3000),
+    ('Meshy_AI_ev_charging_station_3_0812052930_image-to-3d-texture.glb',  'evpoint',    30000, 2048, 3600),
+    ('Meshy_AI_vine_trellis_panel_3d_0812052859_image-to-3d-texture.glb',  'trellis',    55000, 2048, 6500),
+    ('Meshy_AI_waterside_shrubs_3d_0812054531_image-to-3d-texture.glb',    'watershrub', 120000, 2048, 14000),
+    ('Meshy_AI_outdoor_carpet_rug_3d_0812054335_image-to-3d-texture.glb',  'carpet',     15000, 2048, 0),
+    ('Meshy_AI_string_light_bunting__0812054217_image-to-3d-texture.glb',  'bunting',    12000, 1024, 1600),
+    ('Meshy_AI_single_shade_sail_3d_0812060450_image-to-3d-texture.glb',   'sail1',      25000, 2048, 3000),
+    ('Meshy_AI_street_bench_3d_0812060429_image-to-3d-texture.glb',        'bench2',     35000, 2048, 4200),
+    ('Meshy_AI_majlis_lounge_seating_0812054315_image-to-3d-texture.glb',  'majlisset',  120000, 2048, 14000),
+    ('Meshy_AI_palm_tree_masterplan__0812060509_image-to-3d-texture.glb',  'palm2',       50000, 2048, 7000),
     # --- the solar array goes down 750 times: the one budget here set by
     #     arithmetic rather than by how it looks from two metres
-    ('Meshy_AI_solar_panel_array_3d_0812052938_image-to-3d-texture.glb',   'solar',       30000, 1024, 4000),
+    ('Meshy_AI_solar_panel_array_3d_0812052938_image-to-3d-texture.glb',   'solar',       8000, 1024, 1200),
     # --- the lagoon set
     ('Meshy_AI__0812054904_texture.glb',                                   'lagoon_a',  500000, 2048, 50000),
     ('Meshy_AI__0812055014_texture.glb',                                   'lagoon_b',  500000, 2048, 50000),
     ('Meshy_AI__0812052843_texture.glb',                                   'extra',     500000, 2048, 50000),
     # --- people: the largest remaining delta in the whole build
-    ('models_of_people_x_10_00.glb',                                       'people10',  600000, 4096, 60000),
-    ('sitting_people_x_5_11.glb',                                          'people5s',  400000, 4096, 40000),
+    ('models_of_people_x_10_00.glb',                                       'people10',  200000, 4096, 24000),
+    ('sitting_people_x_5_11.glb',                                          'people5s',  140000, 4096, 17000),
     # --- the two that were sitting in the release unprocessed. The golden-hour
     #     scene is a furnished interior: the district's shops and majlis are
     #     dressed from a hand-built kit, and this is the first real furniture
@@ -106,15 +106,15 @@ PROPS = [
     # --- street infrastructure. This is the layer that was still hand-built
     #     boxes after the buildings stopped being: every lamppost, bollard and
     #     gully in the district, and the signals it never had at all.
-    ('Meshy_AI_street_lamppost_3d_0812130902_image-to-3d-texture.glb',      'lamppost',   220000, 2048, 22000),
-    ('Meshy_AI_bollard_traffic_post__0812130956_image-to-3d-texture.glb',   'bollard2',   100000, 2048, 10000),
-    ('Meshy_AI_manhole_drain_grate_3_0812130756_image-to-3d-texture.glb',   'grate',       40000, 2048, 5000),
-    ('Meshy_AI_traffic_signal_pole_3_0812130857_image-to-3d-texture.glb',   'tsignal',    200000, 2048, 20000),
-    ('Meshy_AI_pedestrian_signal_pol_0812130836_image-to-3d-texture.glb',   'psignal',    160000, 2048, 16000),
-    ('Meshy_AI_curb_gutter_edge_3d_0812130913_image-to-3d-texture.glb',     'kerb',       90000, 2048, 9000),
-    ('Meshy_AI_sidewalk_paver_segmen_0812130848_image-to-3d-texture.glb',   'walkseg',     60000, 2048, 7000),
-    ('Meshy_AI_straight_road_segment_0812130817_image-to-3d-texture.glb',   'roadseg',    140000, 2048, 14000),
-    ('Meshy_AI_road_intersection_seg_0812130807_image-to-3d-texture.glb',   'roadx',      200000, 2048, 20000),
+    ('Meshy_AI_street_lamppost_3d_0812130902_image-to-3d-texture.glb',      'lamppost',   45000, 2048, 5500),
+    ('Meshy_AI_bollard_traffic_post__0812130956_image-to-3d-texture.glb',   'bollard2',   20000, 2048, 2600),
+    ('Meshy_AI_manhole_drain_grate_3_0812130756_image-to-3d-texture.glb',   'grate',       6000, 2048, 900),
+    ('Meshy_AI_traffic_signal_pole_3_0812130857_image-to-3d-texture.glb',   'tsignal',    35000, 2048, 4400),
+    ('Meshy_AI_pedestrian_signal_pol_0812130836_image-to-3d-texture.glb',   'psignal',    28000, 2048, 3600),
+    ('Meshy_AI_curb_gutter_edge_3d_0812130913_image-to-3d-texture.glb',     'kerb',       15000, 2048, 2000),
+    ('Meshy_AI_sidewalk_paver_segmen_0812130848_image-to-3d-texture.glb',   'walkseg',     10000, 2048, 1400),
+    ('Meshy_AI_straight_road_segment_0812130817_image-to-3d-texture.glb',   'roadseg',    25000, 2048, 3200),
+    ('Meshy_AI_road_intersection_seg_0812130807_image-to-3d-texture.glb',   'roadx',      35000, 2048, 4400),
     # --- the final batch. Sustainability kit, which is the one theme in the
     #     four SDC renders the district was carrying only as a solar array:
     #     a wind tower, PV over the planters and over a heritage roof, an
@@ -124,13 +124,13 @@ PROPS = [
     ('Meshy_AI_solar_wind_tower_3d_0812151559_image-to-3d-texture.glb',    'windtower', 600000, 4096, 60000),
     ('Meshy_AI_solar_roofed_heritage_0812151635_image-to-3d-texture.glb',  'heritage',  900000, 4096, 90000),
     ('Meshy_AI_electric_shuttle_vehi_0812151632_image-to-3d-texture.glb',  'shuttle',   500000, 4096, 50000),
-    ('Meshy_AI_market_stall_canopy_3_0812151557_image-to-3d-texture.glb',  'stall',      300000, 2048, 30000),
-    ('Meshy_AI_tiered_planter_cluste_0812151630_image-to-3d-texture.glb',  'planters',   300000, 2048, 30000),
-    ('Meshy_AI_solar_panel_planter_b_0812151606_image-to-3d-texture.glb',  'pvplanter',  220000, 2048, 22000),
-    ('Meshy_AI_wooden_deck_bench_pla_0812151613_image-to-3d-texture.glb',  'deckbench',  200000, 2048, 20000),
+    ('Meshy_AI_market_stall_canopy_3_0812151557_image-to-3d-texture.glb',  'stall',      60000, 2048, 7000),
+    ('Meshy_AI_tiered_planter_cluste_0812151630_image-to-3d-texture.glb',  'planters',   55000, 2048, 6500),
+    ('Meshy_AI_solar_panel_planter_b_0812151606_image-to-3d-texture.glb',  'pvplanter',  40000, 2048, 5000),
+    ('Meshy_AI_wooden_deck_bench_pla_0812151613_image-to-3d-texture.glb',  'deckbench',  35000, 2048, 4400),
     # a scanned palm with its own base: the base is why this gets a budget
     # closer to palm2's than a bench's — the frond crown is most of the mesh
-    ('Meshy_AI_palm_tree_on_base_3d_0812151615_image-to-3d-texture.glb',   'palmbase',   280000, 2048, 28000),
+    ('Meshy_AI_palm_tree_on_base_3d_0812151615_image-to-3d-texture.glb',   'palmbase',   55000, 2048, 6500),
 
     # ---------------------------------------------------- THE GENERATED SET
     # Everything below came out of `models3d_generate` from a single reference
@@ -153,42 +153,42 @@ PROPS = [
     ('local:hotelcorner.glb',       'hotelcnr',   320000, 4096, 32000),
     ('local:cinema.glb',            'cinema',     300000, 4096, 30000),
     # shopfronts: these go INTO the arcade bays, so they are near-field always
-    ('local:front_cloth_w.glb',     'frontclw',    140000, 4096,  14000),
-    ('local:front_cloth_v.glb',     'frontclv',    140000, 4096,  14000),
-    ('local:front_elec_w.glb',      'frontelw',    140000, 4096,  14000),
-    ('local:front_elec_c.glb',      'frontelc',    140000, 4096,  14000),
-    ('local:clothrail.glb',         'clothrail',   60000, 2048,  7000),
+    ('local:front_cloth_w.glb',     'frontclw',    60000, 4096,  7000),
+    ('local:front_cloth_v.glb',     'frontclv',    60000, 4096,  7000),
+    ('local:front_elec_w.glb',      'frontelw',    60000, 4096,  7000),
+    ('local:front_elec_c.glb',      'frontelc',    60000, 4096,  7000),
+    ('local:clothrail.glb',         'clothrail',   15000, 2048,  2000),
     # outdoor seating, which is the thing the district had least of: it had a
     # bench, and it used the bench everywhere
-    ('local:benchslat.glb',         'benchslat',   120000, 2048,  12000),
-    ('local:treebench_ring.glb',    'treebench',   150000, 2048,  15000),
-    ('local:treebench_open.glb',    'treebench2',  150000, 2048,  15000),
-    ('local:seatbowl.glb',          'seatbowl',    180000, 2048,  18000),
-    ('local:deckpuzzle.glb',        'deckisle',    200000, 4096,  20000),
-    ('local:deckwave.glb',          'deckwave',    180000, 4096,  18000),
+    ('local:benchslat.glb',         'benchslat',   25000, 2048,  3200),
+    ('local:treebench_ring.glb',    'treebench',   30000, 2048,  3800),
+    ('local:treebench_open.glb',    'treebench2',  30000, 2048,  3800),
+    ('local:seatbowl.glb',          'seatbowl',    35000, 2048,  4400),
+    ('local:deckpuzzle.glb',        'deckisle',    40000, 4096,  5000),
+    ('local:deckwave.glb',          'deckwave',    35000, 4096,  4400),
     # street furniture and traffic
-    ('local:walllantern.glb',       'lantern',     80000, 2048,  9000),
-    ('local:lamppost2.glb',         'lamppost3',   180000, 2048,  18000),
-    ('local:car_sedan.glb',         'car_sedan',   250000, 4096,  25000),
-    ('local:car_suv.glb',           'car_suv',     250000, 4096,  25000),
-    ('local:car_hatch.glb',         'car_hatch',   250000, 4096,  25000),
+    ('local:walllantern.glb',       'lantern',     15000, 2048,  2000),
+    ('local:lamppost2.glb',         'lamppost3',   35000, 2048,  4400),
+    ('local:car_sedan.glb',         'car_sedan',   120000, 4096,  14000),
+    ('local:car_suv.glb',           'car_suv',     120000, 4096,  14000),
+    ('local:car_hatch.glb',         'car_hatch',   120000, 4096,  14000),
     # the cafe set, from the first generator test
-    ('local:chair.glb',             'cafechair',   150000, 2048,  15000),
-    ('local:cafetable.glb',         'cafetable',   120000, 2048,  12000),
-    ('local:railing.glb',           'balcrail',    120000, 2048,  12000),
-    ('local:acunit.glb',            'acunit',      100000, 2048,  10000),
-    ('local:parasol.glb',           'parasol',     150000, 2048,  15000),
+    ('local:chair.glb',             'cafechair',   25000, 2048,  3200),
+    ('local:cafetable.glb',         'cafetable',   20000, 2048,  2600),
+    ('local:railing.glb',           'balcrail',    20000, 2048,  2600),
+    ('local:acunit.glb',            'acunit',      18000, 2048,  2400),
+    ('local:parasol.glb',           'parasol',     30000, 2048,  3800),
     # --- material panels. These are samples rather than objects: a slat
     #     screen, a paving slab, two grass trays and a fluted concrete panel.
     #     They are worth having as geometry (screens and lawn patches are two
     #     things the district has none of) AND as texture, because each one is
     #     a photographed material on a flat plate, which is the easiest thing
     #     in the world to read a tileable map off.
-    ('local:panel_slat.glb',        'pnl_slat',    80000, 2048,  8000),
-    ('local:panel_slab.glb',        'pnl_slab',    60000, 2048,  7000),
-    ('local:panel_turf.glb',        'pnl_turf',    70000, 2048,  8000),
-    ('local:panel_lawn.glb',        'pnl_lawn',    70000, 2048,  8000),
-    ('local:panel_flute.glb',       'pnl_flute',   60000, 2048,  7000),
+    ('local:panel_slat.glb',        'pnl_slat',    15000, 2048,  2000),
+    ('local:panel_slab.glb',        'pnl_slab',    12000, 2048,  1600),
+    ('local:panel_turf.glb',        'pnl_turf',    14000, 2048,  1800),
+    ('local:panel_lawn.glb',        'pnl_lawn',    14000, 2048,  1800),
+    ('local:panel_flute.glb',       'pnl_flute',   12000, 2048,  1600),
     # --- the trees, and one rejection.
     #
     # Foliage is the one category the default image-to-3D reconstructor cannot
@@ -203,18 +203,18 @@ PROPS = [
     # instead. Recorded here because it is a pipeline rule rather than a
     # one-off: ANY foliage from here on goes through trellis, and the tripo
     # attempt is kept out of the build rather than shipped.
-    ('local:tree_broad.glb',        'tree_big',   400000, 4096, 40000),
-    ('local:tree_olive.glb',        'tree_oliv',  400000, 4096, 40000),
-    ('local:tree_small.glb',        'tree_pot',    200000, 2048,  20000),
+    ('local:tree_broad.glb',        'tree_big',   150000, 4096, 18000),
+    ('local:tree_olive.glb',        'tree_oliv',  150000, 4096, 18000),
+    ('local:tree_small.glb',        'tree_pot',    40000, 2048,  5000),
     # a photographed leaf, which is not a prop at all — it is the source for the
     # alpha-cutout leaf cards the imposter baker wants, and the best one this
     # project has had
-    ('local:leafcard.glb',          'leafcard',     30000, 2048,   4000),
+    ('local:leafcard.glb',          'leafcard',     5000, 2048,   700),
     # --- public art. The district had no art in it at all, which for a
     #     masterplan that is largely about public realm is a gap you notice
     #     once it is named: every plaza in the four SDC renders has a piece in
     #     it and every plaza here had a fountain or nothing.
-    ('local:art_ring.glb',          'art_ring',   400000, 4096, 40000),
+    ('local:art_ring.glb',          'art_ring',   80000, 4096, 9500),
 ]
 
 
@@ -387,6 +387,11 @@ for fn, key, budget, tex, lod1 in PROPS:
             rec['lod1'] = {'file': 'assets/props/%s_lod1.glb' % key,
                            'tris': n1, 'kb': os.path.getsize(d1) // 1024}
         index[key] = rec
+        # written after every asset, not once at the end: this run takes the
+        # better part of an hour and the container has died in the middle of
+        # it twice. Without this, every finished model is re-done on restart
+        # because the index never recorded that it was current.
+        json.dump(index, open('work/props.json', 'w'), indent=1)
         print('   -> %d tris, %d KB, %dpx%s' % (rec['tris'], rec['kb'], tex,
               (', lod1 %d tris %d KB' % (rec['lod1']['tris'], rec['lod1']['kb'])) if lod1 else ''),
               flush=True)
