@@ -66,14 +66,21 @@ const vn = Fn(([p]) => {
  */
 export function makeGlassMaterial(kind) {
   const shop = kind === 'shop';
+  /* REEDED glass — the vertical-fluted screen. A 12 mm half-round repeated
+     across the pane, put into the NORMAL rather than into a map, because that
+     is what makes it read: the reflection breaks into vertical bands and the
+     room behind smears sideways while staying sharp vertically. A photograph
+     of reeded glass cannot do that, since the smear depends on what is
+     behind it. */
+  const reed = kind === 'reeded';
   const mat = new MeshStandardNodeMaterial({
     vertexColors: true, transparent: true, side: DoubleSide,
     depthWrite: false, opacity: 1.0,
     roughness: shop ? 0.14 : 0.06, metalness: 0.0,
   });
 
-  const uBaseA = uniform(float(shop ? 0.055 : 0.16));
-  const uTint = uniform(new Color(shop ? 0xdcece4 : 0xc8dcd8));
+  const uBaseA = uniform(float(reed ? 0.42 : shop ? 0.055 : 0.16));
+  const uTint = uniform(new Color(reed ? 0xd8e8e2 : shop ? 0xdcece4 : 0xc8dcd8));
   const uDirt = uniform(float(shop ? 0.55 : 0.30));
   const uSkyHi = uniform(GLASS.skyHi.clone());
   const uSkyLo = uniform(GLASS.skyLo.clone());
@@ -107,7 +114,13 @@ export function makeGlassMaterial(kind) {
     const rollA = sin(pl.y.mul(4.4)).mul(0.0034)
       .add(vn(pl.mul(0.62)).mul(0.0026)).sub(0.0013).toVar();
     const rollB = sin(pl.x.mul(3.1).add(1.7)).mul(0.0021).toVar();
-    return normalize(nw.add(tw.mul(rollB)).add(bw.mul(rollA)));
+    const n = normalize(nw.add(tw.mul(rollB)).add(bw.mul(rollA))).toVar();
+    if (reed) {
+      // a 12 mm reed 4 mm deep: a 34-degree slope at the edge of each flute
+      const f = fract(pl.x.div(0.012)).sub(0.5).toVar();
+      return normalize(n.add(tw.mul(f.mul(1.35))));
+    }
+    return n;
   })();
 
   /* the view-facing normal. A double-sided pane must Fresnel off the face you
@@ -183,5 +196,6 @@ export function makeGlassMaterial(kind) {
 
   mat.userData.u = { uBaseA, uTint, uDirt, uSkyHi, uSkyLo, uWarm, uGnd, uSunW };
   mat.userData.gpuName = 'glass:' + (kind || 'rail');
+  mat.userData.reeded = reed;
   return mat;
 }

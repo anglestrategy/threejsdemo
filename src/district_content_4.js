@@ -124,6 +124,15 @@ const poolMat = MATERIALS && MATERIALS.water ? MATERIALS.water({ pool: true }) :
 function makeGlassMaterial(kind) {
   if (MATERIALS && MATERIALS.glass) return MATERIALS.glass(kind);
   const shop = kind === 'shop';
+  /* REEDED glass: the vertical-fluted screen that is on half the shopfronts
+     and screens in a Gulf street and that this build had no way to make. It
+     is not a texture — it is a shape, a 12 mm half-round repeated across the
+     pane — so it belongs in the normal rather than in a map, and putting it
+     there gets the thing that makes reeded glass legible: the reflection
+     BREAKS INTO VERTICAL BANDS and the room behind it smears sideways while
+     staying sharp vertically. A photograph of reeded glass cannot do that,
+     because the smear depends on what is behind it. */
+  const reed = kind === 'reeded';
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true, transparent: true, side: THREE.DoubleSide,
     depthWrite: false,
@@ -140,8 +149,9 @@ function makeGlassMaterial(kind) {
     /* base transmission looking straight through. A shopfront at dusk is meant
        to show the room — the room is brighter than the street, so transmission
        wins — and a balustrade is meant to read as a pane. */
-    uBaseA: { value: shop ? 0.055 : 0.16 },
-    uTint: { value: new THREE.Color(shop ? 0xdcece4 : 0xc8dcd8) },
+    uBaseA: { value: reed ? 0.42 : shop ? 0.055 : 0.16 },
+    uReed: { value: reed ? 1 : 0 },
+    uTint: { value: new THREE.Color(reed ? 0xd8e8e2 : shop ? 0xdcece4 : 0xc8dcd8) },
     uSkyHi: { value: new THREE.Color(0x2f4a78) },
     uSkyLo: { value: new THREE.Color(0x9fb2cf) },
     uSunW: { value: CSUN.clone() },
@@ -159,7 +169,7 @@ function makeGlassMaterial(kind) {
         vGWP = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vGN = normalize(mat3(modelMatrix) * normal);`);
     sh.fragmentShader = `varying vec3 vGWP; varying vec3 vGN;
-      uniform float uBaseA, uDirt, uFogScaleH;
+      uniform float uBaseA, uDirt, uFogScaleH, uReed;
       uniform vec3 uTint, uSkyHi, uSkyLo, uSunW, uWarm, uGnd, uFogWarm, uFogCool;
       float gh21(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
       float gvn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
@@ -188,6 +198,16 @@ function makeGlassMaterial(kind) {
         float rollA = sin(pl.y * 4.4) * 0.0034 + gvn(pl * 0.62) * 0.0026 - 0.0013;
         float rollB = sin(pl.x * 3.1 + 1.7) * 0.0021;
         vec3 nrw = normalize(nw + tw * rollB + bw * rollA);
+        /* the reeding, if this pane has it: a 12 mm half-round repeated
+           across the width, as a sawtooth in the in-plane tangent. The
+           amplitude is the real one — a 12 mm reed 4 mm deep is a 34-degree
+           slope at the edge of each flute — which is why the reflection
+           breaks into bands rather than blurring. */
+        if (uReed > 0.5) {
+          float u = dot(vGWP, tw) / 0.012;
+          float f = fract(u) - 0.5;
+          nrw = normalize(nrw + tw * (f * 1.35));
+        }
         /* a double-sided pane must be lit off the face you can see. Rebuilding
            the normal from the varying throws away the gl_FrontFacing flip that
            <normal_fragment_begin> just applied, so it is put back here — the
@@ -244,6 +264,8 @@ function makeGlassMaterial(kind) {
         gl_FragColor.rgb = mix(gl_FragColor.rgb, mix(uFogCool, uFogWarm, gfs), clamp(gfog, 0.0, 1.0));
       #endif`);
   };
+  /* the reeded variant compiles a different fragment shader — it must not
+     share a program with the clear one */
   mat.customProgramCacheKey = () => 'cityglass' + kind;
   return mat;
 }
@@ -259,6 +281,10 @@ const glassMat = makeGlassMaterial('rail');
    constant, and it does the other half too: the same pane at the end of the
    street goes to sky, which is what a row of shopfronts looks like. */
 const shopGlassMat = makeGlassMaterial('shop');
+/* reeded glass, for screens and for the upper lights of a shopfront. Built
+   here so both renderers get it from the same seam; `?reed=0` falls back to
+   clear if it ever needs to be taken out of a comparison. */
+const reedGlassMat = makeGlassMaterial('reeded');
 
 /* ---------------------------------------------------------- kit geometry */
 function kitBox(list, x, y, z, w, h, d, col, surf, shade, ry, rx, rz) {
@@ -1273,6 +1299,77 @@ function defineKit() {
   routeProp('townhouse', 'extra', 11.5, { near: 55 });
   routeProp('townhouse2', 'lagoon_b', 13.0, { near: 60 });
   routeProp('majlisset', 'majlisset', 0.80, { near: 30 });
+
+  /* ==================================================== THE GENERATED SET ==
+     Twenty-seven assets, each from one reference image through
+     `models3d_generate`. They are routed here rather than placed, which means
+     every existing call site picks them up without moving: the dressing pass
+     still asks for a `bench` at a matrix and the router substitutes.
+
+     Where a kit has SEVERAL new props, it is registered with routePropSet and
+     the choice is made per instance from its own world position. That is the
+     difference between an avenue of buildings and one building eleven times,
+     and it is the single most valuable thing in this block. */
+
+  /* ---- outdoor seating, which was the district's thinnest layer ---------
+     It had one bench and used it everywhere: 300-odd identical seats down the
+     souq, round the plaza, along the water. Now the kit name `bench` picks
+     between the slatted bench and the two street benches already in the set,
+     and three new kinds of seat exist that a bench cannot do — a ring round a
+     tree, a sunken conversation bowl, and a deck you sit on the edge of. */
+  routePropSet('bench', ['benchslat', 'benchw', 'bench2'], 0.86, { near: 26 });
+  routeProp('treeseat', 'treebench', 0.46, { near: 30 });
+  routeProp('treeseat2', 'treebench2', 0.46, { near: 30 });
+  routeProp('seatbowl', 'seatbowl', 0.92, { near: 34 });
+  routeProp('deckisle', 'deckisle', 0.42, { near: 40, shadow: false });
+  routeProp('deckwave', 'deckwave', 0.38, { near: 40, shadow: false });
+
+  /* ---- the cafe set ----------------------------------------------------
+     `chair` and `table` are hand-built kit parts the dressing pass places by
+     the hundred at every cafe frontage. They take over the same names. */
+  routePropSet('chair', ['cafechair'], 0.90, { near: 22 });
+  routePropSet('table', ['cafetable'], 0.75, { near: 22 });
+  routeProp('parasol', 'parasol', 2.45, { near: 34 });
+
+  /* ---- traffic. The district had none: every road in it was empty, which
+     is the one thing that reads as a render rather than a place. Three cars,
+     picked per instance, parked along the boulevard kerbs. */
+  routePropSet('car', ['car_sedan', 'car_suv', 'car_hatch'], 1.48, { near: 45 });
+
+  /* ---- light fixtures. One lamp type became three: the tall cast post for
+     the boulevards, the shorter one for the souq, and a wall lantern for the
+     shopfront piers, which the district has never had at all. */
+  routePropSet('streetlight', ['lamppost', 'lamppost3'], 5.00, { near: 40 });
+  routeProp('wlantern', 'lantern', 0.62, { near: 22, shadow: false });
+
+  /* ---- shopfronts. These go INTO the arcade bays rather than in front of
+     them: a glazed vitrine with a lit room behind it is exactly what the
+     hand-built shopfront kit has been approximating. */
+  routePropSet('vitrine', ['frontclw', 'frontclv', 'frontelw', 'frontelc'],
+    3.30, { near: 30 });
+  routeProp('clothrail', 'clothrail', 1.55, { near: 18, shadow: false });
+  routeProp('acunit', 'acunit', 0.62, { near: 26, shadow: false });
+  routeProp('balcrail', 'balcrail', 1.05, { near: 26, shadow: false });
+
+  /* ---- the buildings ---------------------------------------------------
+     Four travertine shophouse blocks under one kit name, so the souq and the
+     boulevard get a street rather than a repeat; a brick boutique hotel and
+     an art-deco cinema as one-offs, sited by hand below. */
+  routePropSet('shophouse', ['shophouse', 'shopblk1', 'shopblk2', 'shopblk3'],
+    12.0, { near: 62 });
+  routeProp('shopstair', 'shopstair', 13.5, { near: 62 });
+  routeProp('hotelcnr', 'hotelcnr', 16.5, { jitter: false, near: 90 });
+  routeProp('cinema', 'cinema', 12.5, { jitter: false, near: 90 });
+
+  /* ---- material panels -------------------------------------------------
+     Samples rather than objects, and two of them fill real gaps: the district
+     has no screens (every service yard and roof terrace is open to view) and
+     no lawn at all (the ground is paving, sand or water and nothing else).
+     The fluted concrete goes on plinths and blank returns, where the surface
+     law's flat CONCRETE class was doing the least work of any class in it. */
+  routePropSet('screen', ['pnl_slat', 'pnl_flute'], 1.80, { near: 30 });
+  routePropSet('lawn', ['pnl_lawn', 'pnl_turf'], 0.10, { near: 40, shadow: false });
+  routeProp('slabstep', 'pnl_slab', 0.09, { near: 20, shadow: false });
 
   /* ---- street infrastructure -------------------------------------------
      The layer that was still hand-built boxes after the buildings stopped

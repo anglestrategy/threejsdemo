@@ -19,6 +19,11 @@ const ACC = {
 const INTERIOR = new Acc();   // the shell of every shop, lit by its own ceiling
 const GLASS = new Acc();
 const SHOPGLASS = new Acc();
+/* reeded glass — the vertical-fluted screen that is on half the shopfronts in
+   a Gulf street. It takes the transom over every shop window: a clear light up
+   there would show the ceiling void and the back of the fascia, and a solid
+   one would kill the light; reeded is what the detail is actually for. */
+const REEDGLASS = new Acc();
 const EMIS = new Acc();   // signage, lamp lenses, slit windows
 const SHOPEMIS = new Acc();   // the lit rooms behind the shopfronts
 
@@ -71,6 +76,36 @@ function routeModel(kit, model, targetH, opts) {
     parts.push({ fit, names });
   }
   MODEL_ROUTE[kit] = { parts, near: opts.near === undefined ? 62 : opts.near, jitter: opts.jitter !== false };
+  return true;
+}
+
+/* ------------------------------------------------------------- VARIANTS --
+   One kit name, several props, chosen per instance.
+
+   This is the fix for the failure the whole asset programme keeps running
+   into: a scan is one object, and one object placed four hundred times is a
+   photocopy. It showed on the palms first, then on the benches, and it would
+   have shown worst of all on the buildings — a boulevard of the same corner
+   block eleven times is not a street, it is a texture.
+
+   `routePropSet` registers N props under one kit name. Every call site stays
+   exactly as it was; `inst()` picks a variant from the instance's own world
+   position, so the choice is stable across frames and across reloads (the
+   whole district is one seeded world and this must not break that), and
+   neighbouring instances land on different variants because the hash is on
+   position rather than on an incrementing counter. */
+function routePropSet(kit, keys, targetH, opts) {
+  const vs = [];
+  for (const key of keys) {
+    const tmp = '__v:' + kit + ':' + key;
+    if (routeProp(tmp, key, targetH, opts)) {
+      vs.push(MODEL_ROUTE[tmp]);
+      delete MODEL_ROUTE[tmp];
+    }
+  }
+  if (!vs.length) return false;
+  MODEL_ROUTE[kit] = vs.length === 1 ? vs[0]
+    : { variants: vs, near: vs[0].near, jitter: vs[0].jitter };
   return true;
 }
 
@@ -380,8 +415,19 @@ function modelLOD(r, x, z) {
   return best <= r.near * r.near ? 0 : r.parts.length - 1;
 }
 
+/* a stable per-instance hash off the world position — see routePropSet */
+function posHash(x, z) {
+  const v = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+}
+
 function inst(name, mtx, colour) {
-  const r = MODEL_ROUTE[name];
+  let r = MODEL_ROUTE[name];
+  if (r && r.variants) {
+    _routeP.setFromMatrixPosition(mtx);
+    r = r.variants[Math.min(r.variants.length - 1,
+      (posHash(_routeP.x, _routeP.z) * r.variants.length) | 0)];
+  }
   if (r) {
     _routeP.setFromMatrixPosition(mtx);
     const lv = r.parts[modelLOD(r, _routeP.x, _routeP.z)];
@@ -1275,7 +1321,14 @@ function shopInterior(cx, y, cz, ang, w, h, depth, warm) {
 
   // ---- glazing: nearly clear, because the room behind it is the point
   let p = at(0, 0.05);
-  SHOPGLASS.add(G_BOXT, xf(p[0], y, p[1], ang, w, h, 0.05), 0xcfe0ea, S.METAL, 1);
+  /* the shop window stops 400 mm short of the head and a reeded transom fills
+     the rest. It is what lets the room borrow daylight without showing the
+     ceiling void, it is on half the shopfronts this district is drawn from,
+     and it is the one place a fluted pane reads at street level. */
+  const TR = Math.min(0.42, h * 0.16);
+  SHOPGLASS.add(G_BOXT, xf(p[0], y, p[1], ang, w, h - TR, 0.05), 0xcfe0ea, S.METAL, 1);
+  REEDGLASS.add(G_BOXT, xf(p[0], y + h - TR, p[1], ang, w, TR, 0.05), 0xd8e8e2, S.METAL, 1);
+  ACC.fine.add(G_BOXT, xf(p[0], y + h - TR - 0.03, p[1], ang, w, 0.06, 0.15), K.steelDk, S.METAL, 0.8);
   ACC.fine.add(G_BOXT, xf(p[0], y, p[1], ang, 0.10, h, 0.16), K.steelDk, S.METAL, 0.8);
   for (const s of [-1, 1]) {
     const e = at(s * (halfW - 0.05), 0.05);

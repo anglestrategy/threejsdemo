@@ -97,7 +97,16 @@ function buildPlanting() {
       if (r < 0.30) {
         inst('tree', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 1.30 + rnd() * 0.5, 1.35 + rnd() * 0.55, 1.30 + rnd() * 0.5),
           pick([0xffffff, 0xdfe8cf, 0xeae0cc]));
-        inst('planter', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 2.4, 1.0, 2.4), pick([0xcabb9d, 0xd6c6a8]));
+        /* a third of the street trees get a seat round the trunk instead of a
+           planter kerb. It is the seat this district was most obviously
+           missing: shade already exists at every one of these points and
+           there was nothing under it to sit on. */
+        if (chance(0.34)) {
+          inst(chance(0.5) ? 'treeseat' : 'treeseat2',
+            xf(px, gy, pz, rnd() * 6.28), pick([0xffffff, 0xf2ece0]));
+        } else {
+          inst('planter', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 2.4, 1.0, 2.4), pick([0xcabb9d, 0xd6c6a8]));
+        }
       } else if (r < 0.52) {
         inst('planter', xf3(px, gy, pz, 0, rnd() * 6.28, 0, 1.5 + rnd() * 0.8, 1, 1.4), pick([0xcabb9d, 0xc0b094]));
         inst('shrub', xf3(px, gy + 0.62, pz, 0, rnd() * 6.28, 0, 1.5, 1.3, 1.5), pick([K.leaf, K.leafLt, K.leafDk]));
@@ -408,6 +417,93 @@ function buildLife() {
   inst('child', xf3(MX - 2.1, mtop, MZ + 1.5, 0, 0.4, 0, 1.04, 1.04, 1.04), 0xffd8c0);
   inst('child', xf3(MX + 2.0, mtop, MZ - 1.4, 0, 2.6, 0, 0.98, 0.98, 0.98), 0xd8e0f0);
   inst('thobe', xf3(MX - 5.0, mtop, MZ - 0.6, 0, 1.9, 0, 1, 1, 1), 0xf6f2e8);
+
+  /* ================================================== TRAFFIC AND SEATING ==
+     Two things the district did not have, and the first one is a category
+     error rather than a detail: every road in it was EMPTY. A boulevard with
+     no cars on it does not read as a quiet evening, it reads as a render —
+     the same way an empty pavement does, which is why the crowd was built
+     first. Nine kilometres of carriageway here and nothing on any of it.
+
+     Parked, not moving. A moving car needs a path, a speed, a heading and a
+     stopping rule at every junction, and none of that survives being seen
+     from a first-floor window at a bookmark; a parked one is right from every
+     angle and is what a downtown kerb actually looks like at 19:00. */
+  {
+    let cars = 0;
+    for (const r of ROADS) {
+      if (r[5] !== 0) continue;                       // vehicular roads only
+      const horiz = Math.abs(r[2] - r[0]) > Math.abs(r[3] - r[1]);
+      const len = horiz ? r[2] - r[0] : r[3] - r[1];
+      const lane = r[4] / 2 - 1.9;                    // parked against the kerb
+      // 24 m spacing with a gap wherever the plan needs the kerb clear
+      const n = Math.floor(Math.abs(len) / 24);
+      for (let i = 0; i < n; i++) {
+        for (const side of [-1, 1]) {
+          if (!chance(0.42)) continue;                // a kerb is never full
+          const t = (i + 0.5) / n;
+          const px = horiz ? mix(r[0], r[2], t) : r[0] + side * lane;
+          const pz = horiz ? r[1] + side * lane : mix(r[1], r[3], t);
+          if (nearBuilding(px, pz, 1.4)) continue;
+          if (WATERBODIES.some((b) => px > b.x0 - 3 && px < b.x1 + 3
+            && pz > b.z0 - 3 && pz < b.z1 + 3)) continue;
+          const gy = groundAt(px, pz);
+          if (gy < -50) continue;
+          /* facing along the kerb, and half of them the other way — a row of
+             cars all pointing the same way is a car park, not a street */
+          const yaw = (horiz ? Math.PI / 2 : 0) + (chance(0.5) ? Math.PI : 0);
+          inst('car', xf(px, gy, pz, yaw + rr(-0.03, 0.03)),
+            pick([0xffffff, 0xe8e8ea, 0xd8dade, 0xf0eeea, 0xc9ccd2]));
+          cars++;
+        }
+      }
+    }
+    INSTCOUNT.__cars = cars;
+  }
+
+  /* ---- the seating the plazas were short of ---------------------------
+     The bench is a linear object and every public space here wanted a
+     centre: something to sit round rather than along. Three kinds, each
+     placed where its own shape belongs — the conversation bowl in the open,
+     the decks under the canopy where they can be walked over as well as sat
+     on. */
+  {
+    const P = PLAN.plaza;
+    for (const spot of [
+      [P.x0 + 34, P.z0 + 30], [P.x1 - 34, P.z0 + 30],
+      [P.x0 + 34, P.z1 - 30], [P.x1 - 34, P.z1 - 30],
+      [PLAN.tensile.x0 + 46, PLAN.tensile.z1 - 40],
+      [PLAN.enter.x0 + 40, PLAN.enter.z1 - 34],
+    ]) {
+      if (nearBuilding(spot[0], spot[1], 6)) continue;
+      inst('seatbowl', xf(spot[0], groundAt(spot[0], spot[1]), spot[1], rnd() * 6.28),
+        pick([0xffffff, 0xf4f0e8]));
+    }
+    for (const spot of [
+      [P.x0 + 70, (P.z0 + P.z1) / 2 - 18], [P.x1 - 70, (P.z0 + P.z1) / 2 + 18],
+      [PLAN.tensile.x1 - 44, PLAN.tensile.z0 + 44],
+    ]) {
+      if (nearBuilding(spot[0], spot[1], 8)) continue;
+      inst(chance(0.5) ? 'deckisle' : 'deckwave',
+        xf(spot[0], groundAt(spot[0], spot[1]) + 0.02, spot[1], rnd() * 6.28),
+        pick([0xffffff, 0xf6f2ea]));
+    }
+  }
+
+  /* ---- the two one-off buildings --------------------------------------
+     A downtown needs somewhere to stay and somewhere to go in the evening,
+     and the plan had neither. Both are corner pieces, so both go on corners
+     the grid already makes: the hotel on the boulevard side of the entry
+     court, the cinema on the entertainment edge street where the plan's own
+     zoning already put leisure. */
+  {
+    const hx = PLAN.enter.x1 - 30, hz = PLAN.enter.z0 + 26;
+    inst('hotelcnr', xf(hx, groundAt(hx, hz), hz, -Math.PI / 2), 0xffffff);
+    const cx = 212 - 34, cz = 196;
+    inst('cinema', xf(cx, groundAt(cx, cz), cz, Math.PI / 2), 0xffffff);
+    const sx = PLAN.enter.x0 + 36, sz = PLAN.enter.z1 - 60;
+    inst('shopstair', xf(sx, groundAt(sx, sz), sz, 0), 0xffffff);
+  }
 
   // birds
   for (let i = 0; i < 26; i++) {
@@ -1258,6 +1354,7 @@ function finalise() {
   INSTCOUNT.tiles = tiles;
   if (GLASS.n) { const g = GLASS.geometry(); const m = new THREE.Mesh(g, glassMat); m.renderOrder = 6; m.castShadow = false; m.receiveShadow = false; cityRoot.add(m); DISPOSE.push(g); }
   if (SHOPGLASS.n) { const g = SHOPGLASS.geometry(); const m = new THREE.Mesh(g, shopGlassMat); m.renderOrder = 6; m.castShadow = false; m.receiveShadow = false; cityRoot.add(m); DISPOSE.push(g); }
+  if (REEDGLASS.n) { const g = REEDGLASS.geometry(); const m = new THREE.Mesh(g, reedGlassMat); m.renderOrder = 6; m.castShadow = false; m.receiveShadow = false; cityRoot.add(m); DISPOSE.push(g); }
   if (EMIS.n) { const g = EMIS.geometry(); const m = new THREE.Mesh(g, emisMat); m.castShadow = false; m.receiveShadow = false; cityRoot.add(m); DISPOSE.push(g); }
   if (SHOPEMIS.n) { const g = SHOPEMIS.geometry(); const m = new THREE.Mesh(g, emisShopMat); m.castShadow = false; m.receiveShadow = false; cityRoot.add(m); DISPOSE.push(g); }
   flushInstances();

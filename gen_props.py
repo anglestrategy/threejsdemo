@@ -178,6 +178,17 @@ PROPS = [
     ('local:railing.glb',           'balcrail',    30000, 2048,  3200),
     ('local:acunit.glb',            'acunit',      20000, 2048,  2200),
     ('local:parasol.glb',           'parasol',     40000, 2048,  4000),
+    # --- material panels. These are samples rather than objects: a slat
+    #     screen, a paving slab, two grass trays and a fluted concrete panel.
+    #     They are worth having as geometry (screens and lawn patches are two
+    #     things the district has none of) AND as texture, because each one is
+    #     a photographed material on a flat plate, which is the easiest thing
+    #     in the world to read a tileable map off.
+    ('local:panel_slat.glb',        'pnl_slat',    24000, 2048,  2600),
+    ('local:panel_slab.glb',        'pnl_slab',    12000, 2048,  1400),
+    ('local:panel_turf.glb',        'pnl_turf',    16000, 2048,  1800),
+    ('local:panel_lawn.glb',        'pnl_lawn',    20000, 2048,  2200),
+    ('local:panel_flute.glb',       'pnl_flute',   16000, 2048,  1800),
 ]
 
 
