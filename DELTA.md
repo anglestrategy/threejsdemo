@@ -742,6 +742,12 @@ count — buildings keep everything, street props come back to sane numbers.
 | bollard | 1,993,800 | 14,000 | 20,000 |
 | café table | — | 30,000 | 20,000 |
 
+**Final, all 87 reprocessed, zero failures: 15.6 M unique triangles across
+280 MB**, against 8.8 M before. The shape is the point rather than the total —
+buildings carry the geometry (arcade, bluehall, shophouse, heritage at 900 k
+each; canopy pavilion 800 k) and street props sit where a thing you walk past
+belongs (grate 6 k, paver segment 10 k, bunting 12 k).
+
 **Pipeline bug found while doing it:** `work/props.json` was written once at the
 end of an hour-long run. Two container deaths silently threw away every
 completed model, because the index never recorded them as current. It now
