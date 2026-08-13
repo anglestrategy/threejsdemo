@@ -1974,14 +1974,14 @@ composer.addPass(dofPass);
    only genuinely over-bright pixels bloom, and they bloom gently. The previous
    0.58 / 0.70 pair (a low threshold with high strength) is what smeared the
    beacons into white. */
-const BLOOM_MAP = { s: 0.48, r: 0.62, t: 0.96 };
+const BLOOM_MAP = { s: 0.52, r: 0.64, t: 0.92 };
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), BLOOM_MAP.s, BLOOM_MAP.r, BLOOM_MAP.t);
 composer.addPass(bloom);
 
 const GradeShader = {
   uniforms: {
     tDiffuse: { value: null }, uTime: { value: 0 },
-    uVig: { value: 0.92 }, uDim: { value: 0 },
+    uVig: { value: 0.86 }, uDim: { value: 0 },
     uRes: { value: new THREE.Vector2(1, 1) },
     uVeil: { value: 0 }, uCity: { value: 0 },
     /* the golden (t=19.0) and dusk (t=20.6) keyframes interpolated to this
@@ -1990,7 +1990,7 @@ const GradeShader = {
     uShTint: { value: new THREE.Vector3(0.725, 0.895, 1.240) },
     uHiTint: { value: new THREE.Vector3(1.185, 1.018, 0.822) },
     uShAmt: { value: 0.60 }, uHiAmt: { value: 0.54 },
-    uSat: { value: 1.12 }, uCon: { value: 1.088 },
+    uSat: { value: 1.14 }, uCon: { value: 1.10 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: `

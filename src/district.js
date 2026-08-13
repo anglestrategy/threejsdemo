@@ -1246,6 +1246,8 @@ function makeCityMaterial(cacheKey) {
         if (s > 1.5 && s < 2.5) alb = mix(alb, alb * vec3(1.12, 0.93, 0.84), grain);
         if (s > 3.5 && s < 4.5) alb *= vec3(0.96 + 0.14 * grain, 0.94 + 0.12 * grain, 0.91 + 0.10 * grain);
         if (s > 5.5 && s < 6.5) { gMetal = 0.44; rough = 0.26 + 0.34 * grain; }
+        if (s > 6.5 && s < 7.5) alb *= vec3(1.04, 1.01, 0.95);
+        if (s > 4.5 && s < 5.5) alb *= vec3(1.02, 1.01, 0.97);
 
         // ---- micro band: hue and value jitter, everywhere, at 6-40 cm
         float micro = fb3(vWP.xz * 3.7 + vWP.y * 2.1, gFPg * 3.7);

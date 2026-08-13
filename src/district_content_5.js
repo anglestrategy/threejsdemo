@@ -700,7 +700,7 @@ function buildLandmarks() {
   const PW = 62, PD = 68, PY = gy + 1.15;
   const x0 = J.x - PW / 2, x1 = J.x + PW / 2, z0 = J.z - PD / 2, z1 = J.z + PD / 2;
   a.add(G_BOXT, xf(J.x, gy - 1.1, J.z, 0, PW, 2.25, PD), K.travDk, S.TRAVERTINE, 0.90);
-  paved(ACC.ground, x0 + 0.4, z0 + 0.4, x1 - 0.4, z1 - 0.4, PY - terrainY(J.x, J.z) + 0.01, K.travert, 1.08);
+  paved(ACC.ground, x0 + 0.4, z0 + 0.4, x1 - 0.4, z1 - 0.4, PY - terrainY(J.x, J.z) + 0.01, K.travert, 1.08, S.TRAVERTINE);
   platform(x0, z0, x1, z1, PY);
 
   // three steps and a walkable ramp down to the court on the south face
@@ -994,7 +994,7 @@ function buildRoundabout() {
     a.add(G_BOXT, xf(RX + mx * R * 0.995, gy - 0.1, RZ + mz * R * 0.995,
       Math.atan2(mx, mz), 0.9, 0.44, seg + 0.3), K.travDk, S.TRAVERTINE, 0.96);
   }
-  paved(ACC.ground, RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, 0.30, K.travert, 1.04);
+  paved(ACC.ground, RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, 0.30, K.travert, 1.04, S.TRAVERTINE);
   platform(RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, gy + 0.30);
   hole(RX - R, RZ - R, RX + R, RZ + R);
 

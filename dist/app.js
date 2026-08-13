@@ -1974,14 +1974,14 @@ composer.addPass(dofPass);
    only genuinely over-bright pixels bloom, and they bloom gently. The previous
    0.58 / 0.70 pair (a low threshold with high strength) is what smeared the
    beacons into white. */
-const BLOOM_MAP = { s: 0.48, r: 0.62, t: 0.96 };
+const BLOOM_MAP = { s: 0.52, r: 0.64, t: 0.92 };
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), BLOOM_MAP.s, BLOOM_MAP.r, BLOOM_MAP.t);
 composer.addPass(bloom);
 
 const GradeShader = {
   uniforms: {
     tDiffuse: { value: null }, uTime: { value: 0 },
-    uVig: { value: 0.92 }, uDim: { value: 0 },
+    uVig: { value: 0.86 }, uDim: { value: 0 },
     uRes: { value: new THREE.Vector2(1, 1) },
     uVeil: { value: 0 }, uCity: { value: 0 },
     /* the golden (t=19.0) and dusk (t=20.6) keyframes interpolated to this
@@ -1990,7 +1990,7 @@ const GradeShader = {
     uShTint: { value: new THREE.Vector3(0.725, 0.895, 1.240) },
     uHiTint: { value: new THREE.Vector3(1.185, 1.018, 0.822) },
     uShAmt: { value: 0.60 }, uHiAmt: { value: 0.54 },
-    uSat: { value: 1.12 }, uCon: { value: 1.088 },
+    uSat: { value: 1.14 }, uCon: { value: 1.10 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader: `
@@ -3705,6 +3705,8 @@ function makeCityMaterial(cacheKey) {
         if (s > 1.5 && s < 2.5) alb = mix(alb, alb * vec3(1.12, 0.93, 0.84), grain);
         if (s > 3.5 && s < 4.5) alb *= vec3(0.96 + 0.14 * grain, 0.94 + 0.12 * grain, 0.91 + 0.10 * grain);
         if (s > 5.5 && s < 6.5) { gMetal = 0.44; rough = 0.26 + 0.34 * grain; }
+        if (s > 6.5 && s < 7.5) alb *= vec3(1.04, 1.01, 0.95);
+        if (s > 4.5 && s < 5.5) alb *= vec3(1.02, 1.01, 0.97);
 
         // ---- micro band: hue and value jitter, everywhere, at 6-40 cm
         float micro = fb3(vWP.xz * 3.7 + vWP.y * 2.1, gFPg * 3.7);
@@ -6653,7 +6655,7 @@ function buildCanopy() {
   }
 
   // ---- the plaza floor under the canopy
-  paved(ACC.ground, CP.x0 - 4, CP.z0 - 4, CP.x1 + 4, CP.z1 + 4, 0.18, K.travert, 1.0);
+  paved(ACC.ground, CP.x0 - 4, CP.z0 - 4, CP.x1 + 4, CP.z1 + 4, 0.18, K.travert, 1.0, S.TRAVERTINE);
   platform(CP.x0 - 4, CP.z0 - 4, CP.x1 + 4, CP.z1 + 4, terrainY(cx, cz) + 0.18);
   /* NOTHING IS BARE: a 200 m plaza needs rows of palms, planting beds, café
      clusters and lit bollards, or the canopy is a car park with a roof. */
@@ -6949,7 +6951,7 @@ function buildCourtyard() {
   const a = ACC.arch, f = ACC.fine;
   const cx = (C4.x0 + C4.x1) / 2, cz = (C4.z0 + C4.z1) / 2;
   const gy = terrainY(cx, cz);
-  paved(ACC.ground, C4.x0 - 6, C4.z0 - 6, C4.x1 + 6, C4.z1 + 6, 0.14, K.travert, 1.0);
+  paved(ACC.ground, C4.x0 - 6, C4.z0 - 6, C4.x1 + 6, C4.z1 + 6, 0.14, K.travert, 1.0, S.TRAVERTINE);
   platform(C4.x0 - 6, C4.z0 - 6, C4.x1 + 6, C4.z1 + 6, gy + 0.14);
 
   // ---- the west colonnade: massive piers, deep reveals, dark glass behind
@@ -7121,7 +7123,7 @@ function buildTensile() {
   const a = ACC.arch, f = ACC.fine;
   const cx = (T.x0 + T.x1) / 2, cz = (T.z0 + T.z1) / 2;
   const gy = terrainY(cx, cz);
-  paved(ACC.ground, T.x0 - 8, T.z0 - 8, T.x1 + 8, T.z1 + 8, 0.14, 0xd2c4a8, 1.0);
+  paved(ACC.ground, T.x0 - 8, T.z0 - 8, T.x1 + 8, T.z1 + 8, 0.14, 0xd2c4a8, 1.0, S.TRAVERTINE);
   platform(T.x0 - 8, T.z0 - 8, T.x1 + 8, T.z1 + 8, gy + 0.14);
 
   // the basin
@@ -9425,7 +9427,7 @@ function buildLandmarks() {
   const PW = 62, PD = 68, PY = gy + 1.15;
   const x0 = J.x - PW / 2, x1 = J.x + PW / 2, z0 = J.z - PD / 2, z1 = J.z + PD / 2;
   a.add(G_BOXT, xf(J.x, gy - 1.1, J.z, 0, PW, 2.25, PD), K.travDk, S.TRAVERTINE, 0.90);
-  paved(ACC.ground, x0 + 0.4, z0 + 0.4, x1 - 0.4, z1 - 0.4, PY - terrainY(J.x, J.z) + 0.01, K.travert, 1.08);
+  paved(ACC.ground, x0 + 0.4, z0 + 0.4, x1 - 0.4, z1 - 0.4, PY - terrainY(J.x, J.z) + 0.01, K.travert, 1.08, S.TRAVERTINE);
   platform(x0, z0, x1, z1, PY);
 
   // three steps and a walkable ramp down to the court on the south face
@@ -9719,7 +9721,7 @@ function buildRoundabout() {
     a.add(G_BOXT, xf(RX + mx * R * 0.995, gy - 0.1, RZ + mz * R * 0.995,
       Math.atan2(mx, mz), 0.9, 0.44, seg + 0.3), K.travDk, S.TRAVERTINE, 0.96);
   }
-  paved(ACC.ground, RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, 0.30, K.travert, 1.04);
+  paved(ACC.ground, RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, 0.30, K.travert, 1.04, S.TRAVERTINE);
   platform(RX - R + 1, RZ - R + 1, RX + R - 1, RZ + R - 1, gy + 0.30);
   hole(RX - R, RZ - R, RX + R, RZ + R);
 

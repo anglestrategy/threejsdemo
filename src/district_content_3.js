@@ -134,7 +134,7 @@ function buildCanopy() {
   }
 
   // ---- the plaza floor under the canopy
-  paved(ACC.ground, CP.x0 - 4, CP.z0 - 4, CP.x1 + 4, CP.z1 + 4, 0.18, K.travert, 1.0);
+  paved(ACC.ground, CP.x0 - 4, CP.z0 - 4, CP.x1 + 4, CP.z1 + 4, 0.18, K.travert, 1.0, S.TRAVERTINE);
   platform(CP.x0 - 4, CP.z0 - 4, CP.x1 + 4, CP.z1 + 4, terrainY(cx, cz) + 0.18);
   /* NOTHING IS BARE: a 200 m plaza needs rows of palms, planting beds, café
      clusters and lit bollards, or the canopy is a car park with a roof. */
@@ -430,7 +430,7 @@ function buildCourtyard() {
   const a = ACC.arch, f = ACC.fine;
   const cx = (C4.x0 + C4.x1) / 2, cz = (C4.z0 + C4.z1) / 2;
   const gy = terrainY(cx, cz);
-  paved(ACC.ground, C4.x0 - 6, C4.z0 - 6, C4.x1 + 6, C4.z1 + 6, 0.14, K.travert, 1.0);
+  paved(ACC.ground, C4.x0 - 6, C4.z0 - 6, C4.x1 + 6, C4.z1 + 6, 0.14, K.travert, 1.0, S.TRAVERTINE);
   platform(C4.x0 - 6, C4.z0 - 6, C4.x1 + 6, C4.z1 + 6, gy + 0.14);
 
   // ---- the west colonnade: massive piers, deep reveals, dark glass behind
@@ -602,7 +602,7 @@ function buildTensile() {
   const a = ACC.arch, f = ACC.fine;
   const cx = (T.x0 + T.x1) / 2, cz = (T.z0 + T.z1) / 2;
   const gy = terrainY(cx, cz);
-  paved(ACC.ground, T.x0 - 8, T.z0 - 8, T.x1 + 8, T.z1 + 8, 0.14, 0xd2c4a8, 1.0);
+  paved(ACC.ground, T.x0 - 8, T.z0 - 8, T.x1 + 8, T.z1 + 8, 0.14, 0xd2c4a8, 1.0, S.TRAVERTINE);
   platform(T.x0 - 8, T.z0 - 8, T.x1 + 8, T.z1 + 8, gy + 0.14);
 
   // the basin
