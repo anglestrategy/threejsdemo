@@ -23,6 +23,13 @@ const BASE = opt('base', 'http://localhost:8123/');
    WebGL2 fallback — with TRAA, SSGI, GTAO and CSM, the entire reason for the
    move, unverifiable. `--use-webgpu-adapter=swiftshader` with Vulkan enabled
    returns an adapter. Slow, but it renders and it is the real backend. */
+/* One timeout for the whole harness, and it is a real limit rather than a
+   round number: the district is a software rasteriser's worst case and it grew
+   again with the generated set. At 1400x786 the SCREENSHOT alone — not the
+   boot, the single frame draw — went past five minutes and the harness threw
+   with the page perfectly healthy behind it, which reads exactly like a hang
+   and is not one. `--tmo N` overrides in seconds. */
+const TMO = (+opt('tmo', 900)) * 1000;
 const WEBGPU = args.includes('--webgpu');
 const browser = await chromium.launch({
   executablePath: process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
@@ -43,9 +50,9 @@ page.on('pageerror', e => errors.push('PAGEERROR: ' + (e.stack || e.message)));
 const url = (FILE ? 'file://' + path.join(ROOT, FILE) : BASE)
   + (query ? (query.startsWith('?') ? query : '?' + query) : '');
 const t0 = Date.now();
-await page.goto(url, { waitUntil: 'load', timeout: 300000 });
+await page.goto(url, { waitUntil: 'load', timeout: TMO });
 try {
-  await page.waitForFunction('window.__ready === true', null, { timeout: 300000 });
+  await page.waitForFunction('window.__ready === true', null, { timeout: TMO });
 } catch (e) { errors.push('NEVER READY'); }
 const bootMs = Date.now() - t0;
 await page.waitForTimeout(WAIT);
@@ -56,7 +63,7 @@ const fps = await page.evaluate(() => new Promise(res => {
 }));
 
 fs.mkdirSync(path.join(ROOT, 'shots'), { recursive: true });
-await page.screenshot({ path: path.join(ROOT, 'shots', name + '.png'), timeout: 300000 });
+await page.screenshot({ path: path.join(ROOT, 'shots', name + '.png'), timeout: TMO });
 
 let stats = null;
 try { stats = await page.evaluate(() => (window.__stats ? window.__stats() : null)); } catch (e) { }
