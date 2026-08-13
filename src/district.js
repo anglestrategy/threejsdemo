@@ -1248,6 +1248,8 @@ function makeCityMaterial(cacheKey) {
         if (s > 5.5 && s < 6.5) { gMetal = 0.44; rough = 0.26 + 0.34 * grain; }
         if (s > 6.5 && s < 7.5) alb *= vec3(1.04, 1.01, 0.95);
         if (s > 4.5 && s < 5.5) alb *= vec3(1.02, 1.01, 0.97);
+        if (s > 7.5 && s < 8.5) alb *= vec3(1.06, 1.02, 0.93);
+        if (s > 8.5 && s < 9.5) alb *= vec3(0.97, 0.97, 1.0);
 
         // ---- micro band: hue and value jitter, everywhere, at 6-40 cm
         float micro = fb3(vWP.xz * 3.7 + vWP.y * 2.1, gFPg * 3.7);
@@ -1730,7 +1732,7 @@ const cityMat = makeCityMaterial();
 /* the same law, with the ceiling switched on. Everything inside a shop uses
    this: the shell, the fittings, the stock and the shopkeeper. */
 const cityIntMat = makeCityMaterial('room');
-cityIntMat.userData.u.uRoomAdd.value.setRGB(1.15, 0.92, 0.68);
+cityIntMat.userData.u.uRoomAdd.value.setRGB(1.25, 0.96, 0.68);
 cityIntMat.side = THREE.DoubleSide;
 const DISPOSE = [];
 
