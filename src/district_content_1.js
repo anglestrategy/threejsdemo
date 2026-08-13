@@ -662,27 +662,72 @@ function inst(name, mtx, colour) {
   e.m.push(mtx);
   e.c.push(colour === undefined ? 0xffffff : colour);
 }
+/* Instanced props are chunked spatially, and this is the single most
+   expensive thing in the renderer if it is not.
+
+   Every prop used to become ONE InstancedMesh holding every copy of itself in
+   the district — all 288 street trees in one object, all 1051 cafe chairs in
+   another. An InstancedMesh is culled as a unit, and the bounds of a cloud
+   spread over 760 x 610 m contain the camera from anywhere inside the plan,
+   so nothing was ever rejected: the gate measured 457 M triangles submitted
+   every frame, from any viewpoint, most of it behind the viewer.
+
+   Splitting each prop's instances onto a 130 m grid means standing in the
+   souq submits the souq's trees and not the ones half a kilometre north. It
+   costs draw calls — a few hundred more — which is the cheap side of that
+   trade by two orders of magnitude.
+
+   Dynamic kinds are left whole: walkers, birds and jets are rewritten every
+   frame through `def.mesh` and move between tiles, so they carry cull=false
+   and must stay in one object. */
+const INST_TILE = 130;
 function flushInstances() {
+  const _p = new THREE.Vector3();
   for (const name in INST) {
     const e = INST[name], def = INST_DEF[name];
     if (!def || !e.m.length) continue;
     const mat = def.mat || cityMat;
-    const im = new THREE.InstancedMesh(def.geo, mat, e.m.length);
-    im.name = name;
+    const chunked = def.cull !== false;
+
+    // group instance indices by tile, or all into one bucket when dynamic
+    const buckets = new Map();
     for (let i = 0; i < e.m.length; i++) {
-      im.setMatrixAt(i, e.m[i]);
-      _c3.set(e.c[i]); im.setColorAt(i, _c3);
+      let key = 0;
+      if (chunked) {
+        _p.setFromMatrixPosition(e.m[i]);
+        key = (Math.floor(_p.x / INST_TILE) + 512) * 1024 + (Math.floor(_p.z / INST_TILE) + 512);
+      }
+      let b = buckets.get(key);
+      if (!b) buckets.set(key, b = []);
+      b.push(i);
     }
-    im.instanceMatrix.needsUpdate = true;
-    if (im.instanceColor) im.instanceColor.needsUpdate = true;
-    im.castShadow = def.shadow !== false;
-    im.receiveShadow = def.receive !== false;
-    im.frustumCulled = def.cull !== false;
-    if (def.order !== undefined) im.renderOrder = def.order;
-    im.geometry.computeBoundingSphere();
-    cityRoot.add(im);
+
+    let first = null;
+    for (const [key, idx] of buckets) {
+      const im = new THREE.InstancedMesh(def.geo, mat, idx.length);
+      im.name = buckets.size > 1 ? name + '#' + key : name;
+      for (let j = 0; j < idx.length; j++) {
+        im.setMatrixAt(j, e.m[idx[j]]);
+        _c3.set(e.c[idx[j]]); im.setColorAt(j, _c3);
+      }
+      im.instanceMatrix.needsUpdate = true;
+      if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      im.castShadow = def.shadow !== false;
+      im.receiveShadow = def.receive !== false;
+      im.frustumCulled = chunked;
+      if (def.order !== undefined) im.renderOrder = def.order;
+      /* the cloud's bounds, not the single prop's. computeBoundingSphere on
+         the GEOMETRY describes one chair; the culler needs the extent of the
+         chairs actually in this tile, which is what InstancedMesh's own
+         version measures. */
+      im.geometry.computeBoundingSphere();
+      im.computeBoundingSphere();
+      cityRoot.add(im);
+      if (!first) first = im;
+    }
     INSTCOUNT[name] = e.m.length;
-    def.mesh = im;
+    // dynamic kinds are single-bucket, so this is the object they rewrite
+    def.mesh = first;
   }
 }
 
