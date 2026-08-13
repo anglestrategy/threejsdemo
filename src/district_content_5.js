@@ -1175,7 +1175,12 @@ function buildScanFabric() {
           pz > PLAN.bounds.z0 + 40 && pz < PLAN.bounds.z1 - 40;
         const face = ang + (side > 0 ? Math.PI : 0);
         if (inBounds && place(b, px, pz, face, rr(6, 17))) {
-          t += b.w + rr(1.2, 5.0);
+          /* Shoulder to shoulder, the way a street is actually built. Every
+             building used to be set 1.2-5 m off its neighbour, which is a
+             suburb: a town terrace runs continuous and breaks only where an
+             alley or a gate goes through it. Most joints now close up, and
+             one in six opens into a real gap wide enough to walk down. */
+          t += b.w + (chance(0.17) ? rr(3.5, 8.0) : rr(0.1, 0.9));
           continue;
         }
         /* the second rank: a courtyard block set back behind the frontage,

@@ -534,8 +534,16 @@ function buildBlocks() {
     for (const p of plots) {
       // the majlis block is placed by hand: nothing may overlap its plot
       if (p[0] < MJ.x1 && p[2] > MJ.x0 && p[1] < MJ.z1 && p[3] > MJ.z0) continue;
+      /* This quarter used to be brick end to end — a quarter of a kilometre
+         of red masonry, which is the loudest thing in the district and is in
+         none of the reference renders. The reference streets are sandstone
+         and limestone with brick as an accent, and the brick hotel and cinema
+         that stand here can only read as set pieces if the fabric around them
+         is not the same material. Brick is now roughly one plot in three. */
+      const brickHere = chance(0.34);
       block(p[0], p[1], p[2], p[3], {
-        floors: ri(2, 5), floorH: 3.6 + rnd() * 0.35, style: 'brick', detail: 2,
+        floors: ri(2, 5), floorH: 3.6 + rnd() * 0.35,
+        style: brickHere ? 'brick' : (chance(0.5) ? 'sand' : 'trav'), detail: 2,
         parapet: chance(0.7) ? 'crenel' : 'step', green: chance(0.4),
       });
     }
