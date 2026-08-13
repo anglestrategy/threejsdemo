@@ -145,6 +145,28 @@ function block(x0, z0, x1, z1, o) {
       a.add(G_BOXT, xf(cx, top - 0.14, cz, 0, w + 0.56, 0.18, d + 0.56), pcol, surfBase, shade * 1.10);
     }
     for (const S4 of SIDES) parapet(a, S4.x0, S4.z0, S4.x1, S4.z1, top, ph, pcol, surfBody, shade * 1.04, pstyle);
+    /* Greenery spilling over the parapet onto the street elevation. The
+       reference renders are full of it — planting on every roof terrace and
+       balcony, trailing down the wall below — and the district had vines only
+       as a shopfront dressing item at ankle height. This is the same plant
+       seen from the street, which is where it actually reads. */
+    if (MODEL_ROUTE.vinepanel) {
+      for (let si2 = 0; si2 < 4; si2++) {
+        if (sides[si2] < 1 || !chance(0.42)) continue;
+        const S4 = SIDES[si2];
+        const l2 = Math.hypot(S4.x1 - S4.x0, S4.z1 - S4.z0);
+        if (l2 < 7) continue;
+        const ang2 = Math.atan2(S4.x1 - S4.x0, S4.z1 - S4.z0);
+        const n2 = 1 + (chance(0.45) ? 1 : 0);
+        for (let k = 0; k < n2; k++) {
+          const t2 = mix(l2 * 0.18, l2 * 0.82, rnd());
+          const vx = S4.x0 + (S4.x1 - S4.x0) / l2 * t2 + S4.nx * 0.5;
+          const vz = S4.z0 + (S4.z1 - S4.z0) / l2 * t2 + S4.nz * 0.5;
+          inst('vinepanel', xf3(vx, top - 2.3 - rnd() * 1.4, vz, 0, ang2 + Math.PI / 2, 0,
+            0.9 + rnd() * 0.5, 1.15 + rnd() * 0.5, 0.9), pick([K.leaf, K.leafDk, K.leafLt]));
+        }
+      }
+    }
   } else {
     for (const S4 of SIDES) wallSeg(a, S4.x0, S4.z0, S4.x1, S4.z1, top, top + 0.7, 0.3, pcol, surfBody, shade * 1.02);
   }
