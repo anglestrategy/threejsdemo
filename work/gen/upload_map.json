@@ -1,0 +1,292 @@
+{
+ "XmmU5uoBfo": {
+  "file": "e858b34a",
+  "kit": "shophouse_stair",
+  "what": "terraced travertine block with grand external stair",
+  "model": "gOOenTeSXO"
+ },
+ "iGGCdTI3uK": {
+  "file": "665c9f45",
+  "kit": "shopblock_iso",
+  "what": "corner shophouse block, lit ground-floor shops",
+  "model": "cpp1EgI0eP"
+ },
+ "tCCyxb3mZJ": {
+  "file": "5cb75e7d",
+  "kit": "shopblock_corner",
+  "what": "corner block, timber louvres, planted terrace",
+  "model": "IffOjn3tvE"
+ },
+ "O66I0GOynm": {
+  "file": "58ee6681",
+  "kit": "shopblock_jewel",
+  "what": "corner block, jewellery shop, glass balustrade",
+  "model": "KLLY6CQkqp"
+ },
+ "gOOeG3nSXO": {
+  "file": "7b990467",
+  "kit": "benchslat",
+  "what": "slatted timber bench on black cast frame",
+  "model": "u55RJE0QLD"
+ },
+ "xSST34XjfW": {
+  "file": "a899b84b",
+  "kit": "front_cloth_w",
+  "what": "white-framed clothing storefront",
+  "model": "LwwMGzWswO"
+ },
+ "6AAfeTUiJO": {
+  "file": "cd018db5",
+  "kit": "front_cloth_v",
+  "what": "steel-framed glass clothing vitrine",
+  "model": "u55RO2jQLD"
+ },
+ "jUUVRNiLD0": {
+  "file": "ab87ee64",
+  "kit": "front_elec_w",
+  "what": "wide steel-framed electronics storefront",
+  "model": "lJJpnvngv9"
+ },
+ "1llc6PDr4r": {
+  "file": "8211fb23",
+  "kit": "front_elec_c",
+  "what": "curved white electronics vitrine",
+  "model": "MBBLq2iDCm"
+ },
+ "1llc65Zr4r": {
+  "file": "cbf30e37",
+  "kit": "clothrail",
+  "what": "black steel clothes rail with shoes",
+  "model": "BhhwrBwoQR"
+ },
+ "O66I0w5ynm": {
+  "file": "3fcf4106",
+  "kit": "walllantern",
+  "what": "black wall lantern, filament lamp",
+  "model": "dttS1FtXSL"
+ },
+ "p88lHMfehw": {
+  "file": "4dab1e58",
+  "kit": "car_suv",
+  "what": "white electric SUV",
+  "model": "SyydcB4Ub8"
+ },
+ "BhhwKd7oQR": {
+  "file": "645ca67e",
+  "kit": "lamppost2",
+  "what": "black cast lamp post, hexagonal lantern",
+  "model": "kssWRZU16B"
+ },
+ "kssW6YA16B": {
+  "file": "0f1e8049",
+  "kit": "car_sedan",
+  "what": "dark grey electric sedan",
+  "model": "SyydcfAUb8"
+ },
+ "1llciWfr4r": {
+  "file": "bbc4fc2e",
+  "kit": "car_hatch",
+  "what": "grey electric hatchback, side view",
+  "model": "p88lK08ehw"
+ },
+ "nVV5R8EYQD": {
+  "kit": "treebench_ring",
+  "what": "circular slatted tree bench, closed ring",
+  "model": "KLLYQhPkqp"
+ },
+ "rgg0q4qxtc": {
+  "kit": "treebench_open",
+  "what": "circular slatted tree bench, open ring",
+  "model": "8aaJeEZIrU"
+ },
+ "nVV5RIuYQD": {
+  "kit": "seatbowl",
+  "what": "white concrete + timber circular seating bowl",
+  "model": "ovv7pgV829"
+ },
+ "xSSTb6ljfW": {
+  "kit": "deckpuzzle",
+  "what": "curved timber+stone deck with tree wells",
+  "model": "rgg0b8rxtc"
+ },
+ "dttSTHOXSL": {
+  "kit": "deckwave",
+  "what": "serpentine timber deck on steel plinth",
+  "model": "XmmUMdEBfo"
+ },
+ "u55RaDBQLD": {
+  "kit": "hotelcorner",
+  "what": "corner boutique hotel, brick, mansard, glass dome",
+  "model": "xSSTKxajfW"
+ },
+ "4RRhJ1o9Aa": {
+  "kit": "cinema",
+  "what": "art-deco movie theatre with lit marquee",
+  "model": "p88lVQYehw"
+ },
+ "VXXLUJcMMU": {
+  "kit": "per_boy",
+  "what": "boy, green shirt + chinos",
+  "model": "P33hup642C"
+ },
+ "eIISO9QdqL": {
+  "kit": "per_thobe1",
+  "what": "young man, white thobe",
+  "model": "6AACqQJiJO"
+ },
+ "3zzub1jREY": {
+  "kit": "per_thobe2",
+  "what": "man, thobe + shemagh",
+  "model": "xSSVXu5jfW"
+ },
+ "cpprlZt0eP": {
+  "kit": "per_woman1",
+  "what": "woman, sage shirt + jeans",
+  "model": "EbbRYKguuO"
+ },
+ "rggTeFQxtc": {
+  "kit": "per_abaya",
+  "what": "woman, black abaya + hijab",
+  "model": "Cqq3n4PEEy"
+ },
+ "Dool6yDpcl": {
+  "kit": "per_boy2",
+  "what": "boy, thobe + shemagh",
+  "model": "dttUZY5XSL"
+ },
+ "9ZZa1bxNYZ": {
+  "kit": "per_thobe3",
+  "what": "man, thobe + shemagh, standing",
+  "model": "5jjYIsTKxe"
+ },
+ "iGGEj1v3uK": {
+  "kit": "per_boy3",
+  "what": "boy, plain white thobe",
+  "model": "w44oqeJ7EI"
+ },
+ "SyyXufLUb8": {
+  "kit": "per_thobe4",
+  "what": "man, thobe + shemagh, turned",
+  "model": "N22fj1j6D9"
+ },
+ "eIIUh5rdqL": {
+  "kit": "per_tee1",
+  "what": "man, cream tee + olive trousers",
+  "model": "0eejoFdTfW"
+ },
+ "rggVwRfxtc": {
+  "kit": "per_tee2",
+  "what": "man, beige tee + black trousers",
+  "model": "jUUDOhlLD0"
+ },
+ "u5521OgQLD": {
+  "kit": "per_tee3",
+  "what": "man, olive tee + beige chinos",
+  "model": "gOOX9lISXO"
+ },
+ "rggVwZCxtc": {
+  "kit": "per_boy4",
+  "what": "boy, navy shirt + jeans",
+  "model": "vQQ65sYa47"
+ },
+ "Doogt5Hpcl": {
+  "kit": "per_teen1",
+  "what": "teen, beige tee + black joggers",
+  "model": "MBBlmS9DCm"
+ },
+ "8aayELAIrU": {
+  "kit": "per_teen2",
+  "what": "teen, grey tee + cargo trousers",
+  "model": "bxxYgmD5Y2"
+ },
+ "s77eyYzl8e": {
+  "kit": "per_teen3",
+  "what": "teen, white tee + jeans",
+  "model": "MBBlhBaDCm"
+ },
+ "4RRaAXU9Aa": {
+  "kit": "art_ring",
+  "what": "woven rattan ring sculpture",
+  "model": "Xmm7E1KBfo"
+ },
+ "p88Sm9Iehw": {
+  "kit": "per_teen4",
+  "what": "teen, white tee + jeans (was mislabelled art_nest)",
+  "model": "UPPo3vNwny"
+ },
+ "Doogt4Opcl": {
+  "kit": "per_girl1",
+  "what": "girl, white long-sleeve + jeans",
+  "model": "p88SacFehw"
+ },
+ "yiihZqYPW9": {
+  "kit": "per_abaya2",
+  "what": "teen girl, blue-grey abaya",
+  "model": "vQQ6kKia47"
+ },
+ "rggVwIExtc": {
+  "kit": "per_abaya3",
+  "what": "woman, dusty-pink abaya + taupe hijab",
+  "model": "YMM1o5tWeC"
+ },
+ "1llTUIir4r": {
+  "kit": "per_abaya4",
+  "what": "woman, olive abaya + hijab",
+  "model": "lJJd6fBgv9"
+ },
+ "gOOX4EUSXO": {
+  "kit": "per_abaya5",
+  "what": "woman, dark-green abaya + black hijab",
+  "model": "gOOX3ynSXO"
+ },
+ "s77po8el8e": {
+  "kit": "tree_broad",
+  "what": "large broadleaf tree",
+  "model": "bxxnMoj5Y2"
+ },
+ "cpprlSW0eP": {
+  "kit": "tree_olive",
+  "what": "multi-stem olive tree",
+  "model": "lJJemU3gv9"
+ },
+ "EbbRzzeuuO": {
+  "kit": "tree_pot",
+  "what": "small potted tree",
+  "model": "Bhh761yoQR"
+ },
+ "aFF62zzfSh": {
+  "kit": "adtotem",
+  "what": "lit advertising totem",
+  "model": "rggTBeVxtc"
+ },
+ "yiim0cFPW9": {
+  "kit": "glass_reed",
+  "what": "reeded glass screen on steel base",
+  "model": "N22fDvN6D9"
+ },
+ "3zzu27vREY": {
+  "kit": "panel_slat",
+  "what": "timber slat screen panel",
+  "model": "SyyXJROUb8"
+ },
+ "O66t4jgynm": {
+  "kit": "panel_slab",
+  "what": "rough concrete paving slab",
+  "model": "Iffyv7RtvE"
+ },
+ "EbbRF8GuuO": {
+  "kit": "panel_turf",
+  "what": "artificial turf tile",
+  "model": "w44oyQU7EI"
+ },
+ "3zzu2OfREY": {
+  "kit": "panel_lawn",
+  "what": "turf tray in a timber frame",
+  "model": "P33h6Pc42C"
+ },
+ "DooldnWpcl": {
+  "kit": "panel_flute",
+  "what": "fluted concrete panel",
+  "model": "79984nCJAL"
+ }
+}

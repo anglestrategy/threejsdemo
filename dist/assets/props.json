@@ -1,0 +1,1528 @@
+{
+ "tram": {
+  "v": 3,
+  "file": "assets/props/tram.glb",
+  "tris": 240000,
+  "w": 1.9008510112762451,
+  "height": 0.3022269904613495,
+  "depth": 0.28595998883247375,
+  "base": -0.15220099687576294,
+  "kb": 5060,
+  "tex": 4096,
+  "source": "Meshy_AI_light_rail_tram_3d_0812060436_image-to-3d-texture.glb",
+  "src_tris": 1977736
+ },
+ "mosque": {
+  "v": 3,
+  "file": "assets/props/mosque.glb",
+  "tris": 399994,
+  "w": 1.40591299533844,
+  "height": 1.903319001197815,
+  "depth": 1.8148850202560425,
+  "base": -0.9524620175361633,
+  "kb": 8106,
+  "tex": 4096,
+  "source": "Meshy_AI_mosque_with_minaret_3_0812054244_image-to-3d-texture.glb",
+  "src_tris": 1935340
+ },
+ "arcade": {
+  "v": 3,
+  "file": "assets/props/arcade.glb",
+  "tris": 259998,
+  "w": 1.9036979675292969,
+  "height": 0.7328679859638214,
+  "depth": 1.0635899901390076,
+  "base": -0.366907000541687,
+  "kb": 5922,
+  "tex": 4096,
+  "source": "Meshy_AI_arcaded_colonnade_bui_0812054346_image-to-3d-texture.glb",
+  "src_tris": 1982484,
+  "lod1": {
+   "file": "assets/props/arcade_lod1.glb",
+   "tris": 25996,
+   "kb": 1199
+  }
+ },
+ "canopypav": {
+  "v": 3,
+  "file": "assets/props/canopypav.glb",
+  "tris": 219996,
+  "w": 1.9038049578666687,
+  "height": 0.5767249763011932,
+  "depth": 1.896045982837677,
+  "base": -0.2880539894104004,
+  "kb": 10002,
+  "tex": 4096,
+  "source": "Meshy_AI_golden_canopy_pavilio_0812060405_image-to-3d-texture.glb",
+  "src_tris": 1802104
+ },
+ "bluehall": {
+  "v": 3,
+  "file": "assets/props/bluehall.glb",
+  "tris": 239988,
+  "w": 1.9035919904708862,
+  "height": 0.5774529874324799,
+  "depth": 1.1749110221862793,
+  "base": -0.29301199316978455,
+  "kb": 8683,
+  "tex": 4096,
+  "source": "Meshy_AI_blue_roofed_building__0812060516_image-to-3d-texture.glb",
+  "src_tris": 1996522,
+  "lod1": {
+   "file": "assets/props/bluehall_lod1.glb",
+   "tris": 23998,
+   "kb": 2107
+  }
+ },
+ "shophouse": {
+  "v": 3,
+  "file": "assets/props/shophouse.glb",
+  "tris": 199998,
+  "w": 1.9010460376739502,
+  "height": 0.5363830029964447,
+  "depth": 0.4646670073270798,
+  "base": -0.26889199018478394,
+  "kb": 9039,
+  "tex": 4096,
+  "source": "Meshy_AI_arcade_shophouse_row__0812060413_image-to-3d-texture.glb",
+  "src_tris": 1988150,
+  "lod1": {
+   "file": "assets/props/shophouse_lod1.glb",
+   "tris": 19998,
+   "kb": 2336
+  }
+ },
+ "resblock": {
+  "v": 3,
+  "file": "assets/props/resblock.glb",
+  "tris": 149964,
+  "w": 1.7260890007019043,
+  "height": 1.9033220410346985,
+  "depth": 1.7218610048294067,
+  "base": -0.9523410201072693,
+  "kb": 3417,
+  "tex": 2048,
+  "source": "Meshy_AI_residential_apartment_0812060442_image-to-3d-texture.glb",
+  "src_tris": 1848548,
+  "lod1": {
+   "file": "assets/props/resblock_lod1.glb",
+   "tris": 18806,
+   "kb": 900
+  }
+ },
+ "fountain": {
+  "v": 3,
+  "file": "assets/props/fountain.glb",
+  "tris": 119996,
+  "w": 1.9036519527435303,
+  "height": 0.16747800260782242,
+  "depth": 1.9033080339431763,
+  "base": -0.07680100202560425,
+  "kb": 1875,
+  "tex": 2048,
+  "source": "Meshy_AI_roundabout_fountain_p_0812060423_image-to-3d-texture.glb",
+  "src_tris": 1993838
+ },
+ "obelisk": {
+  "v": 3,
+  "file": "assets/props/obelisk.glb",
+  "tris": 59998,
+  "w": 0.30212199687957764,
+  "height": 1.902271032333374,
+  "depth": 0.30212099850177765,
+  "base": -0.9523320198059082,
+  "kb": 1854,
+  "tex": 2048,
+  "source": "Meshy_AI_roundabout_obelisk_mo_0812060524_image-to-3d-texture.glb",
+  "src_tris": 916032
+ },
+ "tramstop": {
+  "v": 3,
+  "file": "assets/props/tramstop.glb",
+  "tris": 89998,
+  "w": 1.9037309885025024,
+  "height": 0.4700250029563904,
+  "depth": 0.36599500477313995,
+  "base": -0.22529000043869019,
+  "kb": 2386,
+  "tex": 2048,
+  "source": "Meshy_AI_tram_stop_shelter_3d_0812060457_image-to-3d-texture.glb",
+  "src_tris": 1991874
+ },
+ "kiosk": {
+  "v": 3,
+  "file": "assets/props/kiosk.glb",
+  "tris": 60000,
+  "w": 1.90358304977417,
+  "height": 1.6464589834213257,
+  "depth": 1.6946420073509216,
+  "base": -0.8240709900856018,
+  "kb": 1510,
+  "tex": 2048,
+  "source": "Meshy_AI_small_kiosk_booth_3d_0812060504_image-to-3d-texture.glb",
+  "src_tris": 1979822
+ },
+ "bicycle": {
+  "v": 3,
+  "file": "assets/props/bicycle.glb",
+  "tris": 44998,
+  "w": 1.902554988861084,
+  "height": 1.0790050029754639,
+  "depth": 0.6097359955310822,
+  "base": -0.5393940210342407,
+  "kb": 2205,
+  "tex": 2048,
+  "source": "Meshy_AI_bicycle_3d_0812052922_image-to-3d-texture.glb",
+  "src_tris": 1993754,
+  "lod1": {
+   "file": "assets/props/bicycle_lod1.glb",
+   "tris": 6440,
+   "kb": 635
+  }
+ },
+ "benchw": {
+  "v": 3,
+  "file": "assets/props/benchw.glb",
+  "tris": 28000,
+  "w": 1.9038039445877075,
+  "height": 0.7336139976978302,
+  "depth": 0.5285229980945587,
+  "base": -0.3675599992275238,
+  "kb": 886,
+  "tex": 2048,
+  "source": "Meshy_AI_wooden_bench_3d_0812052914_image-to-3d-texture.glb",
+  "src_tris": 1999182,
+  "lod1": {
+   "file": "assets/props/benchw_lod1.glb",
+   "tris": 3000,
+   "kb": 222
+  }
+ },
+ "bins": {
+  "v": 3,
+  "file": "assets/props/bins.glb",
+  "tris": 26000,
+  "w": 1.903162956237793,
+  "height": 0.9017089903354645,
+  "depth": 0.7132819890975952,
+  "base": -0.45018500089645386,
+  "kb": 1009,
+  "tex": 2048,
+  "source": "Meshy_AI_trash_recycling_bins__0812052908_image-to-3d-texture.glb",
+  "src_tris": 1989902,
+  "lod1": {
+   "file": "assets/props/bins_lod1.glb",
+   "tris": 3000,
+   "kb": 288
+  }
+ },
+ "pots": {
+  "v": 3,
+  "file": "assets/props/pots.glb",
+  "tris": 68892,
+  "w": 1.896025002002716,
+  "height": 1.6070929765701294,
+  "depth": 1.1492629647254944,
+  "base": -0.805088996887207,
+  "kb": 1482,
+  "tex": 2048,
+  "source": "Meshy_AI_small_potted_plants_3_0812052829_image-to-3d-texture.glb",
+  "src_tris": 1891072,
+  "lod1": {
+   "file": "assets/props/pots_lod1.glb",
+   "tris": 2940,
+   "kb": 254
+  }
+ },
+ "hammock": {
+  "v": 3,
+  "file": "assets/props/hammock.glb",
+  "tris": 22000,
+  "w": 1.9035199880599976,
+  "height": 0.8122400045394897,
+  "depth": 0.47462399303913116,
+  "base": -0.40761300921440125,
+  "kb": 1974,
+  "tex": 2048,
+  "source": "Meshy_AI_rooftop_hammock_3d_0812052837_image-to-3d-texture.glb",
+  "src_tris": 1884738,
+  "lod1": {
+   "file": "assets/props/hammock_lod1.glb",
+   "tris": 3216,
+   "kb": 392
+  }
+ },
+ "evpoint": {
+  "v": 3,
+  "file": "assets/props/evpoint.glb",
+  "tris": 24000,
+  "w": 0.9080950021743774,
+  "height": 1.9029340147972107,
+  "depth": 0.5528199970722198,
+  "base": -0.9522560238838196,
+  "kb": 2023,
+  "tex": 2048,
+  "source": "Meshy_AI_ev_charging_station_3_0812052930_image-to-3d-texture.glb",
+  "src_tris": 1991886,
+  "lod1": {
+   "file": "assets/props/evpoint_lod1.glb",
+   "tris": 2598,
+   "kb": 506
+  }
+ },
+ "trellis": {
+  "v": 3,
+  "file": "assets/props/trellis.glb",
+  "tris": 89298,
+  "w": 0.7387759983539581,
+  "height": 1.9007999897003174,
+  "depth": 0.30795900523662567,
+  "base": -0.9511039853096008,
+  "kb": 2040,
+  "tex": 2048,
+  "source": "Meshy_AI_vine_trellis_panel_3d_0812052859_image-to-3d-texture.glb",
+  "src_tris": 1928402,
+  "lod1": {
+   "file": "assets/props/trellis_lod1.glb",
+   "tris": 3368,
+   "kb": 381
+  }
+ },
+ "watershrub": {
+  "v": 3,
+  "file": "assets/props/watershrub.glb",
+  "tris": 251544,
+  "w": 1.8893139958381653,
+  "height": 0.9341969788074493,
+  "depth": 1.867521047592163,
+  "base": -0.47518399357795715,
+  "kb": 2304,
+  "tex": 2048,
+  "source": "Meshy_AI_waterside_shrubs_3d_0812054531_image-to-3d-texture.glb",
+  "src_tris": 1944710,
+  "lod1": {
+   "file": "assets/props/watershrub_lod1.glb",
+   "tris": 3958,
+   "kb": 115
+  }
+ },
+ "carpet": {
+  "v": 3,
+  "file": "assets/props/carpet.glb",
+  "tris": 12000,
+  "w": 1.9033550024032593,
+  "height": 0.048257000744342804,
+  "depth": 1.5547980070114136,
+  "base": -0.021635999903082848,
+  "kb": 3129,
+  "tex": 2048,
+  "source": "Meshy_AI_outdoor_carpet_rug_3d_0812054335_image-to-3d-texture.glb",
+  "src_tris": 1985786
+ },
+ "bunting": {
+  "v": 3,
+  "file": "assets/props/bunting.glb",
+  "tris": 11998,
+  "w": 1.903656005859375,
+  "height": 0.220380999147892,
+  "depth": 0.05572999827563763,
+  "base": -0.10987599939107895,
+  "kb": 370,
+  "tex": 1024,
+  "source": "Meshy_AI_string_light_bunting__0812054217_image-to-3d-texture.glb",
+  "src_tris": 160838,
+  "lod1": {
+   "file": "assets/props/bunting_lod1.glb",
+   "tris": 1600,
+   "kb": 116
+  }
+ },
+ "sail1": {
+  "v": 3,
+  "file": "assets/props/sail1.glb",
+  "tris": 20000,
+  "w": 1.903328001499176,
+  "height": 1.6448709964752197,
+  "depth": 0.9647070169448853,
+  "base": -0.8308489918708801,
+  "kb": 503,
+  "tex": 2048,
+  "source": "Meshy_AI_single_shade_sail_3d_0812060450_image-to-3d-texture.glb",
+  "src_tris": 1836630,
+  "lod1": {
+   "file": "assets/props/sail1_lod1.glb",
+   "tris": 2200,
+   "kb": 122
+  }
+ },
+ "bench2": {
+  "v": 3,
+  "file": "assets/props/bench2.glb",
+  "tris": 19998,
+  "w": 1.9031069874763489,
+  "height": 0.4096669852733612,
+  "depth": 0.454598993062973,
+  "base": -0.20513199269771576,
+  "kb": 546,
+  "tex": 2048,
+  "source": "Meshy_AI_street_bench_3d_0812060429_image-to-3d-texture.glb",
+  "src_tris": 1565634,
+  "lod1": {
+   "file": "assets/props/bench2_lod1.glb",
+   "tris": 2400,
+   "kb": 161
+  }
+ },
+ "majlisset": {
+  "v": 3,
+  "file": "assets/props/majlisset.glb",
+  "tris": 119992,
+  "w": 1.8996430039405823,
+  "height": 0.47679199278354645,
+  "depth": 1.9009779691696167,
+  "base": -0.24462799727916718,
+  "kb": 3034,
+  "tex": 2048,
+  "source": "Meshy_AI_majlis_lounge_seating_0812054315_image-to-3d-texture.glb",
+  "src_tris": 1981136,
+  "lod1": {
+   "file": "assets/props/majlisset_lod1.glb",
+   "tris": 5984,
+   "kb": 666
+  }
+ },
+ "palm2": {
+  "v": 3,
+  "file": "assets/props/palm2.glb",
+  "tris": 37548,
+  "w": 1.230758011341095,
+  "height": 1.9027210474014282,
+  "depth": 1.1768010258674622,
+  "base": -0.952305018901825,
+  "kb": 1581,
+  "tex": 2048,
+  "source": "Meshy_AI_palm_tree_masterplan__0812060509_image-to-3d-texture.glb",
+  "src_tris": 1913544,
+  "lod1": {
+   "file": "assets/props/palm2_lod1.glb",
+   "tris": 5510,
+   "kb": 323
+  }
+ },
+ "solar": {
+  "v": 3,
+  "file": "assets/props/solar.glb",
+  "tris": 2598,
+  "w": 1.9026049971580505,
+  "height": 0.24272000044584274,
+  "depth": 0.3921159952878952,
+  "base": -0.12172800302505493,
+  "kb": 532,
+  "tex": 1024,
+  "source": "Meshy_AI_solar_panel_array_3d_0812052938_image-to-3d-texture.glb",
+  "src_tris": 1787360,
+  "lod1": {
+   "file": "assets/props/solar_lod1.glb",
+   "tris": 648,
+   "kb": 175
+  }
+ },
+ "lagoon_a": {
+  "v": 3,
+  "file": "assets/props/lagoon_a.glb",
+  "tris": 148564,
+  "w": 0.6033239960670471,
+  "height": 1.9991810321807861,
+  "depth": 0.5930460095405579,
+  "base": -0.9992750287055969,
+  "kb": 2016,
+  "tex": 2048,
+  "source": "Meshy_AI__0812054904_texture.glb",
+  "src_tris": 1859717,
+  "lod1": {
+   "file": "assets/props/lagoon_a_lod1.glb",
+   "tris": 4728,
+   "kb": 308
+  }
+ },
+ "lagoon_b": {
+  "v": 3,
+  "file": "assets/props/lagoon_b.glb",
+  "tris": 149976,
+  "w": 1.999621033668518,
+  "height": 1.2693979740142822,
+  "depth": 1.3418520092964172,
+  "base": -0.6347039937973022,
+  "kb": 2979,
+  "tex": 2048,
+  "source": "Meshy_AI__0812055014_texture.glb",
+  "src_tris": 1959998,
+  "lod1": {
+   "file": "assets/props/lagoon_b_lod1.glb",
+   "tris": 7862,
+   "kb": 623
+  }
+ },
+ "extra": {
+  "v": 3,
+  "file": "assets/props/extra.glb",
+  "tris": 119533,
+  "w": 1.998852014541626,
+  "height": 1.7577719688415527,
+  "depth": 1.8642629981040955,
+  "base": -0.8786929845809937,
+  "kb": 2975,
+  "tex": 2048,
+  "source": "Meshy_AI__0812052843_texture.glb",
+  "src_tris": 1953322,
+  "lod1": {
+   "file": "assets/props/extra_lod1.glb",
+   "tris": 5762,
+   "kb": 629
+  }
+ },
+ "people10": {
+  "v": 3,
+  "file": "assets/props/people10.glb",
+  "tris": 190709,
+  "w": 82.35380554199219,
+  "height": 108.63100051879883,
+  "depth": 194.97778689861298,
+  "base": -68.26380157470703,
+  "kb": 16863,
+  "tex": 4096,
+  "source": "models_of_people_x_10_00.glb",
+  "src_tris": 1144917,
+  "lod1": {
+   "file": "assets/props/people10_lod1.glb",
+   "tris": 62197,
+   "kb": 6108
+  }
+ },
+ "people5s": {
+  "v": 3,
+  "file": "assets/props/people5s.glb",
+  "tris": 99995,
+  "w": 70.99478912353516,
+  "height": 140.4782485961914,
+  "depth": 143.51678657531738,
+  "base": -70.23775482177734,
+  "kb": 2511,
+  "tex": 4096,
+  "source": "sitting_people_x_5_11.glb",
+  "src_tris": 460529,
+  "lod1": {
+   "file": "assets/props/people5s_lod1.glb",
+   "tris": 12199,
+   "kb": 1962
+  }
+ },
+ "ghscene": {
+  "v": 3,
+  "file": "assets/props/ghscene.glb",
+  "tris": 144542,
+  "w": 14.207001686096191,
+  "height": 238.42514419555664,
+  "depth": 18.817291498184204,
+  "base": -184.27342224121094,
+  "kb": 26422,
+  "tex": 4096,
+  "source": "goldenhourscene_nhp.glb",
+  "src_tris": 144542,
+  "lod1": {
+   "file": "assets/props/ghscene_lod1.glb",
+   "tris": 45574,
+   "kb": 24848
+  }
+ },
+ "diorama": {
+  "v": 3,
+  "file": "assets/props/diorama.glb",
+  "tris": 299992,
+  "w": 0.6643098294734955,
+  "height": 0.2891555577516556,
+  "depth": 0.9460578262805939,
+  "base": -0.14480505883693695,
+  "kb": 3610,
+  "tex": 4096,
+  "source": "model.26.glb",
+  "src_tris": 1885366,
+  "lod1": {
+   "file": "assets/props/diorama_lod1.glb",
+   "tris": 29954,
+   "kb": 907
+  }
+ },
+ "lamppost": {
+  "v": 3,
+  "file": "assets/props/lamppost.glb",
+  "tris": 35998,
+  "w": 0.6121020019054413,
+  "height": 1.9045050144195557,
+  "depth": 0.12885399907827377,
+  "base": -0.9524160027503967,
+  "kb": 990,
+  "tex": 2048,
+  "source": "Meshy_AI_street_lamppost_3d_0812130902_image-to-3d-texture.glb",
+  "src_tris": 372192,
+  "lod1": {
+   "file": "assets/props/lamppost_lod1.glb",
+   "tris": 3592,
+   "kb": 269
+  }
+ },
+ "bollard2": {
+  "v": 3,
+  "file": "assets/props/bollard2.glb",
+  "tris": 14000,
+  "w": 0.5566210150718689,
+  "height": 1.903465986251831,
+  "depth": 0.5565960109233856,
+  "base": -0.9523490071296692,
+  "kb": 2102,
+  "tex": 2048,
+  "source": "Meshy_AI_bollard_traffic_post__0812130956_image-to-3d-texture.glb",
+  "src_tris": 1993800,
+  "lod1": {
+   "file": "assets/props/bollard2_lod1.glb",
+   "tris": 1598,
+   "kb": 454
+  }
+ },
+ "grate": {
+  "v": 3,
+  "file": "assets/props/grate.glb",
+  "tris": 2998,
+  "w": 1.9000619649887085,
+  "height": 0.06367099657654762,
+  "depth": 1.9025750160217285,
+  "base": -0.03232799842953682,
+  "kb": 2938,
+  "tex": 2048,
+  "source": "Meshy_AI_manhole_drain_grate_3_0812130756_image-to-3d-texture.glb",
+  "src_tris": 1979642,
+  "lod1": {
+   "file": "assets/props/grate_lod1.glb",
+   "tris": 494,
+   "kb": 637
+  }
+ },
+ "tsignal": {
+  "v": 3,
+  "file": "assets/props/tsignal.glb",
+  "tris": 29996,
+  "w": 0.19410499930381775,
+  "height": 1.9036930203437805,
+  "depth": 0.4271730035543442,
+  "base": -0.9523810148239136,
+  "kb": 595,
+  "tex": 2048,
+  "source": "Meshy_AI_traffic_signal_pole_3_0812130857_image-to-3d-texture.glb",
+  "src_tris": 638718,
+  "lod1": {
+   "file": "assets/props/tsignal_lod1.glb",
+   "tris": 3000,
+   "kb": 153
+  }
+ },
+ "psignal": {
+  "v": 3,
+  "file": "assets/props/psignal.glb",
+  "tris": 23996,
+  "w": 0.5116280019283295,
+  "height": 1.9035569429397583,
+  "depth": 0.22310899943113327,
+  "base": -0.9522519707679749,
+  "kb": 1000,
+  "tex": 2048,
+  "source": "Meshy_AI_pedestrian_signal_pol_0812130836_image-to-3d-texture.glb",
+  "src_tris": 813272,
+  "lod1": {
+   "file": "assets/props/psignal_lod1.glb",
+   "tris": 2600,
+   "kb": 235
+  }
+ },
+ "kerb": {
+  "v": 3,
+  "file": "assets/props/kerb.glb",
+  "tris": 13998,
+  "w": 1.7419959902763367,
+  "height": 0.3776859939098358,
+  "depth": 1.8981059789657593,
+  "base": -0.19200299680233002,
+  "kb": 2951,
+  "tex": 2048,
+  "source": "Meshy_AI_curb_gutter_edge_3d_0812130913_image-to-3d-texture.glb",
+  "src_tris": 1991072,
+  "lod1": {
+   "file": "assets/props/kerb_lod1.glb",
+   "tris": 1600,
+   "kb": 521
+  }
+ },
+ "walkseg": {
+  "v": 3,
+  "file": "assets/props/walkseg.glb",
+  "tris": 5954,
+  "w": 1.9026870131492615,
+  "height": 1.90406996011734,
+  "depth": 1.2288140058517456,
+  "base": -0.9528409838676453,
+  "kb": 826,
+  "tex": 2048,
+  "source": "Meshy_AI_sidewalk_paver_segmen_0812130848_image-to-3d-texture.glb",
+  "src_tris": 1908896,
+  "lod1": {
+   "file": "assets/props/walkseg_lod1.glb",
+   "tris": 724,
+   "kb": 240
+  }
+ },
+ "roadseg": {
+  "v": 3,
+  "file": "assets/props/roadseg.glb",
+  "tris": 23998,
+  "w": 1.903492033481598,
+  "height": 0.04781400039792061,
+  "depth": 1.903611958026886,
+  "base": -0.02429400011897087,
+  "kb": 2592,
+  "tex": 2048,
+  "source": "Meshy_AI_straight_road_segment_0812130817_image-to-3d-texture.glb",
+  "src_tris": 1993658,
+  "lod1": {
+   "file": "assets/props/roadseg_lod1.glb",
+   "tris": 2598,
+   "kb": 437
+  }
+ },
+ "roadx": {
+  "v": 3,
+  "file": "assets/props/roadx.glb",
+  "tris": 35996,
+  "w": 1.9034409523010254,
+  "height": 0.3403089940547943,
+  "depth": 1.9033700227737427,
+  "base": -0.18087799847126007,
+  "kb": 3070,
+  "tex": 2048,
+  "source": "Meshy_AI_road_intersection_seg_0812130807_image-to-3d-texture.glb",
+  "src_tris": 1978442,
+  "lod1": {
+   "file": "assets/props/roadx_lod1.glb",
+   "tris": 3600,
+   "kb": 561
+  }
+ },
+ "windtower": {
+  "v": 3,
+  "file": "assets/props/windtower.glb",
+  "tris": 139830,
+  "w": 0.8823060095310211,
+  "height": 1.9023549556732178,
+  "depth": 0.882876992225647,
+  "base": -0.9513279795646667,
+  "kb": 5467,
+  "tex": 4096,
+  "source": "Meshy_AI_solar_wind_tower_3d_0812151559_image-to-3d-texture.glb",
+  "src_tris": 1961606,
+  "lod1": {
+   "file": "assets/props/windtower_lod1.glb",
+   "tris": 13694,
+   "kb": 1589
+  }
+ },
+ "heritage": {
+  "v": 3,
+  "file": "assets/props/heritage.glb",
+  "tris": 239998,
+  "w": 1.9032869935035706,
+  "height": 1.7330189943313599,
+  "depth": 0.9645029902458191,
+  "base": -0.8669059872627258,
+  "kb": 7223,
+  "tex": 4096,
+  "source": "Meshy_AI_solar_roofed_heritage_0812151635_image-to-3d-texture.glb",
+  "src_tris": 1998072,
+  "lod1": {
+   "file": "assets/props/heritage_lod1.glb",
+   "tris": 23964,
+   "kb": 1668
+  }
+ },
+ "shuttle": {
+  "v": 3,
+  "file": "assets/props/shuttle.glb",
+  "tris": 129996,
+  "w": 1.9033339619636536,
+  "height": 1.1319050192832947,
+  "depth": 0.9748950004577637,
+  "base": -0.5662750005722046,
+  "kb": 3060,
+  "tex": 4096,
+  "source": "Meshy_AI_electric_shuttle_vehi_0812151632_image-to-3d-texture.glb",
+  "src_tris": 1979040,
+  "lod1": {
+   "file": "assets/props/shuttle_lod1.glb",
+   "tris": 13000,
+   "kb": 996
+  }
+ },
+ "stall": {
+  "v": 3,
+  "file": "assets/props/stall.glb",
+  "tris": 69980,
+  "w": 1.7649379968643188,
+  "height": 1.9032730460166931,
+  "depth": 1.1081459522247314,
+  "base": -0.9521080255508423,
+  "kb": 2541,
+  "tex": 2048,
+  "source": "Meshy_AI_market_stall_canopy_3_0812151557_image-to-3d-texture.glb",
+  "src_tris": 1983238,
+  "lod1": {
+   "file": "assets/props/stall_lod1.glb",
+   "tris": 6776,
+   "kb": 484
+  }
+ },
+ "pvplanter": {
+  "v": 3,
+  "file": "assets/props/pvplanter.glb",
+  "tris": 49486,
+  "w": 1.8840799927711487,
+  "height": 0.755620002746582,
+  "depth": 1.612991988658905,
+  "base": -0.37766000628471375,
+  "kb": 1599,
+  "tex": 2048,
+  "source": "Meshy_AI_solar_panel_planter_b_0812151606_image-to-3d-texture.glb",
+  "src_tris": 1744072,
+  "lod1": {
+   "file": "assets/props/pvplanter_lod1.glb",
+   "tris": 4994,
+   "kb": 307
+  }
+ },
+ "deckbench": {
+  "v": 3,
+  "file": "assets/props/deckbench.glb",
+  "tris": 33848,
+  "w": 1.895613968372345,
+  "height": 0.4101639986038208,
+  "depth": 1.201751947402954,
+  "base": -0.2074979990720749,
+  "kb": 1741,
+  "tex": 2048,
+  "source": "Meshy_AI_wooden_deck_bench_pla_0812151613_image-to-3d-texture.glb",
+  "src_tris": 1913580,
+  "lod1": {
+   "file": "assets/props/deckbench_lod1.glb",
+   "tris": 3216,
+   "kb": 398
+  }
+ },
+ "palmbase": {
+  "v": 3,
+  "file": "assets/props/palmbase.glb",
+  "tris": 59640,
+  "w": 1.0723940134048462,
+  "height": 1.8991789817810059,
+  "depth": 1.18265300989151,
+  "base": -0.951557993888855,
+  "kb": 1471,
+  "tex": 2048,
+  "source": "Meshy_AI_palm_tree_on_base_3d_0812151615_image-to-3d-texture.glb",
+  "src_tris": 1906996,
+  "lod1": {
+   "file": "assets/props/palmbase_lod1.glb",
+   "tris": 6576,
+   "kb": 292
+  }
+ },
+ "planters": {
+  "v": 3,
+  "file": "assets/props/planters.glb",
+  "tris": 69732,
+  "w": 1.9116559624671936,
+  "height": 0.9527579843997955,
+  "depth": 1.5089240074157715,
+  "base": -0.4737589955329895,
+  "kb": 2257,
+  "tex": 2048,
+  "source": "Meshy_AI_tiered_planter_cluste_0812151630_image-to-3d-texture.glb",
+  "src_tris": 1771516,
+  "lod1": {
+   "file": "assets/props/planters_lod1.glb",
+   "tris": 6044,
+   "kb": 529
+  }
+ },
+ "shopstair": {
+  "v": 3,
+  "file": "assets/props/shopstair.glb",
+  "tris": 239998,
+  "w": 0.9669018387794495,
+  "height": 0.5000945031642914,
+  "depth": 0.9793716371059418,
+  "base": -0.25003525614738464,
+  "kb": 3518,
+  "tex": 4096,
+  "source": "local:shophouse_stair.glb",
+  "src_tris": 249256,
+  "lod1": {
+   "file": "assets/props/shopstair_lod1.glb",
+   "tris": 25630,
+   "kb": 1142
+  }
+ },
+ "shopblk1": {
+  "v": 3,
+  "file": "assets/props/shopblk1.glb",
+  "tris": 240000,
+  "w": 0.8172332346439362,
+  "height": 0.5736915767192841,
+  "depth": 0.9794308543205261,
+  "base": -0.28671225905418396,
+  "kb": 3454,
+  "tex": 4096,
+  "source": "local:shopblock_iso.glb",
+  "src_tris": 244696,
+  "lod1": {
+   "file": "assets/props/shopblk1_lod1.glb",
+   "tris": 23968,
+   "kb": 1074
+  }
+ },
+ "shopblk2": {
+  "v": 3,
+  "file": "assets/props/shopblk2.glb",
+  "tris": 239998,
+  "w": 0.9205633997917175,
+  "height": 0.5630280077457428,
+  "depth": 0.9763922393321991,
+  "base": -0.2816907465457916,
+  "kb": 3534,
+  "tex": 4096,
+  "source": "local:shopblock_corner.glb",
+  "src_tris": 241124,
+  "lod1": {
+   "file": "assets/props/shopblk2_lod1.glb",
+   "tris": 23997,
+   "kb": 1122
+  }
+ },
+ "shopblk3": {
+  "v": 3,
+  "file": "assets/props/shopblk3.glb",
+  "tris": 240000,
+  "w": 0.9569790959358215,
+  "height": 0.5915385484695435,
+  "depth": 0.9797951281070709,
+  "base": -0.2957614064216614,
+  "kb": 3299,
+  "tex": 4096,
+  "source": "local:shopblock_jewel.glb",
+  "src_tris": 267098,
+  "lod1": {
+   "file": "assets/props/shopblk3_lod1.glb",
+   "tris": 23998,
+   "kb": 1050
+  }
+ },
+ "hotelcnr": {
+  "v": 3,
+  "file": "assets/props/hotelcnr.glb",
+  "tris": 259998,
+  "w": 0.8651651740074158,
+  "height": 0.9798192083835602,
+  "depth": 0.8557703197002411,
+  "base": -0.49019521474838257,
+  "kb": 4159,
+  "tex": 4096,
+  "source": "local:hotelcorner.glb",
+  "src_tris": 273838,
+  "lod1": {
+   "file": "assets/props/hotelcnr_lod1.glb",
+   "tris": 25995,
+   "kb": 1297
+  }
+ },
+ "cinema": {
+  "v": 3,
+  "file": "assets/props/cinema.glb",
+  "tris": 200000,
+  "w": 0.9816217422485352,
+  "height": 0.5403436124324799,
+  "depth": 0.9678751528263092,
+  "base": -0.2698606848716736,
+  "kb": 2243,
+  "tex": 4096,
+  "source": "local:cinema.glb",
+  "src_tris": 247904,
+  "lod1": {
+   "file": "assets/props/cinema_lod1.glb",
+   "tris": 19992,
+   "kb": 683
+  }
+ },
+ "frontclw": {
+  "v": 3,
+  "file": "assets/props/frontclw.glb",
+  "tris": 89998,
+  "w": 0.494441419839859,
+  "height": 0.8808315396308899,
+  "depth": 0.9789301156997681,
+  "base": -0.4402405619621277,
+  "kb": 1337,
+  "tex": 4096,
+  "source": "local:front_cloth_w.glb",
+  "src_tris": 156203,
+  "lod1": {
+   "file": "assets/props/frontclw_lod1.glb",
+   "tris": 8994,
+   "kb": 433
+  }
+ },
+ "frontclv": {
+  "v": 3,
+  "file": "assets/props/frontclv.glb",
+  "tris": 89999,
+  "w": 0.5069974362850189,
+  "height": 0.7827296853065491,
+  "depth": 0.980224609375,
+  "base": -0.3913928270339966,
+  "kb": 1558,
+  "tex": 4096,
+  "source": "local:front_cloth_v.glb",
+  "src_tris": 154823,
+  "lod1": {
+   "file": "assets/props/frontclv_lod1.glb",
+   "tris": 8992,
+   "kb": 533
+  }
+ },
+ "frontelw": {
+  "v": 3,
+  "file": "assets/props/frontelw.glb",
+  "tris": 89999,
+  "w": 0.3806428015232086,
+  "height": 0.8736004829406738,
+  "depth": 0.9794231653213501,
+  "base": -0.43679487705230713,
+  "kb": 1625,
+  "tex": 4096,
+  "source": "local:front_elec_w.glb",
+  "src_tris": 158173,
+  "lod1": {
+   "file": "assets/props/frontelw_lod1.glb",
+   "tris": 8989,
+   "kb": 575
+  }
+ },
+ "frontelc": {
+  "v": 3,
+  "file": "assets/props/frontelc.glb",
+  "tris": 89999,
+  "w": 0.9785749018192291,
+  "height": 0.7146320044994354,
+  "depth": 0.9053402543067932,
+  "base": -0.3571662902832031,
+  "kb": 1475,
+  "tex": 4096,
+  "source": "local:front_elec_c.glb",
+  "src_tris": 151803,
+  "lod1": {
+   "file": "assets/props/frontelc_lod1.glb",
+   "tris": 8996,
+   "kb": 439
+  }
+ },
+ "clothrail": {
+  "v": 3,
+  "file": "assets/props/clothrail.glb",
+  "tris": 39991,
+  "w": 0.3806023895740509,
+  "height": 0.8423037827014923,
+  "depth": 0.978096067905426,
+  "base": -0.4210059940814972,
+  "kb": 899,
+  "tex": 2048,
+  "source": "local:clothrail.glb",
+  "src_tris": 108269,
+  "lod1": {
+   "file": "assets/props/clothrail_lod1.glb",
+   "tris": 4735,
+   "kb": 302
+  }
+ },
+ "benchslat": {
+  "v": 3,
+  "file": "assets/props/benchslat.glb",
+  "tris": 29997,
+  "w": 0.9801946878433228,
+  "height": 0.6507198810577393,
+  "depth": 0.6154761910438538,
+  "base": -0.3250747323036194,
+  "kb": 1236,
+  "tex": 2048,
+  "source": "local:benchslat.glb",
+  "src_tris": 96701,
+  "lod1": {
+   "file": "assets/props/benchslat_lod1.glb",
+   "tris": 22776,
+   "kb": 682
+  }
+ },
+ "treebench": {
+  "v": 3,
+  "file": "assets/props/treebench.glb",
+  "tris": 59999,
+  "w": 0.9672813713550568,
+  "height": 0.2894992083311081,
+  "depth": 0.9799004197120667,
+  "base": -0.14483588933944702,
+  "kb": 1182,
+  "tex": 2048,
+  "source": "local:treebench_ring.glb",
+  "src_tris": 141239,
+  "lod1": {
+   "file": "assets/props/treebench_lod1.glb",
+   "tris": 5999,
+   "kb": 338
+  }
+ },
+ "treebench2": {
+  "v": 3,
+  "file": "assets/props/treebench2.glb",
+  "tris": 59995,
+  "w": 0.9784296452999115,
+  "height": 0.2773790508508682,
+  "depth": 0.9799892902374268,
+  "base": -0.1387477070093155,
+  "kb": 889,
+  "tex": 2048,
+  "source": "local:treebench_open.glb",
+  "src_tris": 137995,
+  "lod1": {
+   "file": "assets/props/treebench2_lod1.glb",
+   "tris": 6000,
+   "kb": 227
+  }
+ },
+ "seatbowl": {
+  "v": 3,
+  "file": "assets/props/seatbowl.glb",
+  "tris": 70000,
+  "w": 0.9766191840171814,
+  "height": 0.3150028586387634,
+  "depth": 0.9814638197422028,
+  "base": -0.15776528418064117,
+  "kb": 1244,
+  "tex": 2048,
+  "source": "local:seatbowl.glb",
+  "src_tris": 141419,
+  "lod1": {
+   "file": "assets/props/seatbowl_lod1.glb",
+   "tris": 7155,
+   "kb": 337
+  }
+ },
+ "deckisle": {
+  "v": 3,
+  "file": "assets/props/deckisle.glb",
+  "tris": 79996,
+  "w": 0.980164647102356,
+  "height": 0.5383245646953583,
+  "depth": 0.7821142077445984,
+  "base": -0.2693069279193878,
+  "kb": 2483,
+  "tex": 4096,
+  "source": "local:deckpuzzle.glb",
+  "src_tris": 134981,
+  "lod1": {
+   "file": "assets/props/deckisle_lod1.glb",
+   "tris": 7941,
+   "kb": 803
+  }
+ },
+ "deckwave": {
+  "v": 3,
+  "file": "assets/props/deckwave.glb",
+  "tris": 69996,
+  "w": 0.9801415205001831,
+  "height": 0.05309007875621319,
+  "depth": 0.42171235382556915,
+  "base": -0.026493148878216743,
+  "kb": 2217,
+  "tex": 4096,
+  "source": "local:deckwave.glb",
+  "src_tris": 137008,
+  "lod1": {
+   "file": "assets/props/deckwave_lod1.glb",
+   "tris": 7000,
+   "kb": 851
+  }
+ },
+ "lantern": {
+  "v": 3,
+  "file": "assets/props/lantern.glb",
+  "tris": 15998,
+  "w": 0.7131819725036621,
+  "height": 0.9789507687091827,
+  "depth": 0.48838554322719574,
+  "base": -0.48932337760925293,
+  "kb": 455,
+  "tex": 2048,
+  "source": "local:walllantern.glb",
+  "src_tris": 115958,
+  "lod1": {
+   "file": "assets/props/lantern_lod1.glb",
+   "tris": 1800,
+   "kb": 143
+  }
+ },
+ "lamppost3": {
+  "v": 3,
+  "file": "assets/props/lamppost3.glb",
+  "tris": 29999,
+  "w": 0.17255008965730667,
+  "height": 0.9764454960823059,
+  "depth": 0.16958848387002945,
+  "base": -0.4886261224746704,
+  "kb": 561,
+  "tex": 2048,
+  "source": "local:lamppost2.glb",
+  "src_tris": 110191,
+  "lod1": {
+   "file": "assets/props/lamppost3_lod1.glb",
+   "tris": 4494,
+   "kb": 183
+  }
+ },
+ "car_sedan": {
+  "v": 3,
+  "file": "assets/props/car_sedan.glb",
+  "tris": 89994,
+  "w": 0.47122815251350403,
+  "height": 0.35704101622104645,
+  "depth": 0.9806737899780273,
+  "base": -0.17851491272449493,
+  "kb": 1388,
+  "tex": 4096,
+  "source": "local:car_sedan.glb",
+  "src_tris": 171308,
+  "lod1": {
+   "file": "assets/props/car_sedan_lod1.glb",
+   "tris": 8998,
+   "kb": 473
+  }
+ },
+ "car_suv": {
+  "v": 3,
+  "file": "assets/props/car_suv.glb",
+  "tris": 89995,
+  "w": 0.4915657192468643,
+  "height": 0.37080009281635284,
+  "depth": 0.9802148640155792,
+  "base": -0.18527470529079437,
+  "kb": 1617,
+  "tex": 4096,
+  "source": "local:car_suv.glb",
+  "src_tris": 175059,
+  "lod1": {
+   "file": "assets/props/car_suv_lod1.glb",
+   "tris": 8998,
+   "kb": 559
+  }
+ },
+ "car_hatch": {
+  "v": 3,
+  "file": "assets/props/car_hatch.glb",
+  "tris": 89999,
+  "w": 0.46284663677215576,
+  "height": 0.33736589550971985,
+  "depth": 0.9792381823062897,
+  "base": -0.16860082745552063,
+  "kb": 1591,
+  "tex": 4096,
+  "source": "local:car_hatch.glb",
+  "src_tris": 167217,
+  "lod1": {
+   "file": "assets/props/car_hatch_lod1.glb",
+   "tris": 8996,
+   "kb": 499
+  }
+ },
+ "cafechair": {
+  "v": 3,
+  "file": "assets/props/cafechair.glb",
+  "tris": 39991,
+  "w": 0.6229042112827301,
+  "height": 0.9810016453266144,
+  "depth": 0.6618849039077759,
+  "base": -0.49031198024749756,
+  "kb": 1320,
+  "tex": 2048,
+  "source": "local:chair.glb",
+  "src_tris": 116583,
+  "lod1": {
+   "file": "assets/props/cafechair_lod1.glb",
+   "tris": 3999,
+   "kb": 416
+  }
+ },
+ "cafetable": {
+  "v": 3,
+  "file": "assets/props/cafetable.glb",
+  "tris": 30000,
+  "w": 0.9569384455680847,
+  "height": 0.9778205454349518,
+  "depth": 0.9558652937412262,
+  "base": -0.48844942450523376,
+  "kb": 524,
+  "tex": 2048,
+  "source": "local:cafetable.glb",
+  "src_tris": 87304,
+  "lod1": {
+   "file": "assets/props/cafetable_lod1.glb",
+   "tris": 3198,
+   "kb": 100
+  }
+ },
+ "balcrail": {
+  "v": 3,
+  "file": "assets/props/balcrail.glb",
+  "tris": 29998,
+  "w": 0.04948865436017513,
+  "height": 0.6851597726345062,
+  "depth": 0.9807918965816498,
+  "base": -0.3426375985145569,
+  "kb": 594,
+  "tex": 2048,
+  "source": "local:railing.glb",
+  "src_tris": 124642,
+  "lod1": {
+   "file": "assets/props/balcrail_lod1.glb",
+   "tris": 9768,
+   "kb": 249
+  }
+ },
+ "acunit": {
+  "v": 3,
+  "file": "assets/props/acunit.glb",
+  "tris": 19998,
+  "w": 0.569515585899353,
+  "height": 0.8263449370861053,
+  "depth": 0.9802380204200745,
+  "base": -0.41307497024536133,
+  "kb": 817,
+  "tex": 2048,
+  "source": "local:acunit.glb",
+  "src_tris": 50463,
+  "lod1": {
+   "file": "assets/props/acunit_lod1.glb",
+   "tris": 6826,
+   "kb": 354
+  }
+ },
+ "parasol": {
+  "v": 3,
+  "file": "assets/props/parasol.glb",
+  "tris": 39997,
+  "w": 0.8842064738273621,
+  "height": 0.8514104783535004,
+  "depth": 0.9782789647579193,
+  "base": -0.4259033501148224,
+  "kb": 534,
+  "tex": 2048,
+  "source": "local:parasol.glb",
+  "src_tris": 76161,
+  "lod1": {
+   "file": "assets/props/parasol_lod1.glb",
+   "tris": 3997,
+   "kb": 139
+  }
+ },
+ "pnl_slat": {
+  "v": 3,
+  "file": "assets/props/pnl_slat.glb",
+  "tris": 23996,
+  "w": 0.9779693484306335,
+  "height": 0.16074596345424652,
+  "depth": 0.9790430665016174,
+  "base": -0.08019714802503586,
+  "kb": 1432,
+  "tex": 2048,
+  "source": "local:panel_slat.glb",
+  "src_tris": 58612,
+  "lod1": {
+   "file": "assets/props/pnl_slat_lod1.glb",
+   "tris": 2588,
+   "kb": 349
+  }
+ },
+ "pnl_slab": {
+  "v": 3,
+  "file": "assets/props/pnl_slab.glb",
+  "tris": 11989,
+  "w": 0.1312766820192337,
+  "height": 0.9786258637905121,
+  "depth": 0.8473973572254181,
+  "base": -0.48847898840904236,
+  "kb": 722,
+  "tex": 2048,
+  "source": "local:panel_slab.glb",
+  "src_tris": 47132,
+  "lod1": {
+   "file": "assets/props/pnl_slab_lod1.glb",
+   "tris": 4906,
+   "kb": 279
+  }
+ },
+ "pnl_turf": {
+  "v": 3,
+  "file": "assets/props/pnl_turf.glb",
+  "tris": 15997,
+  "w": 0.09921212866902351,
+  "height": 0.9807206094264984,
+  "depth": 0.6517393589019775,
+  "base": -0.4902210533618927,
+  "kb": 1250,
+  "tex": 2048,
+  "source": "local:panel_turf.glb",
+  "src_tris": 49961,
+  "lod1": {
+   "file": "assets/props/pnl_turf_lod1.glb",
+   "tris": 1798,
+   "kb": 321
+  }
+ },
+ "pnl_lawn": {
+  "v": 3,
+  "file": "assets/props/pnl_lawn.glb",
+  "tris": 19944,
+  "w": 0.9804415702819824,
+  "height": 0.1491299644112587,
+  "depth": 0.9765976965427399,
+  "base": -0.07428548485040665,
+  "kb": 1356,
+  "tex": 2048,
+  "source": "local:panel_lawn.glb",
+  "src_tris": 56370,
+  "lod1": {
+   "file": "assets/props/pnl_lawn_lod1.glb",
+   "tris": 2996,
+   "kb": 371
+  }
+ },
+ "pnl_flute": {
+  "v": 3,
+  "file": "assets/props/pnl_flute.glb",
+  "tris": 15998,
+  "w": 0.11372609436511993,
+  "height": 0.8137955069541931,
+  "depth": 0.9795563519001007,
+  "base": -0.4069603383541107,
+  "kb": 744,
+  "tex": 2048,
+  "source": "local:panel_flute.glb",
+  "src_tris": 45354,
+  "lod1": {
+   "file": "assets/props/pnl_flute_lod1.glb",
+   "tris": 1800,
+   "kb": 130
+  }
+ },
+ "tree_big": {
+  "v": 3,
+  "file": "assets/props/tree_big.glb",
+  "tris": 97862,
+  "w": 0.968010276556015,
+  "height": 0.9768747091293335,
+  "depth": 0.8978127837181091,
+  "base": -0.49397337436676025,
+  "kb": 2691,
+  "tex": 4096,
+  "source": "local:tree_broad.glb",
+  "src_tris": 97862,
+  "lod1": {
+   "file": "assets/props/tree_big_lod1.glb",
+   "tris": 25287,
+   "kb": 2019
+  }
+ },
+ "tree_oliv": {
+  "v": 3,
+  "file": "assets/props/tree_oliv.glb",
+  "tris": 92063,
+  "w": 0.9499578773975372,
+  "height": 0.8756242096424103,
+  "depth": 0.9721594750881195,
+  "base": -0.44219744205474854,
+  "kb": 2673,
+  "tex": 4096,
+  "source": "local:tree_olive.glb",
+  "src_tris": 92063,
+  "lod1": {
+   "file": "assets/props/tree_oliv_lod1.glb",
+   "tris": 35294,
+   "kb": 2131
+  }
+ },
+ "tree_pot": {
+  "v": 3,
+  "file": "assets/props/tree_pot.glb",
+  "tris": 89989,
+  "w": 0.7328201830387115,
+  "height": 0.978551596403122,
+  "depth": 0.790704220533371,
+  "base": -0.48930057883262634,
+  "kb": 1529,
+  "tex": 2048,
+  "source": "local:tree_small.glb",
+  "src_tris": 196201,
+  "lod1": {
+   "file": "assets/props/tree_pot_lod1.glb",
+   "tris": 23631,
+   "kb": 579
+  }
+ },
+ "leafcard": {
+  "v": 3,
+  "file": "assets/props/leafcard.glb",
+  "tris": 8000,
+  "w": 0.14864546060562134,
+  "height": 0.9840836524963379,
+  "depth": 0.6361280381679535,
+  "base": -0.492099791765213,
+  "kb": 981,
+  "tex": 2048,
+  "source": "local:leafcard.glb",
+  "src_tris": 198022,
+  "lod1": {
+   "file": "assets/props/leafcard_lod1.glb",
+   "tris": 900,
+   "kb": 303
+  }
+ },
+ "art_ring": {
+  "v": 3,
+  "file": "assets/props/art_ring.glb",
+  "tris": 139997,
+  "w": 0.1816088631749153,
+  "height": 0.9797074496746063,
+  "depth": 0.978725790977478,
+  "base": -0.4898156523704529,
+  "kb": 2975,
+  "tex": 4096,
+  "source": "local:art_ring.glb",
+  "src_tris": 156115,
+  "lod1": {
+   "file": "assets/props/art_ring_lod1.glb",
+   "tris": 15501,
+   "kb": 999
+  }
+ }
+}

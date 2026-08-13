@@ -1,0 +1,105 @@
+<!doctype html><html><head><meta charset="utf-8"><title>gpu probe</title>
+<style>html,body{margin:0;background:#111;overflow:hidden}canvas{display:block}
+#l{position:fixed;left:6px;top:6px;color:#dfe6f0;font:12px/1.6 monospace;z-index:9}</style>
+<!-- ONE entry per module instance. `three` and `three/webgpu` used to point at
+     two byte-identical copies of three.webgpu.js under two URLs, which the
+     browser instantiates twice: the renderer's NodeBuilder set `currentStack`
+     in one module's scope and every MeshStandardNodeMaterial assign read it
+     from the other, found null, and the whole lighting model silently built
+     to nothing. That was the black-panel fault. Never map a package to two
+     paths. -->
+<script type="importmap">{"imports": {"three": "./gpuvendor/three.js", "three/webgpu": "./gpuvendor/three.js", "three/tsl": "./gpuvendor/three.tsl.js", "three/addons/": "./gpuvendor/jsm/"}}</script></head><body><div id="l">booting…</div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { makeCityMaterial, cityFogNode } from './gpu/material.js';
+const log = [];
+const say = (s) => { log.push(s); document.getElementById('l').innerHTML = log.join('<br>'); };
+window.__probe = { ok: false, log };
+const Q = new URLSearchParams(location.search);
+const on = (k) => Q.get(k) === '1';
+try {
+  const rn = new THREE.WebGPURenderer({ antialias: true, forceWebGL: on('forcegl') });
+  await rn.init();
+  say('renderer: ' + (rn.backend && rn.backend.isWebGPUBackend ? 'WebGPU' : 'WebGL2 fallback'));
+  rn.setSize(innerWidth, innerHeight);
+  rn.toneMapping = THREE.ACESFilmicToneMapping;
+  document.body.appendChild(rn.domElement);
+  const sc = new THREE.Scene();
+  sc.background = new THREE.Color(0x2a3140);
+  const cam = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.05, 400);
+  const sun = new THREE.DirectionalLight(0xffd9a8, 2.6);
+  sun.position.set(-8, 7, 9);
+  sc.add(sun, sun.target);
+  sc.add(new THREE.HemisphereLight(0x8fb4e8, 0x6b5136, 0.9));
+
+  /* The panel wall is the subject. The tram used to share the frame and,
+     scaled to 3.6 m, filled it — the sample row was landing on tram roof and
+     the panels were an 80 px strip at the top. It loads only when asked for
+     now, and it stands off to the side. */
+  const CLASSES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const cityMat = makeCityMaterial({
+    flatColor: on('c'),        // bypass vertexColor()
+    fixedClass: on('s'),       // bypass attribute('aSurf')
+    noColor: on('cn'),         // drop colorNode entirely
+    noNormal: on('n'),         // drop normalNode
+    noRough: on('r'),          // drop roughnessNode
+    plain: on('plain'),        // stock material, ours removed
+    normalConst: on('nc'),     // flat normal, straight through
+    normalStage: +(Q.get('ns') || 0),   // walk reliefNormal by stage
+  });
+  if (on('fog')) sc.fogNode = cityFogNode();
+  for (let i = 0; i < CLASSES.length; i++) {
+    /* indexed, with tangents and uv: whichever path the normal takes, the
+       geometry must be able to supply a frame for it. */
+    const g = new THREE.BoxGeometry(2.4, 3.2, 0.4);
+    g.computeTangents();
+    const n = g.attributes.position.count;
+    g.setAttribute('aSurf', new THREE.BufferAttribute(new Float32Array(n).fill(CLASSES[i]), 1));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(0.78), 3));
+    const m = new THREE.Mesh(g, cityMat);
+    m.position.set((i - 5) * 2.7, 1.6, 0);
+    sc.add(m);
+  }
+  say('surface law: ' + CLASSES.length + ' class panels');
+  // ground, so there is something for the panels to sit on and cast onto
+  const gp = new THREE.Mesh(new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshStandardMaterial({ color: 0x6a6257, roughness: 0.95 }));
+  gp.rotation.x = -Math.PI / 2;
+  sc.add(gp);
+
+  if (on('tram')) {
+    const gl = new THREE.LoadingManager();
+    const g = await new GLTFLoader(gl).setMeshoptDecoder(MeshoptDecoder)
+      .loadAsync('assets/props/tram.glb');
+    g.scene.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(g.scene);
+    g.scene.scale.setScalar(3.6 / Math.max(0.001, bb.max.y - bb.min.y));
+    g.scene.position.set(0, 0, -26);
+    sc.add(g.scene);
+    say('tram.glb loaded');
+  }
+
+  /* 38 deg over a 29.7 m row of panels: 44 m back clears it with margin, and
+     the row lands on the horizontal centre line of the frame. */
+  cam.position.set(0, 2.6, 24);
+  cam.lookAt(0, 1.9, 0);
+
+  let f = 0;
+  rn.setAnimationLoop(() => {
+    rn.render(sc, cam);
+    /* No canvas readback here. A WebGL drawing buffer is not readable after
+       compositing and WebGPURenderer's WebGL2 backend does not honour
+       preserveDrawingBuffer, so getImageData returned zeros for geometry that
+       demonstrably rendered. The measurement is taken off the PNG instead. */
+    if (++f === 6) { window.__probe.ok = true; window.__ready = true; }
+  });
+  window.__rn = rn; window.__sc = sc; window.__cam = cam;
+  say('rendering');
+} catch (e) {
+  say('FAILED: ' + (e && e.message ? e.message : e));
+  window.__probe.err = String(e && e.stack || e);
+  window.__ready = true;
+}
+</script></body></html>
