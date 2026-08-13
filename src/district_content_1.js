@@ -594,8 +594,21 @@ function routeSceneParts(key, prefix, opts) {
   return kits;
 }
 
+/* The far level is for things genuinely out on the perimeter, and nothing
+   else. It used to be chosen off per-asset radii of 55-90 m, which put the
+   decimated level on buildings a hundred metres away — in full view, filling
+   the frame, and visibly destroyed. Every asset now keeps its full geometry
+   anywhere in the walkable district; only the ring beyond LOD_FULL drops. */
+const LOD_FULL = 340;
 function modelLOD(r, x, z) {
-  return 0;
+  if (r.parts.length < 2) return 0;
+  const rad = Math.max(r.near, LOD_FULL);
+  let best = 1e9;
+  for (const p of NEARFIELD) {
+    const d = (x - p[0]) * (x - p[0]) + (z - p[1]) * (z - p[1]);
+    if (d < best) best = d;
+  }
+  return best <= rad * rad ? 0 : r.parts.length - 1;
 }
 
 /* a stable per-instance hash off the world position — see routePropSet */

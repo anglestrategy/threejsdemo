@@ -353,7 +353,7 @@ RAW = TMP + '/dl.glb'
 for fn, key, budget, tex, lod1 in PROPS:
     if only and key not in only:
         continue
-    if not only and index.get(key, {}).get('v') == 3 \
+    if not only and index.get(key, {}).get('v') == 4 \
             and os.path.exists(os.path.join(OUT, key + '.glb')):
         print('==', key, '(cached)')
         continue
@@ -377,7 +377,7 @@ for fn, key, budget, tex, lod1 in PROPS:
         print('   source %d tris' % st, flush=True)
         dst = os.path.join(OUT, key + '.glb')
         lo, hi, ntri = reduce_to(RAW, dst, budget, tex, st, WELD.get(key, (0, 0))[0])
-        rec = {'v': 3, 'file': 'assets/props/%s.glb' % key, 'tris': ntri,
+        rec = {'v': 4, 'file': 'assets/props/%s.glb' % key, 'tris': ntri,
                'w': hi[0] - lo[0], 'height': hi[1] - lo[1], 'depth': hi[2] - lo[2],
                'base': lo[1], 'kb': os.path.getsize(dst) // 1024, 'tex': tex,
                'source': fn, 'src_tris': st}
