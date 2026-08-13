@@ -1472,14 +1472,14 @@
   }
  },
  "tree_pot": {
-  "v": 3,
+  "v": 4,
   "file": "assets/props/tree_pot.glb",
-  "tris": 89989,
-  "w": 0.7328201830387115,
-  "height": 0.978551596403122,
-  "depth": 0.790704220533371,
+  "tris": 39933,
+  "w": 0.7314465939998627,
+  "height": 0.9783706665039062,
+  "depth": 0.7897166907787323,
   "base": -0.48930057883262634,
-  "kb": 1529,
+  "kb": 1143,
   "tex": 2048,
   "source": "local:tree_small.glb",
   "src_tris": 196201,
@@ -1490,39 +1490,39 @@
   }
  },
  "leafcard": {
-  "v": 3,
+  "v": 4,
   "file": "assets/props/leafcard.glb",
-  "tris": 8000,
-  "w": 0.14864546060562134,
-  "height": 0.9840836524963379,
+  "tris": 5000,
+  "w": 0.14832911640405655,
+  "height": 0.9834811389446259,
   "depth": 0.6361280381679535,
   "base": -0.492099791765213,
-  "kb": 981,
+  "kb": 958,
   "tex": 2048,
   "source": "local:leafcard.glb",
   "src_tris": 198022,
   "lod1": {
    "file": "assets/props/leafcard_lod1.glb",
-   "tris": 900,
-   "kb": 303
+   "tris": 700,
+   "kb": 301
   }
  },
  "art_ring": {
-  "v": 3,
+  "v": 4,
   "file": "assets/props/art_ring.glb",
-  "tris": 139997,
+  "tris": 79969,
   "w": 0.1816088631749153,
   "height": 0.9797074496746063,
   "depth": 0.978725790977478,
   "base": -0.4898156523704529,
-  "kb": 2975,
+  "kb": 2646,
   "tex": 4096,
   "source": "local:art_ring.glb",
   "src_tris": 156115,
   "lod1": {
    "file": "assets/props/art_ring_lod1.glb",
-   "tris": 15501,
-   "kb": 999
+   "tris": 15485,
+   "kb": 998
   }
  }
 }
