@@ -188,6 +188,11 @@ function makeGlassMaterial(kind) {
         float rollA = sin(pl.y * 4.4) * 0.0034 + gvn(pl * 0.62) * 0.0026 - 0.0013;
         float rollB = sin(pl.x * 3.1 + 1.7) * 0.0021;
         vec3 nrw = normalize(nw + tw * rollB + bw * rollA);
+        /* a double-sided pane must be lit off the face you can see. Rebuilding
+           the normal from the varying throws away the gl_FrontFacing flip that
+           <normal_fragment_begin> just applied, so it is put back here — the
+           back of a courtyard's glazing would otherwise light from behind. */
+        if (dot(nrw, cameraPosition - vGWP) < 0.0) nrw = -nrw;
         normal = normalize((viewMatrix * vec4(nrw, 0.0)).xyz);
       }`)
       .replace('#include <opaque_fragment>', `
