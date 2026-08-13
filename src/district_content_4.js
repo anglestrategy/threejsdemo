@@ -1361,6 +1361,21 @@ function defineKit() {
   routeProp('hotelcnr', 'hotelcnr', 16.5, { jitter: false, near: 90 });
   routeProp('cinema', 'cinema', 12.5, { jitter: false, near: 90 });
 
+  /* ---- the trees -------------------------------------------------------
+     `tree` is the district's most-placed kit name after the palm, and until
+     now it resolved to one scanned specimen — so every street tree in Downtown
+     Al Khobar was the same tree. Three now, chosen per instance, plus a small
+     potted one for terraces and shopfronts.
+
+     All three came through `trellis-2` rather than the default reconstructor,
+     for the reason recorded in gen_props.py: foliage is the one thing tripo
+     cannot carve, and it returned mushroom caps on sticks. That asset is in
+     the tree at `work/gen/_rejected_tree_pot.glb` and is deliberately not in
+     the build. */
+  routePropSet('tree', ['tree_big', 'tree_oliv', 'island_tree_01'], 6.2, { near: 62 });
+  routeProp('olive', 'tree_oliv', 3.4, { near: 999 });
+  routeProp('potbush', 'tree_pot', 1.35, { near: 999 });
+
   /* ---- material panels -------------------------------------------------
      Samples rather than objects, and two of them fill real gaps: the district
      has no screens (every service yard and roof terrace is open to view) and

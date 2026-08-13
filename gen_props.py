@@ -189,6 +189,27 @@ PROPS = [
     ('local:panel_turf.glb',        'pnl_turf',    16000, 2048,  1800),
     ('local:panel_lawn.glb',        'pnl_lawn',    20000, 2048,  2200),
     ('local:panel_flute.glb',       'pnl_flute',   16000, 2048,  1800),
+    # --- the trees, and one rejection.
+    #
+    # Foliage is the one category the default image-to-3D reconstructor cannot
+    # do: `tripo-v31` turned a photograph of a small olive into a stand of pale
+    # mushroom caps on bare sticks, which is the same failure the earlier
+    # `shrub` and `watershrub` assets had and is not a tuning problem. It is
+    # thin, self-occluding, high-frequency geometry and there is nothing in the
+    # images to carve it out of.
+    #
+    # `trellis-2` at 1536 does it — a real trunk, real branch structure and a
+    # readable canopy — so both large trees are regenerated through that model
+    # instead. Recorded here because it is a pipeline rule rather than a
+    # one-off: ANY foliage from here on goes through trellis, and the tripo
+    # attempt is kept out of the build rather than shipped.
+    ('local:tree_broad.glb',        'tree_big',   180000, 4096, 18000),
+    ('local:tree_olive.glb',        'tree_oliv',  180000, 4096, 18000),
+    ('local:tree_small.glb',        'tree_pot',    90000, 2048,  9000),
+    # a photographed leaf, which is not a prop at all — it is the source for the
+    # alpha-cutout leaf cards the imposter baker wants, and the best one this
+    # project has had
+    ('local:leafcard.glb',          'leafcard',     8000, 2048,   900),
 ]
 
 
