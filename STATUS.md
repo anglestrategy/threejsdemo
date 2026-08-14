@@ -187,6 +187,15 @@ Local metres, origin at the canopy plaza, +Z north, +X east, sun 11° WSW.
   `THREE.GLTFLoader`, which does not exist — no rigged figure had ever loaded
   in the WebGL2 build). Baseline + verify renders: `shots/dtA_pose.png`,
   `shots/dtB_wide.png`, `shots/dtC_street.png`.
+  **Verification blocker, measured:** on 2026-08-14 the container restarted
+  eight times in under two hours, each restart killing the district verify
+  render (~10 min boot+frame on SwiftShader) — at every size down to 320×200.
+  The map-scene boot check passes (8.5 s, `shots/mapboot.png`); the district
+  frame could not be captured headless. First job for the next session: render
+  `scene=city&cam=230,14,340,187,-7` (and a street-level `cam=322,2.2,296,-120,-1`),
+  judge against `refs/downtown/`, then chase the two known opens — trees
+  reading bare at dusk distance, and the mashblock/gardenperg Meshy facing
+  constants (rotations are guesses until seen: mashblock π, gardenperg 0.6).
 
 ## Known open items (ranked, for the next session)
 
