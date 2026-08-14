@@ -2361,12 +2361,39 @@ function focusProbe() {
 }
 function focusDistance() { return FOCUS; }
 
+/* ----------------------------------------------------------- shadow cost *
+   The shadow map was re-rendering every frame: the whole district drawn a
+   second time, from the sun, at 4096. renderer.info counts that pass, which
+   is a large part of why a plaza view measured 108 M triangles — most of the
+   district was in there twice.
+
+   Almost nothing in this district moves. The shadow map only genuinely needs
+   redrawing when the viewer travels (the shadow camera follows them) or when
+   the walkers have moved far enough for their shadows to lag visibly. So it
+   updates on movement, and otherwise on a fixed cadence rather than every
+   frame — 20 Hz of shadow against 60 Hz of image is a trade games have been
+   making for twenty years and it is invisible at this scale. */
+const SHADOW_EVERY = 3;
+let _shFrame = 0;
+const _shLast = new THREE.Vector3(1e9, 1e9, 1e9);
+function shadowCadence() {
+  if (QA.noshadow) return;
+  renderer.shadowMap.autoUpdate = false;
+  const moved = _shLast.distanceToSquared(cityCam.position) > 2.25;   // 1.5 m
+  if (moved || (_shFrame % SHADOW_EVERY) === 0) {
+    renderer.shadowMap.needsUpdate = true;
+    _shLast.copy(cityCam.position);
+  }
+  _shFrame++;
+}
+
 function update(dt, t) {
   diveUpdate(dt);
   if (sceneState === 'city') {
     navUpdate(dt);
     // pick a detail level per tile before anything is drawn from this pose
     lodUpdate(cityCam.position);
+    shadowCadence();
     /* `.uniforms` on a ShaderMaterial, `.userData.u` on the node material the
        seam substitutes — the same handle under the two renderers' own spellings */
     (citySkyMat.uniforms || citySkyMat.userData.u).uTime.value = t;
