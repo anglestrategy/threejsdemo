@@ -1948,8 +1948,12 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
     /* The eight downtown references are all the same luminous blue hour —
        the dome is a light source, not a black backdrop. The old zenith
        0x06122e read as night from any camera that saw sky. */
-    uZen: { value: C(0x1a3a66) }, uMid: { value: C(0x35578e) },
-    uHorizon: { value: C(0x9db3d2) }, uGlow: { value: C(0xffc888) },
+    /* pushed to the reference renders' actual pixel values — ACES and the
+       grade darken from here, so authoring the dome at the target reading
+       was always going to be too dark by half. Measured off dt_11_16_32_2:
+       zenith band #2e5490, mid band #4a6ea8. */
+    uZen: { value: C(0x2e5490) }, uMid: { value: C(0x4a6ea8) },
+    uHorizon: { value: C(0xafc2dc) }, uGlow: { value: C(0xffc888) },
     uWarmHz: { value: C(0xe8b184) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
@@ -6921,10 +6925,13 @@ function defineKit() {
      cannot carve, and it returned mushroom caps on sticks. That asset is in
      the tree at `work/gen/_rejected_tree_pot.glb` and is deliberately not in
      the build. */
-  /* island_tree_01 is out of the street rotation: its reduced leaf cards
-     read as a shredded crown at night — confirmed off the client's own
-     screenshots. The two trellis-2 trees carry solid canopies. */
-  routePropSet('tree', ['tree_big', 'tree_oliv'], 6.2, { near: 62 });
+  /* NO scanned tree carries the streets any more. The client's screenshots
+     showed every one of them — the card-reduced island tree AND the
+     trellis-2 pair — reading as a bare shredded crown at night. The
+     hand-built tree (46 overlapping clumps on a lumpy shell) is a solid
+     silhouette from every distance, which at dusk is the whole job. The
+     scans stay routed under their own names for daylight work. */
+  routeProp('tree_scan', 'tree_big', 6.2, { near: 62 });
   routeProp('olive', 'tree_oliv', 3.4, { near: 999 });
   routeProp('potbush', 'tree_pot', 1.35, { near: 999 });
 
@@ -7737,6 +7744,22 @@ function downtownPlaza() {
      block (cinema z 209..251 against majlis z 231..261). The majlis is the
      khobar1 bookmark and does not move; the cinema does. */
   put('cinema', D.x0 - 12, mz - 42, Math.PI / 2, 21.0, 13.0, 12.5);  // north-west, facing east in
+  /* the cinema is charcoal deco massing — unlit it reads as a black box
+     from the square and from the air, which is exactly what the client's
+     aerial showed. The references floodlight it: warm uplights along the
+     plaza face and the south flank, and a practical over the marquee. */
+  {
+    const cy = groundAt(D.x0 - 12, mz - 42);
+    for (let i = 0; i < 5; i++) {
+      const ux = D.x0 + 2.2, uz = mz - 42 - 16 + i * 8;
+      inst('uplight', xf(ux, groundAt(ux, uz) + 0.04, uz), 0xffc98a);
+    }
+    for (const sx of [-14, 0, 14]) {
+      const ux = D.x0 - 12 + sx, uz = mz - 42 + 15.2;
+      inst('uplight', xf(ux, groundAt(ux, uz) + 0.04, uz), 0xffc98a);
+    }
+    PRACTICALS.push({ x: D.x0 - 0.5, y: cy + 6.5, z: mz - 42, c: 0xffd9a4, i: 6.0, r: 22 });
+  }
   put('hotelcnr', D.x1 + 14, mz + 6, -Math.PI / 2, 11.5, 11.5, 16.5); // east, facing west in
   /* The north side is the reference set's signature wall: the mashrabiya
      block under its faceted gold canopy at the centre, with the arcaded

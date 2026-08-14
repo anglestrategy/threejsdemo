@@ -729,6 +729,22 @@ function downtownPlaza() {
      block (cinema z 209..251 against majlis z 231..261). The majlis is the
      khobar1 bookmark and does not move; the cinema does. */
   put('cinema', D.x0 - 12, mz - 42, Math.PI / 2, 21.0, 13.0, 12.5);  // north-west, facing east in
+  /* the cinema is charcoal deco massing — unlit it reads as a black box
+     from the square and from the air, which is exactly what the client's
+     aerial showed. The references floodlight it: warm uplights along the
+     plaza face and the south flank, and a practical over the marquee. */
+  {
+    const cy = groundAt(D.x0 - 12, mz - 42);
+    for (let i = 0; i < 5; i++) {
+      const ux = D.x0 + 2.2, uz = mz - 42 - 16 + i * 8;
+      inst('uplight', xf(ux, groundAt(ux, uz) + 0.04, uz), 0xffc98a);
+    }
+    for (const sx of [-14, 0, 14]) {
+      const ux = D.x0 - 12 + sx, uz = mz - 42 + 15.2;
+      inst('uplight', xf(ux, groundAt(ux, uz) + 0.04, uz), 0xffc98a);
+    }
+    PRACTICALS.push({ x: D.x0 - 0.5, y: cy + 6.5, z: mz - 42, c: 0xffd9a4, i: 6.0, r: 22 });
+  }
   put('hotelcnr', D.x1 + 14, mz + 6, -Math.PI / 2, 11.5, 11.5, 16.5); // east, facing west in
   /* The north side is the reference set's signature wall: the mashrabiya
      block under its faceted gold canopy at the centre, with the arcaded

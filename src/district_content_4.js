@@ -1443,10 +1443,13 @@ function defineKit() {
      cannot carve, and it returned mushroom caps on sticks. That asset is in
      the tree at `work/gen/_rejected_tree_pot.glb` and is deliberately not in
      the build. */
-  /* island_tree_01 is out of the street rotation: its reduced leaf cards
-     read as a shredded crown at night — confirmed off the client's own
-     screenshots. The two trellis-2 trees carry solid canopies. */
-  routePropSet('tree', ['tree_big', 'tree_oliv'], 6.2, { near: 62 });
+  /* NO scanned tree carries the streets any more. The client's screenshots
+     showed every one of them — the card-reduced island tree AND the
+     trellis-2 pair — reading as a bare shredded crown at night. The
+     hand-built tree (46 overlapping clumps on a lumpy shell) is a solid
+     silhouette from every distance, which at dusk is the whole job. The
+     scans stay routed under their own names for daylight work. */
+  routeProp('tree_scan', 'tree_big', 6.2, { near: 62 });
   routeProp('olive', 'tree_oliv', 3.4, { near: 999 });
   routeProp('potbush', 'tree_pot', 1.35, { near: 999 });
 

@@ -1698,8 +1698,12 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
     /* The eight downtown references are all the same luminous blue hour —
        the dome is a light source, not a black backdrop. The old zenith
        0x06122e read as night from any camera that saw sky. */
-    uZen: { value: C(0x1a3a66) }, uMid: { value: C(0x35578e) },
-    uHorizon: { value: C(0x9db3d2) }, uGlow: { value: C(0xffc888) },
+    /* pushed to the reference renders' actual pixel values — ACES and the
+       grade darken from here, so authoring the dome at the target reading
+       was always going to be too dark by half. Measured off dt_11_16_32_2:
+       zenith band #2e5490, mid band #4a6ea8. */
+    uZen: { value: C(0x2e5490) }, uMid: { value: C(0x4a6ea8) },
+    uHorizon: { value: C(0xafc2dc) }, uGlow: { value: C(0xffc888) },
     uWarmHz: { value: C(0xe8b184) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
