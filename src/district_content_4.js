@@ -782,6 +782,42 @@ function defineKit() {
     L.push({ geo: G_BOX, mtx: xf3(0, 4.40, 0.62, 0, 0, 0, 0.24, 0.04, 0.34), col: 0xfff0d0, surf: 0, shade: 1 });
     defInst('streetlight', combine(L));
   }
+  { /* the ornate three-head lantern from the downtown references — a cast
+       post with two scrolled arms and a taller centre head, each head a
+       tapered glass case under a peaked cap. Built by measure off the
+       reference crop (post ~2.9 m, heads at 3.1 and 3.4, case 0.30 m at the
+       glass): the one fixture in the kit that is seen from arm's length all
+       round the plaza, so it is coded rather than scanned. */
+    const IRON = 0x26231f, L = [], G = [];
+    kitCyl(L, 0, 0, 0, 0.36, 0.09, IRON, S.METAL, 0.88);
+    kitCyl(L, 0, 0.09, 0, 0.27, 0.11, IRON, S.METAL, 0.84);
+    kitCyl(L, 0, 0.20, 0, 0.165, 0.46, IRON, S.METAL, 0.92);
+    kitCyl(L, 0, 0.66, 0, 0.115, 0.09, IRON, S.METAL, 1.02);
+    kitCyl(L, 0, 0.75, 0, 0.082, 1.32, IRON, S.METAL, 0.95);
+    kitCyl(L, 0, 2.07, 0, 0.098, 0.08, IRON, S.METAL, 1.03);
+    kitCyl(L, 0, 2.15, 0, 0.062, 0.82, IRON, S.METAL, 0.93);
+    kitCyl(L, 0, 2.97, 0, 0.105, 0.09, IRON, S.METAL, 1.05);
+    for (const s of [-1, 1]) {
+      // the arm: three chords of a curve, and the scroll under its elbow
+      kitBox(L, s * 0.15, 3.02, 0, 0.20, 0.045, 0.045, IRON, S.METAL, 0.9, 0, 0, s * 0.55);
+      kitBox(L, s * 0.36, 3.11, 0, 0.22, 0.045, 0.045, IRON, S.METAL, 0.9, 0, 0, s * 0.22);
+      kitBox(L, s * 0.52, 3.13, 0, 0.10, 0.05, 0.05, IRON, S.METAL, 0.9);
+      kitBox(L, s * 0.30, 2.90, 0, 0.045, 0.17, 0.045, IRON, S.METAL, 0.85, 0, 0, s * 0.4);
+    }
+    kitCyl(L, 0, 3.06, 0, 0.048, 0.32, IRON, S.METAL, 0.95);
+    const head = (hx, hy) => {
+      kitBox(L, hx, hy, 0, 0.10, 0.045, 0.10, IRON, S.METAL, 0.9);          // seat
+      for (const c of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {               // corner ribs
+        L.push({ geo: taper(1.32, 1), mtx: xf3(hx + c[0] * 0.115, hy + 0.045, c[1] * 0.115, 0, 0, 0, 0.028, 0.34, 0.028), col: IRON, surf: S.METAL, shade: 0.92 });
+      }
+      L.push({ geo: taper(0.24, 1), mtx: xf3(hx, hy + 0.385, 0, 0, 0, 0, 0.36, 0.17, 0.36), col: IRON, surf: S.METAL, shade: 0.9 });  // cap
+      L.push({ geo: G_SPH, mtx: xf3(hx, hy + 0.56, 0, 0, 0, 0, 0.05, 0.07, 0.05), col: IRON, surf: S.METAL, shade: 0.95 });          // finial
+      G.push({ geo: taper(1.30, 1), mtx: xf3(hx, hy + 0.05, 0, 0, 0, 0, 0.20, 0.33, 0.20), col: 0xffffff, surf: 0, shade: 1 });      // the glass
+    };
+    head(-0.55, 3.13); head(0.55, 3.13); head(0, 3.36);
+    defInst('plazlamp', combine(L));
+    defInst('plazlampglow', combine(G), { mat: emisFlickMat, shadow: false });
+  }
   { // bench with an under-seat glow, as in madinah2
     const L = [];
     kitBox(L, 0, 0, 0, 2.4, 0.42, 0.75, 0xffffff, S.TRAVERTINE, 1.0);
@@ -1384,6 +1420,17 @@ function defineKit() {
   routeProp('shopstair', 'shopstair', 13.5, { near: 120 });
   routeProp('hotelcnr', 'hotelcnr', 16.5, { jitter: false, near: 200 });
   routeProp('cinema', 'cinema', 12.5, { jitter: false, near: 200 });
+
+  /* ---- the downtown reference set, round 2 -----------------------------
+     Generated from the eight reference renders of the plaza itself: the
+     mashrabiya-screened retail block with the faceted gold canopy roof that
+     closes the plaza in every aerial, the walk-in glass pavilion with the
+     sedum roof, the twisted-bronze sculpture that stands beside the ring,
+     and the curved timber pergola that roofs the sunken garden. */
+  routeProp('mashblock', 'mashblock', 13.5, { jitter: false, near: 200 });
+  routeProp('glasspav', 'glasspav', 4.6, { jitter: false, near: 160 });
+  routeProp('artknot', 'artknot', 4.2, { jitter: false, near: 60 });
+  routeProp('gardenperg', 'gardenperg', 3.4, { jitter: false, near: 120 });
 
   /* ---- the trees -------------------------------------------------------
      `tree` is the district's most-placed kit name after the palm, and until

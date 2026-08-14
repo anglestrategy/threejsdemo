@@ -1524,5 +1524,77 @@
    "tris": 15485,
    "kb": 998
   }
+ },
+ "mashblock": {
+  "v": 4,
+  "file": "assets/props/mashblock.glb",
+  "tris": 500000,
+  "w": 0.7962848842144012,
+  "height": 0.49286238849163055,
+  "depth": 0.9821748435497284,
+  "base": -0.24639329314231873,
+  "kb": 5282,
+  "tex": 4096,
+  "source": "local:dtmash.glb",
+  "src_tris": 1354610,
+  "lod1": {
+   "file": "assets/props/mashblock_lod1.glb",
+   "tris": 50000,
+   "kb": 1347
+  }
+ },
+ "glasspav": {
+  "v": 4,
+  "file": "assets/props/glasspav.glb",
+  "tris": 299999,
+  "w": 0.8737718164920807,
+  "height": 0.5520786345005035,
+  "depth": 0.9830581545829773,
+  "base": -0.2768235206604004,
+  "kb": 3626,
+  "tex": 4096,
+  "source": "local:dtglass.glb",
+  "src_tris": 548581,
+  "lod1": {
+   "file": "assets/props/glasspav_lod1.glb",
+   "tris": 29995,
+   "kb": 1017
+  }
+ },
+ "artknot": {
+  "v": 4,
+  "file": "assets/props/artknot.glb",
+  "tris": 300000,
+  "w": 0.4631601423025131,
+  "height": 0.9789777398109436,
+  "depth": 0.6230683624744415,
+  "base": -0.48944467306137085,
+  "kb": 2312,
+  "tex": 2048,
+  "source": "local:dtknot.glb",
+  "src_tris": 478932,
+  "lod1": {
+   "file": "assets/props/artknot_lod1.glb",
+   "tris": 29998,
+   "kb": 442
+  }
+ },
+ "gardenperg": {
+  "v": 4,
+  "file": "assets/props/gardenperg.glb",
+  "tris": 299999,
+  "w": 0.9791461825370789,
+  "height": 0.2611522674560547,
+  "depth": 0.9799815118312836,
+  "base": -0.13054156303405762,
+  "kb": 2284,
+  "tex": 2048,
+  "source": "local:dtperg.glb",
+  "src_tris": 456273,
+  "lod1": {
+   "file": "assets/props/gardenperg_lod1.glb",
+   "tris": 29990,
+   "kb": 453
+  }
  }
 }

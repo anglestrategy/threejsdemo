@@ -681,8 +681,20 @@ const ROADS = [
   [-88, -140, -88, 470, 18, 0],        // West Avenue
   [88, -140, 88, 470, 18, 0],          // East Avenue
   [-352, -140, -352, 470, 15, 0],      // Commercial edge street
-  [212, -140, 212, 470, 15, 0],        // Entertainment edge street
-  [-380, 250, 380, 250, 12, 2],        // mid service street
+  /* The Entertainment edge street used to run straight through the downtown
+     plaza — kerbs above the plaza slab, gullies buried in it, cars parked in
+     the middle of the paving. It now stops either side; the downtown streets
+     that the reference renders put along the plaza's own edges are the two
+     local segments below. */
+  [212, -140, 212, 140, 15, 0],        // Entertainment edge street, south leg
+  [212, 320, 212, 470, 15, 0],         // Entertainment edge street, north leg
+  [-380, 250, 138, 250, 12, 2],        // mid service street, west of the plaza
+  [322, 250, 380, 250, 12, 2],         // mid service street, east stub
+  /* the plaza's own frame, as drawn in every downtown aerial: a street along
+     its south edge and one past the rotunda on the east, both palm-lined and
+     carrying traffic */
+  [124, 318, 380, 318, 13, 0],         // Plaza South street
+  [322, 104, 322, 318, 13, 0],         // Rotunda street, east of the hotel
 ];
 
 /* ------------------------------------------------------- ground platforms *
@@ -1680,9 +1692,12 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: {
     uSun: { value: CSUN.clone() }, uTime: { value: 0 },
-    uZen: { value: C(0x06122e) }, uMid: { value: C(0x1a3568) },
-    uHorizon: { value: C(0x7088aa) }, uGlow: { value: C(0xffc888) },
-    uWarmHz: { value: C(0xe0a874) },
+    /* The eight downtown references are all the same luminous blue hour —
+       the dome is a light source, not a black backdrop. The old zenith
+       0x06122e read as night from any camera that saw sky. */
+    uZen: { value: C(0x102a52) }, uMid: { value: C(0x2b4d84) },
+    uHorizon: { value: C(0x92aac9) }, uGlow: { value: C(0xffc888) },
+    uWarmHz: { value: C(0xe8b184) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `

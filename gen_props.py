@@ -152,6 +152,13 @@ PROPS = [
     ('local:shopblock_jewel.glb',   'shopblk3',   300000, 4096, 30000),
     ('local:hotelcorner.glb',       'hotelcnr',   320000, 4096, 32000),
     ('local:cinema.glb',            'cinema',     300000, 4096, 30000),
+    # the downtown reference set, round 2: the mashrabiya-and-gold-canopy
+    # retail block behind the plaza, the walk-in glass pavilion with the green
+    # roof, the twisted-bronze plaza sculpture, and the curved garden pergola
+    ('local:dtmash.glb',            'mashblock',  500000, 4096, 50000),
+    ('local:dtglass.glb',           'glasspav',   300000, 4096, 30000),
+    ('local:dtknot.glb',            'artknot',    300000, 2048, 30000),
+    ('local:dtperg.glb',            'gardenperg', 300000, 2048, 30000),
     # shopfronts: these go INTO the arcade bays, so they are near-field always
     ('local:front_cloth_w.glb',     'frontclw',    16000, 4096,  2000),
     ('local:front_cloth_v.glb',     'frontclv',    16000, 4096,  2000),

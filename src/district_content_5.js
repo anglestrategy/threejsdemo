@@ -405,8 +405,19 @@ function buildLife() {
               [PLAN.enter.x1 - 26, PLAN.enter.z1 - 20], [PLAN.enter.x0 + 20, PLAN.enter.z1 - 26]]);
   PATHS.push([[PLAN.tensile.x0 + 10, PLAN.tensile.z0 + 12], [PLAN.tensile.x1 - 12, PLAN.tensile.z0 + 40],
               [PLAN.tensile.x0 + 14, PLAN.tensile.z1 - 14]]);
+  /* the downtown plaza gets its own routes — the references put more people
+     on this square than anywhere else in the set, and one perimeter path
+     through the whole quarter cannot carry that. A circuit, the cinema-to-
+     rotunda desire line, and a loop past the garden and the pavilion. */
+  { const D = PLAN.dtplaza, dmx = (D.x0 + D.x1) / 2, dmz = (D.z0 + D.z1) / 2;
+    PATHS.push([[D.x0 + 16, D.z0 + 18], [D.x1 - 18, D.z0 + 22], [D.x1 - 16, D.z1 - 20],
+                [D.x0 + 20, D.z1 - 18], [D.x0 + 16, D.z0 + 18]]);
+    PATHS.push([[D.x0 + 8, dmz - 6], [dmx - 10, dmz + 4], [dmx + 22, dmz + 8], [D.x1 - 6, dmz + 10]]);
+    PATHS.push([[dmx + 8, D.z0 + 14], [dmx + 30, dmz + 16], [dmx - 2, D.z1 - 14],
+                [dmx - 36, dmz + 10], [dmx + 8, D.z0 + 14]]);
+  }
 
-  const N = 108;
+  const N = 150;
   /* The crowd is now mixed source: the ten tagged scans take a bit over half
      of it and the procedural figures take the rest.
 
@@ -681,6 +692,16 @@ function downtownPlaza() {
   a.add(G_BOXT, xf(mx, gy + 0.06, mz, 0, D.x1 - D.x0, 0.14, D.z1 - D.z0),
     K.paveLt || 0xc9bda4, S.PAVING, 0.98);
   platform(D.x0, D.z0, D.x1, D.z1, gy + 0.20);
+  /* the references draw the plaza in a large square grid with darker inset
+     bands, not uniform flags: a 12 m module of 0.34 m granite strips laid
+     just proud of the field, so the joint relief carries at eye level and
+     the grid carries from the air */
+  for (let gxx = D.x0 + 12; gxx < D.x1 - 2; gxx += 12) {
+    a.add(G_BOXT, xf(gxx, gy + 0.205, mz, 0, 0.34, 0.012, D.z1 - D.z0 - 4), 0x8d8272, S.PAVING, 0.78);
+  }
+  for (let gzz = D.z0 + 12; gzz < D.z1 - 2; gzz += 12) {
+    a.add(G_BOXT, xf(mx, gy + 0.205, gzz, 0, D.x1 - D.x0 - 4, 0.012, 0.34), 0x8d8272, S.PAVING, 0.78);
+  }
 
   // ---- the four buildings that make the room
   /* Placed with their solidity, not just their geometry. An `inst` on its own
@@ -700,10 +721,20 @@ function downtownPlaza() {
     platform(x - ex, z - ez, x + ex, z + ez, y + 0.16);
     SCANSITES.push({ x0: x - ex - 2, x1: x + ex + 2, z0: z - ez - 2, z1: z + ez + 2 });
   };
-  put('cinema', D.x0 - 12, mz - 4, Math.PI / 2, 21.0, 13.0, 12.5);   // west, facing east in
+  /* The cinema holds the north-west corner, as the aerials draw it — and
+     measured, its old berth at mz-4 ran 12 by 20 metres INTO the majlis
+     block (cinema z 209..251 against majlis z 231..261). The majlis is the
+     khobar1 bookmark and does not move; the cinema does. */
+  put('cinema', D.x0 - 12, mz - 42, Math.PI / 2, 21.0, 13.0, 12.5);  // north-west, facing east in
   put('hotelcnr', D.x1 + 14, mz + 6, -Math.PI / 2, 11.5, 11.5, 16.5); // east, facing west in
-  put('shophouse', mx + 6, D.z0 - 16, Math.PI, 21.3, 5.2, 12.0);      // north, facing south in
-  put('arcadeblk', mx - 30, D.z1 + 16, 0, 14.3, 8.0, 11.0);           // south, facing north in
+  /* The north side is the reference set's signature wall: the mashrabiya
+     block under its faceted gold canopy at the centre, with the arcaded
+     colonnade block beside it. The shophouse row that used to stand here
+     belongs to the souq's language, not this square's, and the arcade block
+     moved up from the south — the south edge is now low (the sunken garden,
+     the glass pavilion, and the street behind them), as drawn. */
+  put('mashblock', mx + 22, D.z0 - 20, Math.PI, 12.5, 8.5, 13.5);     // north-centre, facing south in
+  put('arcadeblk', mx - 38, D.z0 - 18, Math.PI, 14.3, 8.0, 11.0);     // north-west, facing south in
 
   // ---- public art on the centre line, which is what the eye lands on
   if (MODEL_ROUTE.artring) inst('artring', xf(mx + 8, gy + 0.13, mz - 6, 0.7), 0xffffff);
@@ -712,7 +743,9 @@ function downtownPlaza() {
   /* ---- tree rings. Three of them, on the diagonal rather than in a row:
      a bench built round a tree is the piece of furniture every one of the
      reference plazas puts in exactly this position. */
-  for (const p of [[mx - 34, mz - 26], [mx + 26, mz + 26], [mx - 8, mz + 34]]) {
+  for (const p of [[mx - 34, mz - 26], [mx + 26, mz + 26], [mx - 8, mz + 34],
+                   [mx + 44, mz - 2], [mx - 44, mz - 8], [mx + 6, mz - 34],
+                   [mx - 22, mz + 2]]) {
     const py = groundAt(p[0], p[1]);
     inst('tree', xf3(p[0], py, p[1], 0, rnd() * 6.28, 0, 1.25, 1.3, 1.25),
       pick([0xffffff, 0xe6f0d8, 0xdfe8cf]));
@@ -746,7 +779,9 @@ function downtownPlaza() {
      asset that was generated for this and never used */
   if (MODEL_ROUTE.planterset) {
     for (let i = 0; i < 7; i++) {
-      const qx = mx - 52 + i * 17 + rr(-3, 3), qz = D.z1 - 12 + rr(-3, 3);
+      const qx = mx - 52 + i * 17 + rr(-3, 3), qz = D.z1 - 10 + rr(-2, 2);
+      // the sunken garden owns the middle of the south edge now
+      if (Math.hypot(qx - (mx - 4), qz - (D.z1 - 22)) < 18) continue;
       inst('planterset', xf3(qx, groundAt(qx, qz), qz, 0, rnd() * 6.28, 0,
         1.0 + rnd() * 0.25, 1.0, 1.0 + rnd() * 0.25), pick([K.leaf, K.leafLt, K.leafDk]));
     }
@@ -764,7 +799,8 @@ function downtownPlaza() {
       inst('chair', xf(tx + Math.sin(ca) * 1.0, ty, tz + Math.cos(ca) * 1.0, ca + Math.PI), 0xefeade);
     }
     if (MODEL_ROUTE.parasol && chance(0.7)) {
-      inst('parasol', xf(tx, ty, tz, rnd() * 6.28), pick([0xf4ede0, 0xe8dcc8, 0xd9c9ae]));
+      // the references' cafe spill is terracotta and maroon, not cream
+      inst('parasol', xf(tx, ty, tz, rnd() * 6.28), pick([0xa8503c, 0x96453a, 0xb35c40, 0xe8dcc8]));
     }
     if (chance(0.5)) {
       const bx = tx - 4.2;
@@ -787,9 +823,66 @@ function downtownPlaza() {
     else if (u < 2 * w + h) { lx = D.x1 - (u - w - h); lz = D.z1 - 2.5; }
     else { lx = D.x0 + 2.5; lz = D.z1 - (u - 2 * w - h); }
     const ly = groundAt(lx, lz);
-    inst('streetlight', xf(lx, ly, lz, Math.atan2(mx - lx, mz - lz)), 0xffffff);
-    PRACTICALS.push({ x: lx, y: ly + 4.2, z: lz, c: 0xffe0b0, i: 5.5, r: 17 });
-    inst('pool', xf3(lx, ly + 0.15, lz, 0, 0, 0, 12, 1, 12), 0xffdcaa);
+    /* the ornate three-head lantern from the references, not the highway
+       pole: it is the fixture the eye reads at arm's length in every
+       street-level render */
+    inst('plazlamp', xf(lx, ly, lz, Math.atan2(mx - lx, mz - lz)), 0xffffff);
+    inst('plazlampglow', xf(lx, ly, lz, Math.atan2(mx - lx, mz - lz)), 0xffdfae);
+    PRACTICALS.push({ x: lx, y: ly + 3.3, z: lz, c: 0xffe0b0, i: 5.0, r: 15 });
+    inst('pool', xf3(lx, ly + 0.15, lz, 0, 0, 0, 11, 1, 11), 0xffdcaa);
+  }
+
+  /* ---- the twisted-bronze sculpture, the second piece every reference
+     plaza carries beside the ring: on a round stone plinth with candle
+     lanterns at its foot */
+  if (MODEL_ROUTE.artknot) {
+    const kx = mx - 20, kz = mz + 14, ky = groundAt(kx, kz);
+    inst('artknot', xf(kx, ky + 0.10, kz, 2.1), 0xffffff);
+    for (let i = 0; i < 5; i++) {
+      const ca = (i / 5) * 6.28 + 0.4;
+      inst('wlantern', xf(kx + Math.sin(ca) * 3.1, ky + 0.12, kz + Math.cos(ca) * 3.1, ca), 0xffe2b2);
+    }
+    PRACTICALS.push({ x: kx, y: ky + 2.2, z: kz, c: 0xffd9a0, i: 2.4, r: 9 });
+  }
+
+  /* ---- the sunken garden that closes the south of the plaza in the
+     aerials: a circular bowl two steps down, planted round its rim, with
+     the curved timber pergola standing over its walk */
+  {
+    const gx = mx - 4, gz = D.z1 - 22, R = 15;
+    const gy2 = groundAt(gx, gz);
+    // two stone step rings down into the bowl, walkable
+    for (let s = 0; s < 2; s++) {
+      const r = R - s * 1.1;
+      a.add(G_CYLT, xf(gx, gy2 - 0.18 - s * 0.18, gz, 0, r * 2, 0.20, r * 2),
+        K.travert, S.TRAVERTINE, 1.02 - s * 0.04);
+    }
+    a.add(G_CYLT, xf(gx, gy2 - 0.56, gz, 0, (R - 2.2) * 2, 0.22, (R - 2.2) * 2),
+      K.paveLt || 0xc9bda4, S.PAVING, 0.96);
+    platform(gx - R + 2.2, gz - R + 2.2, gx + R - 2.2, gz + R - 2.2, gy2 - 0.34);
+    if (MODEL_ROUTE.gardenperg) {
+      inst('gardenperg', xf(gx, gy2 - 0.34, gz, 0.6), 0xffffff);
+    }
+    // the planted rim: shrubs and flowers in a ring, uplit
+    for (let i = 0; i < 16; i++) {
+      const ca = (i / 16) * 6.28;
+      const px = gx + Math.sin(ca) * (R - 1.1), pz = gz + Math.cos(ca) * (R - 1.1);
+      inst('shrub', xf3(px, groundAt(px, pz) - 0.1, pz, 0, rnd() * 6.28, 0,
+        1.15 + rnd() * 0.5, 0.9 + rnd() * 0.35, 1.15 + rnd() * 0.5), pick([K.leaf, K.leafLt, K.leafDk]));
+      if (i % 4 === 2) inst('uplight', xf(px, groundAt(px, pz) + 0.02, pz), 0xffc98a);
+    }
+    PRACTICALS.push({ x: gx, y: gy2 + 2.4, z: gz, c: 0xffdca8, i: 3.0, r: 14 });
+  }
+
+  /* ---- the walk-in glass pavilion with the sedum roof, inside the
+     south-west corner of the plaza as the references place it */
+  if (MODEL_ROUTE.glasspav) {
+    const px = D.x0 + 30, pz = D.z1 - 24;
+    const py = groundAt(px, pz);
+    inst('glasspav', xf(px, py, pz, 0.35), 0xffffff);
+    collider(px, pz, 6.4, 4.6, 0, py + 4.6);
+    occluder(px, pz, 6.6, 4.8, py + 4.6);
+    PRACTICALS.push({ x: px, y: py + 2.6, z: pz, c: 0xffe6c2, i: 3.2, r: 11 });
   }
 
 }

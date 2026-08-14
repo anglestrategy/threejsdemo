@@ -3155,8 +3155,20 @@ const ROADS = [
   [-88, -140, -88, 470, 18, 0],        // West Avenue
   [88, -140, 88, 470, 18, 0],          // East Avenue
   [-352, -140, -352, 470, 15, 0],      // Commercial edge street
-  [212, -140, 212, 470, 15, 0],        // Entertainment edge street
-  [-380, 250, 380, 250, 12, 2],        // mid service street
+  /* The Entertainment edge street used to run straight through the downtown
+     plaza — kerbs above the plaza slab, gullies buried in it, cars parked in
+     the middle of the paving. It now stops either side; the downtown streets
+     that the reference renders put along the plaza's own edges are the two
+     local segments below. */
+  [212, -140, 212, 140, 15, 0],        // Entertainment edge street, south leg
+  [212, 320, 212, 470, 15, 0],         // Entertainment edge street, north leg
+  [-380, 250, 138, 250, 12, 2],        // mid service street, west of the plaza
+  [322, 250, 380, 250, 12, 2],         // mid service street, east stub
+  /* the plaza's own frame, as drawn in every downtown aerial: a street along
+     its south edge and one past the rotunda on the east, both palm-lined and
+     carrying traffic */
+  [124, 318, 380, 318, 13, 0],         // Plaza South street
+  [322, 104, 322, 318, 13, 0],         // Rotunda street, east of the hotel
 ];
 
 /* ------------------------------------------------------- ground platforms *
@@ -4154,9 +4166,12 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: {
     uSun: { value: CSUN.clone() }, uTime: { value: 0 },
-    uZen: { value: C(0x06122e) }, uMid: { value: C(0x1a3568) },
-    uHorizon: { value: C(0x7088aa) }, uGlow: { value: C(0xffc888) },
-    uWarmHz: { value: C(0xe0a874) },
+    /* The eight downtown references are all the same luminous blue hour —
+       the dome is a light source, not a black backdrop. The old zenith
+       0x06122e read as night from any camera that saw sky. */
+    uZen: { value: C(0x102a52) }, uMid: { value: C(0x2b4d84) },
+    uHorizon: { value: C(0x92aac9) }, uGlow: { value: C(0xffc888) },
+    uWarmHz: { value: C(0xe8b184) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
@@ -4737,7 +4752,12 @@ async function loadRiggedPeople(targetH) {
   try {
     names = await (await fetch('assets/people.json')).json();
   } catch (e) { return []; }
-  const loader = window.__gltfLoader || new THREE.GLTFLoader();
+  /* THREE.GLTFLoader does not exist — the loader is the addon import that the
+     concatenated module already has in scope, same as the prop loader. The
+     old `window.__gltfLoader` fallback was only ever set by the WebGPU app,
+     so the WebGL2 build has never loaded a rigged figure. */
+  const loader = window.__gltfLoader
+    || new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   for (const nm of names) {
     try {
       const g = await loader.loadAsync('assets/people/' + nm + '.glb');
@@ -6569,7 +6589,7 @@ function openingKit(x, y, z, ang, w, h, kind, style) {
   const sc = xf3(x, y, z, 0, ang + Math.PI / 2, 0, w, h, 1);
   if (kind === '_pane') {
     inst('window', sc, pick([0x2a3540, 0x27313b, 0x323d47]));
-    if (chance(0.42)) inst('winglow', sc, pick([0xffcf94, 0xffdcae, 0xf7be7c]));
+    if (chance(0.72)) inst('winglow', sc, pick([0xffcf94, 0xffdcae, 0xf7be7c]));
     return;
   }
   if (kind === 'mashrabiya') {
@@ -6580,7 +6600,7 @@ function openingKit(x, y, z, ang, w, h, kind, style) {
     inst('shutter', sc, pick([K.timber, 0x5b3b20, 0x7a5330, 0x46301c]));
   } else {
     inst('window', sc, pick([0x2a3540, 0x27313b, 0x323d47]));
-    if (chance(0.42)) inst('winglow', sc, pick([0xffcf94, 0xffdcae, 0xf7be7c]));
+    if (chance(0.72)) inst('winglow', sc, pick([0xffcf94, 0xffdcae, 0xf7be7c]));
   }
 }
 
@@ -6770,6 +6790,11 @@ function buildBlocks() {
       /* nor the downtown plaza, which is composed by hand and is the one view
          in the district that has to hold up against the reference renders */
       if (p[0] < DP.x1 + 24 && p[2] > DP.x0 - 24 && p[1] < DP.z1 + 24 && p[3] > DP.z0 - 24) continue;
+      /* subdivide knows nothing about roads, so the two plaza-edge streets
+         get their corridors rejected explicitly — a plot straddling a
+         carriageway is a building standing in traffic */
+      if (p[1] < 332 && p[3] > 304) continue;               // Plaza South street
+      if (p[0] < 336 && p[2] > 308 && p[3] > 96) continue;  // Rotunda street
       /* This quarter used to be brick end to end — a quarter of a kilometre
          of red masonry, which is the loudest thing in the district and is in
          none of the reference renders. The reference streets are sandstone
@@ -8423,6 +8448,42 @@ function defineKit() {
     L.push({ geo: G_BOX, mtx: xf3(0, 4.40, 0.62, 0, 0, 0, 0.24, 0.04, 0.34), col: 0xfff0d0, surf: 0, shade: 1 });
     defInst('streetlight', combine(L));
   }
+  { /* the ornate three-head lantern from the downtown references — a cast
+       post with two scrolled arms and a taller centre head, each head a
+       tapered glass case under a peaked cap. Built by measure off the
+       reference crop (post ~2.9 m, heads at 3.1 and 3.4, case 0.30 m at the
+       glass): the one fixture in the kit that is seen from arm's length all
+       round the plaza, so it is coded rather than scanned. */
+    const IRON = 0x26231f, L = [], G = [];
+    kitCyl(L, 0, 0, 0, 0.36, 0.09, IRON, S.METAL, 0.88);
+    kitCyl(L, 0, 0.09, 0, 0.27, 0.11, IRON, S.METAL, 0.84);
+    kitCyl(L, 0, 0.20, 0, 0.165, 0.46, IRON, S.METAL, 0.92);
+    kitCyl(L, 0, 0.66, 0, 0.115, 0.09, IRON, S.METAL, 1.02);
+    kitCyl(L, 0, 0.75, 0, 0.082, 1.32, IRON, S.METAL, 0.95);
+    kitCyl(L, 0, 2.07, 0, 0.098, 0.08, IRON, S.METAL, 1.03);
+    kitCyl(L, 0, 2.15, 0, 0.062, 0.82, IRON, S.METAL, 0.93);
+    kitCyl(L, 0, 2.97, 0, 0.105, 0.09, IRON, S.METAL, 1.05);
+    for (const s of [-1, 1]) {
+      // the arm: three chords of a curve, and the scroll under its elbow
+      kitBox(L, s * 0.15, 3.02, 0, 0.20, 0.045, 0.045, IRON, S.METAL, 0.9, 0, 0, s * 0.55);
+      kitBox(L, s * 0.36, 3.11, 0, 0.22, 0.045, 0.045, IRON, S.METAL, 0.9, 0, 0, s * 0.22);
+      kitBox(L, s * 0.52, 3.13, 0, 0.10, 0.05, 0.05, IRON, S.METAL, 0.9);
+      kitBox(L, s * 0.30, 2.90, 0, 0.045, 0.17, 0.045, IRON, S.METAL, 0.85, 0, 0, s * 0.4);
+    }
+    kitCyl(L, 0, 3.06, 0, 0.048, 0.32, IRON, S.METAL, 0.95);
+    const head = (hx, hy) => {
+      kitBox(L, hx, hy, 0, 0.10, 0.045, 0.10, IRON, S.METAL, 0.9);          // seat
+      for (const c of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {               // corner ribs
+        L.push({ geo: taper(1.32, 1), mtx: xf3(hx + c[0] * 0.115, hy + 0.045, c[1] * 0.115, 0, 0, 0, 0.028, 0.34, 0.028), col: IRON, surf: S.METAL, shade: 0.92 });
+      }
+      L.push({ geo: taper(0.24, 1), mtx: xf3(hx, hy + 0.385, 0, 0, 0, 0, 0.36, 0.17, 0.36), col: IRON, surf: S.METAL, shade: 0.9 });  // cap
+      L.push({ geo: G_SPH, mtx: xf3(hx, hy + 0.56, 0, 0, 0, 0, 0.05, 0.07, 0.05), col: IRON, surf: S.METAL, shade: 0.95 });          // finial
+      G.push({ geo: taper(1.30, 1), mtx: xf3(hx, hy + 0.05, 0, 0, 0, 0, 0.20, 0.33, 0.20), col: 0xffffff, surf: 0, shade: 1 });      // the glass
+    };
+    head(-0.55, 3.13); head(0.55, 3.13); head(0, 3.36);
+    defInst('plazlamp', combine(L));
+    defInst('plazlampglow', combine(G), { mat: emisFlickMat, shadow: false });
+  }
   { // bench with an under-seat glow, as in madinah2
     const L = [];
     kitBox(L, 0, 0, 0, 2.4, 0.42, 0.75, 0xffffff, S.TRAVERTINE, 1.0);
@@ -9026,6 +9087,17 @@ function defineKit() {
   routeProp('hotelcnr', 'hotelcnr', 16.5, { jitter: false, near: 200 });
   routeProp('cinema', 'cinema', 12.5, { jitter: false, near: 200 });
 
+  /* ---- the downtown reference set, round 2 -----------------------------
+     Generated from the eight reference renders of the plaza itself: the
+     mashrabiya-screened retail block with the faceted gold canopy roof that
+     closes the plaza in every aerial, the walk-in glass pavilion with the
+     sedum roof, the twisted-bronze sculpture that stands beside the ring,
+     and the curved timber pergola that roofs the sunken garden. */
+  routeProp('mashblock', 'mashblock', 13.5, { jitter: false, near: 200 });
+  routeProp('glasspav', 'glasspav', 4.6, { jitter: false, near: 160 });
+  routeProp('artknot', 'artknot', 4.2, { jitter: false, near: 60 });
+  routeProp('gardenperg', 'gardenperg', 3.4, { jitter: false, near: 120 });
+
   /* ---- the trees -------------------------------------------------------
      `tree` is the district's most-placed kit name after the palm, and until
      now it resolved to one scanned specimen — so every street tree in Downtown
@@ -9526,8 +9598,19 @@ function buildLife() {
               [PLAN.enter.x1 - 26, PLAN.enter.z1 - 20], [PLAN.enter.x0 + 20, PLAN.enter.z1 - 26]]);
   PATHS.push([[PLAN.tensile.x0 + 10, PLAN.tensile.z0 + 12], [PLAN.tensile.x1 - 12, PLAN.tensile.z0 + 40],
               [PLAN.tensile.x0 + 14, PLAN.tensile.z1 - 14]]);
+  /* the downtown plaza gets its own routes — the references put more people
+     on this square than anywhere else in the set, and one perimeter path
+     through the whole quarter cannot carry that. A circuit, the cinema-to-
+     rotunda desire line, and a loop past the garden and the pavilion. */
+  { const D = PLAN.dtplaza, dmx = (D.x0 + D.x1) / 2, dmz = (D.z0 + D.z1) / 2;
+    PATHS.push([[D.x0 + 16, D.z0 + 18], [D.x1 - 18, D.z0 + 22], [D.x1 - 16, D.z1 - 20],
+                [D.x0 + 20, D.z1 - 18], [D.x0 + 16, D.z0 + 18]]);
+    PATHS.push([[D.x0 + 8, dmz - 6], [dmx - 10, dmz + 4], [dmx + 22, dmz + 8], [D.x1 - 6, dmz + 10]]);
+    PATHS.push([[dmx + 8, D.z0 + 14], [dmx + 30, dmz + 16], [dmx - 2, D.z1 - 14],
+                [dmx - 36, dmz + 10], [dmx + 8, D.z0 + 14]]);
+  }
 
-  const N = 108;
+  const N = 150;
   /* The crowd is now mixed source: the ten tagged scans take a bit over half
      of it and the procedural figures take the rest.
 
@@ -9802,6 +9885,16 @@ function downtownPlaza() {
   a.add(G_BOXT, xf(mx, gy + 0.06, mz, 0, D.x1 - D.x0, 0.14, D.z1 - D.z0),
     K.paveLt || 0xc9bda4, S.PAVING, 0.98);
   platform(D.x0, D.z0, D.x1, D.z1, gy + 0.20);
+  /* the references draw the plaza in a large square grid with darker inset
+     bands, not uniform flags: a 12 m module of 0.34 m granite strips laid
+     just proud of the field, so the joint relief carries at eye level and
+     the grid carries from the air */
+  for (let gxx = D.x0 + 12; gxx < D.x1 - 2; gxx += 12) {
+    a.add(G_BOXT, xf(gxx, gy + 0.205, mz, 0, 0.34, 0.012, D.z1 - D.z0 - 4), 0x8d8272, S.PAVING, 0.78);
+  }
+  for (let gzz = D.z0 + 12; gzz < D.z1 - 2; gzz += 12) {
+    a.add(G_BOXT, xf(mx, gy + 0.205, gzz, 0, D.x1 - D.x0 - 4, 0.012, 0.34), 0x8d8272, S.PAVING, 0.78);
+  }
 
   // ---- the four buildings that make the room
   /* Placed with their solidity, not just their geometry. An `inst` on its own
@@ -9821,10 +9914,20 @@ function downtownPlaza() {
     platform(x - ex, z - ez, x + ex, z + ez, y + 0.16);
     SCANSITES.push({ x0: x - ex - 2, x1: x + ex + 2, z0: z - ez - 2, z1: z + ez + 2 });
   };
-  put('cinema', D.x0 - 12, mz - 4, Math.PI / 2, 21.0, 13.0, 12.5);   // west, facing east in
+  /* The cinema holds the north-west corner, as the aerials draw it — and
+     measured, its old berth at mz-4 ran 12 by 20 metres INTO the majlis
+     block (cinema z 209..251 against majlis z 231..261). The majlis is the
+     khobar1 bookmark and does not move; the cinema does. */
+  put('cinema', D.x0 - 12, mz - 42, Math.PI / 2, 21.0, 13.0, 12.5);  // north-west, facing east in
   put('hotelcnr', D.x1 + 14, mz + 6, -Math.PI / 2, 11.5, 11.5, 16.5); // east, facing west in
-  put('shophouse', mx + 6, D.z0 - 16, Math.PI, 21.3, 5.2, 12.0);      // north, facing south in
-  put('arcadeblk', mx - 30, D.z1 + 16, 0, 14.3, 8.0, 11.0);           // south, facing north in
+  /* The north side is the reference set's signature wall: the mashrabiya
+     block under its faceted gold canopy at the centre, with the arcaded
+     colonnade block beside it. The shophouse row that used to stand here
+     belongs to the souq's language, not this square's, and the arcade block
+     moved up from the south — the south edge is now low (the sunken garden,
+     the glass pavilion, and the street behind them), as drawn. */
+  put('mashblock', mx + 22, D.z0 - 20, Math.PI, 12.5, 8.5, 13.5);     // north-centre, facing south in
+  put('arcadeblk', mx - 38, D.z0 - 18, Math.PI, 14.3, 8.0, 11.0);     // north-west, facing south in
 
   // ---- public art on the centre line, which is what the eye lands on
   if (MODEL_ROUTE.artring) inst('artring', xf(mx + 8, gy + 0.13, mz - 6, 0.7), 0xffffff);
@@ -9833,7 +9936,9 @@ function downtownPlaza() {
   /* ---- tree rings. Three of them, on the diagonal rather than in a row:
      a bench built round a tree is the piece of furniture every one of the
      reference plazas puts in exactly this position. */
-  for (const p of [[mx - 34, mz - 26], [mx + 26, mz + 26], [mx - 8, mz + 34]]) {
+  for (const p of [[mx - 34, mz - 26], [mx + 26, mz + 26], [mx - 8, mz + 34],
+                   [mx + 44, mz - 2], [mx - 44, mz - 8], [mx + 6, mz - 34],
+                   [mx - 22, mz + 2]]) {
     const py = groundAt(p[0], p[1]);
     inst('tree', xf3(p[0], py, p[1], 0, rnd() * 6.28, 0, 1.25, 1.3, 1.25),
       pick([0xffffff, 0xe6f0d8, 0xdfe8cf]));
@@ -9867,7 +9972,9 @@ function downtownPlaza() {
      asset that was generated for this and never used */
   if (MODEL_ROUTE.planterset) {
     for (let i = 0; i < 7; i++) {
-      const qx = mx - 52 + i * 17 + rr(-3, 3), qz = D.z1 - 12 + rr(-3, 3);
+      const qx = mx - 52 + i * 17 + rr(-3, 3), qz = D.z1 - 10 + rr(-2, 2);
+      // the sunken garden owns the middle of the south edge now
+      if (Math.hypot(qx - (mx - 4), qz - (D.z1 - 22)) < 18) continue;
       inst('planterset', xf3(qx, groundAt(qx, qz), qz, 0, rnd() * 6.28, 0,
         1.0 + rnd() * 0.25, 1.0, 1.0 + rnd() * 0.25), pick([K.leaf, K.leafLt, K.leafDk]));
     }
@@ -9885,7 +9992,8 @@ function downtownPlaza() {
       inst('chair', xf(tx + Math.sin(ca) * 1.0, ty, tz + Math.cos(ca) * 1.0, ca + Math.PI), 0xefeade);
     }
     if (MODEL_ROUTE.parasol && chance(0.7)) {
-      inst('parasol', xf(tx, ty, tz, rnd() * 6.28), pick([0xf4ede0, 0xe8dcc8, 0xd9c9ae]));
+      // the references' cafe spill is terracotta and maroon, not cream
+      inst('parasol', xf(tx, ty, tz, rnd() * 6.28), pick([0xa8503c, 0x96453a, 0xb35c40, 0xe8dcc8]));
     }
     if (chance(0.5)) {
       const bx = tx - 4.2;
@@ -9908,9 +10016,66 @@ function downtownPlaza() {
     else if (u < 2 * w + h) { lx = D.x1 - (u - w - h); lz = D.z1 - 2.5; }
     else { lx = D.x0 + 2.5; lz = D.z1 - (u - 2 * w - h); }
     const ly = groundAt(lx, lz);
-    inst('streetlight', xf(lx, ly, lz, Math.atan2(mx - lx, mz - lz)), 0xffffff);
-    PRACTICALS.push({ x: lx, y: ly + 4.2, z: lz, c: 0xffe0b0, i: 5.5, r: 17 });
-    inst('pool', xf3(lx, ly + 0.15, lz, 0, 0, 0, 12, 1, 12), 0xffdcaa);
+    /* the ornate three-head lantern from the references, not the highway
+       pole: it is the fixture the eye reads at arm's length in every
+       street-level render */
+    inst('plazlamp', xf(lx, ly, lz, Math.atan2(mx - lx, mz - lz)), 0xffffff);
+    inst('plazlampglow', xf(lx, ly, lz, Math.atan2(mx - lx, mz - lz)), 0xffdfae);
+    PRACTICALS.push({ x: lx, y: ly + 3.3, z: lz, c: 0xffe0b0, i: 5.0, r: 15 });
+    inst('pool', xf3(lx, ly + 0.15, lz, 0, 0, 0, 11, 1, 11), 0xffdcaa);
+  }
+
+  /* ---- the twisted-bronze sculpture, the second piece every reference
+     plaza carries beside the ring: on a round stone plinth with candle
+     lanterns at its foot */
+  if (MODEL_ROUTE.artknot) {
+    const kx = mx - 20, kz = mz + 14, ky = groundAt(kx, kz);
+    inst('artknot', xf(kx, ky + 0.10, kz, 2.1), 0xffffff);
+    for (let i = 0; i < 5; i++) {
+      const ca = (i / 5) * 6.28 + 0.4;
+      inst('wlantern', xf(kx + Math.sin(ca) * 3.1, ky + 0.12, kz + Math.cos(ca) * 3.1, ca), 0xffe2b2);
+    }
+    PRACTICALS.push({ x: kx, y: ky + 2.2, z: kz, c: 0xffd9a0, i: 2.4, r: 9 });
+  }
+
+  /* ---- the sunken garden that closes the south of the plaza in the
+     aerials: a circular bowl two steps down, planted round its rim, with
+     the curved timber pergola standing over its walk */
+  {
+    const gx = mx - 4, gz = D.z1 - 22, R = 15;
+    const gy2 = groundAt(gx, gz);
+    // two stone step rings down into the bowl, walkable
+    for (let s = 0; s < 2; s++) {
+      const r = R - s * 1.1;
+      a.add(G_CYLT, xf(gx, gy2 - 0.18 - s * 0.18, gz, 0, r * 2, 0.20, r * 2),
+        K.travert, S.TRAVERTINE, 1.02 - s * 0.04);
+    }
+    a.add(G_CYLT, xf(gx, gy2 - 0.56, gz, 0, (R - 2.2) * 2, 0.22, (R - 2.2) * 2),
+      K.paveLt || 0xc9bda4, S.PAVING, 0.96);
+    platform(gx - R + 2.2, gz - R + 2.2, gx + R - 2.2, gz + R - 2.2, gy2 - 0.34);
+    if (MODEL_ROUTE.gardenperg) {
+      inst('gardenperg', xf(gx, gy2 - 0.34, gz, 0.6), 0xffffff);
+    }
+    // the planted rim: shrubs and flowers in a ring, uplit
+    for (let i = 0; i < 16; i++) {
+      const ca = (i / 16) * 6.28;
+      const px = gx + Math.sin(ca) * (R - 1.1), pz = gz + Math.cos(ca) * (R - 1.1);
+      inst('shrub', xf3(px, groundAt(px, pz) - 0.1, pz, 0, rnd() * 6.28, 0,
+        1.15 + rnd() * 0.5, 0.9 + rnd() * 0.35, 1.15 + rnd() * 0.5), pick([K.leaf, K.leafLt, K.leafDk]));
+      if (i % 4 === 2) inst('uplight', xf(px, groundAt(px, pz) + 0.02, pz), 0xffc98a);
+    }
+    PRACTICALS.push({ x: gx, y: gy2 + 2.4, z: gz, c: 0xffdca8, i: 3.0, r: 14 });
+  }
+
+  /* ---- the walk-in glass pavilion with the sedum roof, inside the
+     south-west corner of the plaza as the references place it */
+  if (MODEL_ROUTE.glasspav) {
+    const px = D.x0 + 30, pz = D.z1 - 24;
+    const py = groundAt(px, pz);
+    inst('glasspav', xf(px, py, pz, 0.35), 0xffffff);
+    collider(px, pz, 6.4, 4.6, 0, py + 4.6);
+    occluder(px, pz, 6.6, 4.8, py + 4.6);
+    PRACTICALS.push({ x: px, y: py + 2.6, z: pz, c: 0xffe6c2, i: 3.2, r: 11 });
   }
 
 }
@@ -11671,12 +11836,39 @@ function focusProbe() {
 }
 function focusDistance() { return FOCUS; }
 
+/* ----------------------------------------------------------- shadow cost *
+   The shadow map was re-rendering every frame: the whole district drawn a
+   second time, from the sun, at 4096. renderer.info counts that pass, which
+   is a large part of why a plaza view measured 108 M triangles — most of the
+   district was in there twice.
+
+   Almost nothing in this district moves. The shadow map only genuinely needs
+   redrawing when the viewer travels (the shadow camera follows them) or when
+   the walkers have moved far enough for their shadows to lag visibly. So it
+   updates on movement, and otherwise on a fixed cadence rather than every
+   frame — 20 Hz of shadow against 60 Hz of image is a trade games have been
+   making for twenty years and it is invisible at this scale. */
+const SHADOW_EVERY = 3;
+let _shFrame = 0;
+const _shLast = new THREE.Vector3(1e9, 1e9, 1e9);
+function shadowCadence() {
+  if (QA.noshadow) return;
+  renderer.shadowMap.autoUpdate = false;
+  const moved = _shLast.distanceToSquared(cityCam.position) > 2.25;   // 1.5 m
+  if (moved || (_shFrame % SHADOW_EVERY) === 0) {
+    renderer.shadowMap.needsUpdate = true;
+    _shLast.copy(cityCam.position);
+  }
+  _shFrame++;
+}
+
 function update(dt, t) {
   diveUpdate(dt);
   if (sceneState === 'city') {
     navUpdate(dt);
     // pick a detail level per tile before anything is drawn from this pose
     lodUpdate(cityCam.position);
+    shadowCadence();
     /* `.uniforms` on a ShaderMaterial, `.userData.u` on the node material the
        seam substitutes — the same handle under the two renderers' own spellings */
     (citySkyMat.uniforms || citySkyMat.userData.u).uTime.value = t;

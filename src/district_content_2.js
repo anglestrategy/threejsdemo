@@ -496,7 +496,7 @@ function openingKit(x, y, z, ang, w, h, kind, style) {
   const sc = xf3(x, y, z, 0, ang + Math.PI / 2, 0, w, h, 1);
   if (kind === '_pane') {
     inst('window', sc, pick([0x2a3540, 0x27313b, 0x323d47]));
-    if (chance(0.42)) inst('winglow', sc, pick([0xffcf94, 0xffdcae, 0xf7be7c]));
+    if (chance(0.72)) inst('winglow', sc, pick([0xffcf94, 0xffdcae, 0xf7be7c]));
     return;
   }
   if (kind === 'mashrabiya') {
@@ -507,7 +507,7 @@ function openingKit(x, y, z, ang, w, h, kind, style) {
     inst('shutter', sc, pick([K.timber, 0x5b3b20, 0x7a5330, 0x46301c]));
   } else {
     inst('window', sc, pick([0x2a3540, 0x27313b, 0x323d47]));
-    if (chance(0.42)) inst('winglow', sc, pick([0xffcf94, 0xffdcae, 0xf7be7c]));
+    if (chance(0.72)) inst('winglow', sc, pick([0xffcf94, 0xffdcae, 0xf7be7c]));
   }
 }
 
@@ -697,6 +697,11 @@ function buildBlocks() {
       /* nor the downtown plaza, which is composed by hand and is the one view
          in the district that has to hold up against the reference renders */
       if (p[0] < DP.x1 + 24 && p[2] > DP.x0 - 24 && p[1] < DP.z1 + 24 && p[3] > DP.z0 - 24) continue;
+      /* subdivide knows nothing about roads, so the two plaza-edge streets
+         get their corridors rejected explicitly — a plot straddling a
+         carriageway is a building standing in traffic */
+      if (p[1] < 332 && p[3] > 304) continue;               // Plaza South street
+      if (p[0] < 336 && p[2] > 308 && p[3] > 96) continue;  // Rotunda street
       /* This quarter used to be brick end to end — a quarter of a kilometre
          of red masonry, which is the loudest thing in the district and is in
          none of the reference renders. The reference streets are sandstone

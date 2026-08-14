@@ -808,3 +808,29 @@ The audit is worth re-running after any asset batch:
 ```
 routed kit names: 66   never instanced: 25   no placement path at all: 13
 ```
+
+---
+
+## The downtown re-brief — eight new references
+
+The client re-briefed the downtown square against eight new renders
+(`refs/downtown/dt_*.png`, delivered as `reference.zip` on the `references`
+release). Method unchanged: side-by-side, rank the deltas, fix from the top.
+
+Baseline `shots/dtB_wide.png` against the set, ranked:
+
+| # | delta | status |
+|---|---|---|
+| 1 | **Two roads ran straight through the plaza.** The Entertainment edge street (x=212) and the mid service street (z=250) both crossed the plaza rectangle: kerb stripes stood proud of the plaza slab, gullies were buried in it, and the car pass parked vehicles in the middle of the paving. In every reference the streets BOUND the plaza — south and east — and never cross it. | **fixed** — both split around the plaza; the two streets the aerials actually draw were added: Plaza South (z=318) and the Rotunda street (x=322), with explicit plot rejections so no procedural block straddles them |
+| 2 | **The cinema stood 12×20 m inside the majlis block.** Measured off the colliders: cinema z 209..251 against majlis z 231..261 at the shared west edge. The majlis is the khobar1 bookmark and does not move. | **fixed** — the cinema holds the plaza's north-west corner (mz−42), which is where the aerials put it anyway |
+| 3 | **The north wall was the wrong building.** The references close the north with a mashrabiya-screened retail block under a faceted gold canopy, flanked by an arcaded colonnade — ours had a souq shophouse row. | **fixed** — `mashblock` generated from the reference (image→3D, 700 k faces, detailed texture), intaken at 500 k tris; arcade block moved up from the south; shophouse dropped from this square |
+| 4 | **The south edge was a building where the references put landscape.** The set draws a sunken circular garden with a curved timber pergola, a walk-in glass pavilion with a sedum roof, and the street behind them. | **fixed** — `gardenperg` and `glasspav` generated and placed; the garden bowl is real geometry, two walkable step rings down, planted rim, uplights |
+| 5 | **The sky read as black.** Zenith 0x06122e is night from any camera that sees sky; all eight references are a luminous blue hour where the dome is a light source. | **fixed** — zenith 0x102a52, mid 0x2b4d84, horizon 0x92aac9 |
+| 6 | **The facades were dark boxes.** 42% of windows lit; the references light nearly every bay. | **fixed** — 72% |
+| 7 | **One sculpture where the set has two.** | **fixed** — `artknot`, the twisted-bronze piece, on a stone plinth with candle lanterns |
+| 8 | **Highway poles where the references have cast three-head lanterns.** | **fixed** — `plazlamp`/`plazlampglow`, coded from the reference crop by the img2threejs method (a lantern seen from arm's length wants crisp geometry, not baked photogrammetry texture) |
+| 9 | **The crowd was a district-average.** The references put more people on this square than anywhere in the set. | **fixed** — three plaza-only walk routes, 108 → 150 walkers; and the rigged walkers had NEVER loaded in the WebGL2 build (`THREE.GLTFLoader` is not a constructor — only the WebGPU app set the shared loader). Fixed, so the skinned figures walk in the shipping build for the first time |
+| 10 | Cafe spill was cream; the references are terracotta and maroon | **fixed** — parasol palette |
+| 11 | Trees read as bare winter branches at dusk distance | open — investigate which route (tree_big far level?) drops its canopy |
+| 12 | Plaza paving pattern: the references draw a large square grid with inset bands; ours is uniform flags | open |
+

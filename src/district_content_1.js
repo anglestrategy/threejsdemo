@@ -479,7 +479,12 @@ async function loadRiggedPeople(targetH) {
   try {
     names = await (await fetch('assets/people.json')).json();
   } catch (e) { return []; }
-  const loader = window.__gltfLoader || new THREE.GLTFLoader();
+  /* THREE.GLTFLoader does not exist — the loader is the addon import that the
+     concatenated module already has in scope, same as the prop loader. The
+     old `window.__gltfLoader` fallback was only ever set by the WebGPU app,
+     so the WebGL2 build has never loaded a rigged figure. */
+  const loader = window.__gltfLoader
+    || new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   for (const nm of names) {
     try {
       const g = await loader.loadAsync('assets/people/' + nm + '.glb');

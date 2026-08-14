@@ -168,6 +168,26 @@ Local metres, origin at the canopy plaza, +Z north, +X east, sun 11° WSW.
   dressing on eighteen anchors. See DELTA rounds 7-11. Contact sheet:
   `shots/contact_sheet.png`.
 
+- **P9 in progress — the downtown plaza against the eight new references.**
+  The client re-briefed the downtown district against eight new renders
+  (`refs/downtown/dt_*.png`, from `reference.zip` on the `references` release):
+  art-deco cinema, brick rotunda, limestone colonnade blocks, a
+  mashrabiya-screened block under a faceted gold canopy, a walk-in glass
+  pavilion with a sedum roof, a sunken circular garden with a curved timber
+  pergola, twisted-bronze + ring sculptures, ornate three-head lanterns,
+  terracotta cafe spill, and a dense dusk crowd, with palm-lined streets
+  carrying traffic along the plaza's south and east edges.
+  Done so far: four new assets generated from the references and intaken
+  (`mashblock`, `glasspav`, `artknot`, `gardenperg` — see gen_props.py), the
+  ornate lantern coded by hand (`plazlamp`/`plazlampglow`), the plaza room
+  recomposed (mashblock + arcade close the north, garden + pavilion open the
+  south), two roads that ran THROUGH the plaza split around it, the two
+  plaza-edge streets added with plot rejections, three plaza crowd routes
+  (walkers 108 → 150), and the rigged-people loader fixed (it referenced
+  `THREE.GLTFLoader`, which does not exist — no rigged figure had ever loaded
+  in the WebGL2 build). Baseline + verify renders: `shots/dtA_pose.png`,
+  `shots/dtB_wide.png`, `shots/dtC_street.png`.
+
 ## Known open items (ranked, for the next session)
 
 1. Geometric LOD for the *built* fabric — the vegetation now has it (build-time, distance to the
