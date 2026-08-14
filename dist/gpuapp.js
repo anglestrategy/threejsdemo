@@ -902,7 +902,10 @@ const PLAN = {
      paving, with a colonnade block closing the north side and public art in
      the middle, which is the arrangement in every one of the reference
      renders. Nothing else is allowed to build inside it. */
-  dtplaza: { x0: 152, x1: 288, z0: 176, z1: 292 },
+  /* 100 × 96 m, measured off the reference aerials (the rotunda is ~20 m
+     across and the square is four to five rotundas wide). The first cut was
+     136 × 116 and read as an empty lot from every angle. */
+  dtplaza: { x0: 162, x1: 262, z0: 186, z1: 282 },
   comm:   { x0: -336, x1: -104, z0: 118, z1: 366 },
   court:  { x0: -282, x1: -166, z0: 178, z1: 282 },   // colonnade courtyard
   tensile:{ x0: -296, x1: -132, z0: -74, z1: 88 },    // shade-sail water court
@@ -937,14 +940,14 @@ const ROADS = [
      that the reference renders put along the plaza's own edges are the two
      local segments below. */
   [212, -140, 212, 140, 15, 0],        // Entertainment edge street, south leg
-  [212, 320, 212, 470, 15, 0],         // Entertainment edge street, north leg
-  [-380, 250, 138, 250, 12, 2],        // mid service street, west of the plaza
-  [322, 250, 380, 250, 12, 2],         // mid service street, east stub
+  [212, 306, 212, 470, 15, 0],         // Entertainment edge street, north leg
+  [-380, 250, 148, 250, 12, 2],        // mid service street, west of the plaza
+  [308, 250, 380, 250, 12, 2],         // mid service street, east stub
   /* the plaza's own frame, as drawn in every downtown aerial: a street along
      its south edge and one past the rotunda on the east, both palm-lined and
-     carrying traffic */
-  [124, 318, 380, 318, 13, 0],         // Plaza South street
-  [322, 104, 322, 318, 13, 0],         // Rotunda street, east of the hotel
+     carrying traffic, hugging the square rather than a block away */
+  [134, 300, 380, 300, 13, 0],         // Plaza South street
+  [300, 104, 300, 300, 13, 0],         // Rotunda street, east of the hotel
 ];
 
 /* ------------------------------------------------------- ground platforms *
@@ -1945,8 +1948,8 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
     /* The eight downtown references are all the same luminous blue hour —
        the dome is a light source, not a black backdrop. The old zenith
        0x06122e read as night from any camera that saw sky. */
-    uZen: { value: C(0x102a52) }, uMid: { value: C(0x2b4d84) },
-    uHorizon: { value: C(0x92aac9) }, uGlow: { value: C(0xffc888) },
+    uZen: { value: C(0x1a3a66) }, uMid: { value: C(0x35578e) },
+    uHorizon: { value: C(0x9db3d2) }, uGlow: { value: C(0xffc888) },
     uWarmHz: { value: C(0xe8b184) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
@@ -2556,6 +2559,36 @@ async function loadRiggedPeople(targetH) {
       holder.add(g.scene);
       holder.updateMatrixWorld(true);
       const limbs = classifyRig(mesh, targetH);
+      /* Fold a T-pose down at load. These conversions rest with the arms
+         straight out, and the walk cycle only swings about the sagittal
+         axis — so a T-pose walks the whole district as a glider. Detected
+         off the wrist: in a T it sits at shoulder height, far out on the
+         lateral axis. The shoulder is rotated whichever way brings the
+         wrist DOWN, and the folded pose becomes the rest pose. */
+      for (const chain of [limbs.la, limbs.ra]) {
+        if (!chain.length) continue;
+        const B2 = mesh.skeleton.bones;
+        const tip = B2[chain[chain.length - 1]], sh = B2[chain[0]];
+        if (!tip || !sh) continue;
+        const tp = new THREE.Vector3().setFromMatrixPosition(tip.matrixWorld);
+        const sp = new THREE.Vector3().setFromMatrixPosition(sh.matrixWorld);
+        if (tp.y - sp.y < -targetH * 0.14) continue;    // already hangs down
+        const ax = new THREE.Vector3(limbs.sag === 'x' ? 1 : 0, 0, limbs.sag === 'z' ? 1 : 0);
+        if (sh.parent) {
+          const inv = new THREE.Matrix4().copy(sh.parent.matrixWorld).invert();
+          ax.transformDirection(inv).normalize();
+        }
+        const q0 = sh.quaternion.clone();
+        let bestY = tp.y, bestQ = q0.clone();
+        for (const sgn of [1, -1]) {
+          sh.quaternion.copy(q0).multiply(new THREE.Quaternion().setFromAxisAngle(ax, sgn * 1.25));
+          holder.updateMatrixWorld(true);
+          const y = new THREE.Vector3().setFromMatrixPosition(tip.matrixWorld).y;
+          if (y < bestY) { bestY = y; bestQ = sh.quaternion.clone(); }
+        }
+        sh.quaternion.copy(bestQ);
+        holder.updateMatrixWorld(true);
+      }
       mesh.frustumCulled = false;
       mesh.castShadow = true; mesh.receiveShadow = true;
       RIGGED.push({ name: nm, obj: holder, mesh, height: targetH, limbs });
@@ -3901,6 +3934,9 @@ function publicSides(x0, z0, x1, z1) {
     // near the souq spine, the plaza, a boulevard or the water
     if (Math.abs(px - PLAN.spineX) < 18 && pz > PLAN.souq.z0 - 30 && pz < PLAN.souq.z1 + 30) return 2;
     if (px > PLAN.plaza.x0 - 22 && px < PLAN.plaza.x1 + 22 && pz > PLAN.plaza.z0 - 22 && pz < PLAN.plaza.z1 + 22) return 2;
+    /* the downtown plaza was never in this test, so every block around the
+       square showed it its quiet elevation — a room walled in dark backs */
+    if (px > PLAN.dtplaza.x0 - 26 && px < PLAN.dtplaza.x1 + 26 && pz > PLAN.dtplaza.z0 - 26 && pz < PLAN.dtplaza.z1 + 26) return 2;
     if (Math.abs(px - PLAN.water.x) < 12) return 2;
     for (const r of ROADS) {
       const dx = r[2] - r[0], dz = r[3] - r[1];
@@ -4569,8 +4605,8 @@ function buildBlocks() {
       /* subdivide knows nothing about roads, so the two plaza-edge streets
          get their corridors rejected explicitly — a plot straddling a
          carriageway is a building standing in traffic */
-      if (p[1] < 332 && p[3] > 304) continue;               // Plaza South street
-      if (p[0] < 336 && p[2] > 308 && p[3] > 96) continue;  // Rotunda street
+      if (p[1] < 314 && p[3] > 286) continue;               // Plaza South street
+      if (p[0] < 314 && p[2] > 286 && p[3] > 96) continue;  // Rotunda street
       /* This quarter used to be brick end to end — a quarter of a kilometre
          of red masonry, which is the loudest thing in the district and is in
          none of the reference renders. The reference streets are sandstone
@@ -6885,7 +6921,10 @@ function defineKit() {
      cannot carve, and it returned mushroom caps on sticks. That asset is in
      the tree at `work/gen/_rejected_tree_pot.glb` and is deliberately not in
      the build. */
-  routePropSet('tree', ['tree_big', 'tree_oliv', 'island_tree_01'], 6.2, { near: 62 });
+  /* island_tree_01 is out of the street rotation: its reduced leaf cards
+     read as a shredded crown at night — confirmed off the client's own
+     screenshots. The two trellis-2 trees carry solid canopies. */
+  routePropSet('tree', ['tree_big', 'tree_oliv'], 6.2, { near: 62 });
   routeProp('olive', 'tree_oliv', 3.4, { near: 999 });
   routeProp('potbush', 'tree_pot', 1.35, { near: 999 });
 
@@ -7658,8 +7697,11 @@ function downtownPlaza() {
   /* the slab is base-at-origin and 0.14 thick, so its top is gy + 0.20 — the
      walkable level has to be the top of it, not a number near the middle, or
      you walk shin-deep through your own paving */
+  /* TRAVERTINE, not PAVING: the paving class draws Worley crazy-flags, and
+     at plaza scale that read as a beach. The references' floor is a coursed
+     rectangular stone grid, which is exactly what the travertine class is. */
   a.add(G_BOXT, xf(mx, gy + 0.06, mz, 0, D.x1 - D.x0, 0.14, D.z1 - D.z0),
-    K.paveLt || 0xc9bda4, S.PAVING, 0.98);
+    0xcfc4ad, S.TRAVERTINE, 1.0);
   platform(D.x0, D.z0, D.x1, D.z1, gy + 0.20);
   /* the references draw the plaza in a large square grid with darker inset
      bands, not uniform flags: a 12 m module of 0.34 m granite strips laid
@@ -7712,7 +7754,7 @@ function downtownPlaza() {
   /* ---- tree rings. Three of them, on the diagonal rather than in a row:
      a bench built round a tree is the piece of furniture every one of the
      reference plazas puts in exactly this position. */
-  for (const p of [[mx - 34, mz - 26], [mx + 26, mz + 26], [mx - 8, mz + 34],
+  for (const p of [[mx - 34, mz - 26], [mx + 26, mz + 26], [mx + 22, mz - 22],
                    [mx + 44, mz - 2], [mx - 44, mz - 8], [mx + 6, mz - 34],
                    [mx - 22, mz + 2]]) {
     const py = groundAt(p[0], p[1]);
@@ -7724,7 +7766,7 @@ function downtownPlaza() {
   /* ---- the signage totems. Two or three stand in every reference square,
      and they are what gives the paving a foreground object at eye height
      between the buildings and the crowd. */
-  for (const p of [[mx - 14, mz + 18, 0.4], [mx + 34, mz - 18, 2.4], [mx - 40, mz - 12, 1.3]]) {
+  for (const p of [[mx - 26, mz + 12, 0.4], [mx + 34, mz - 18, 2.4], [mx - 40, mz - 12, 1.3]]) {
     const py = groundAt(p[0], p[1]);
     inst('totem', xf(p[0], py, p[1], p[2]), 0xffffff);
     inst('totemlit', xf(p[0], py, p[1], p[2]), pick([0xffe6c0, 0xf4ecd8, 0xffdcae]));
@@ -7846,7 +7888,7 @@ function downtownPlaza() {
   /* ---- the walk-in glass pavilion with the sedum roof, inside the
      south-west corner of the plaza as the references place it */
   if (MODEL_ROUTE.glasspav) {
-    const px = D.x0 + 30, pz = D.z1 - 24;
+    const px = D.x0 + 16, pz = D.z1 - 20;
     const py = groundAt(px, pz);
     inst('glasspav', xf(px, py, pz, 0.35), 0xffffff);
     collider(px, pz, 6.4, 4.6, 0, py + 4.6);
@@ -8769,9 +8811,12 @@ const DRESS_SPOTS = [
   /* the downtown plaza, denser than anywhere else in the district. The
      reference renders of this square are the most crowded images in the set
      and the crowd is most of why they read as a place people go. */
-  { x: 220, z: 234, r: 60, d: 1.7 },
-  { x: 268, z: 240, r: 22, d: 2.2 },      // the cafe spill along the hotel
-  { x: 168, z: 230, r: 24, d: 1.9 },      // and the cinema doors
+  /* dense at the edges where the cafes are, calm in the middle: sprinkling
+     chairs and crates across the open field read as a flea market in the
+     client's screenshots, and no reference does it */
+  { x: 212, z: 234, r: 42, d: 0.8 },
+  { x: 256, z: 240, r: 18, d: 1.9 },      // the cafe spill along the hotel
+  { x: 162, z: 198, r: 18, d: 1.5 },      // and the cinema doors
 ];
 for (let z = 90; z <= 360; z += 26) {     // the souq spine, end to end
   DRESS_SPOTS.push({ x: 4 + (z > 250 ? 26 : 0), z, r: 22, d: 1.5 });

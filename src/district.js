@@ -652,7 +652,10 @@ const PLAN = {
      paving, with a colonnade block closing the north side and public art in
      the middle, which is the arrangement in every one of the reference
      renders. Nothing else is allowed to build inside it. */
-  dtplaza: { x0: 152, x1: 288, z0: 176, z1: 292 },
+  /* 100 × 96 m, measured off the reference aerials (the rotunda is ~20 m
+     across and the square is four to five rotundas wide). The first cut was
+     136 × 116 and read as an empty lot from every angle. */
+  dtplaza: { x0: 162, x1: 262, z0: 186, z1: 282 },
   comm:   { x0: -336, x1: -104, z0: 118, z1: 366 },
   court:  { x0: -282, x1: -166, z0: 178, z1: 282 },   // colonnade courtyard
   tensile:{ x0: -296, x1: -132, z0: -74, z1: 88 },    // shade-sail water court
@@ -687,14 +690,14 @@ const ROADS = [
      that the reference renders put along the plaza's own edges are the two
      local segments below. */
   [212, -140, 212, 140, 15, 0],        // Entertainment edge street, south leg
-  [212, 320, 212, 470, 15, 0],         // Entertainment edge street, north leg
-  [-380, 250, 138, 250, 12, 2],        // mid service street, west of the plaza
-  [322, 250, 380, 250, 12, 2],         // mid service street, east stub
+  [212, 306, 212, 470, 15, 0],         // Entertainment edge street, north leg
+  [-380, 250, 148, 250, 12, 2],        // mid service street, west of the plaza
+  [308, 250, 380, 250, 12, 2],         // mid service street, east stub
   /* the plaza's own frame, as drawn in every downtown aerial: a street along
      its south edge and one past the rotunda on the east, both palm-lined and
-     carrying traffic */
-  [124, 318, 380, 318, 13, 0],         // Plaza South street
-  [322, 104, 322, 318, 13, 0],         // Rotunda street, east of the hotel
+     carrying traffic, hugging the square rather than a block away */
+  [134, 300, 380, 300, 13, 0],         // Plaza South street
+  [300, 104, 300, 300, 13, 0],         // Rotunda street, east of the hotel
 ];
 
 /* ------------------------------------------------------- ground platforms *
@@ -1695,8 +1698,8 @@ const citySkyMat = MATERIALS && MATERIALS.sky ? MATERIALS.sky() : new THREE.Shad
     /* The eight downtown references are all the same luminous blue hour —
        the dome is a light source, not a black backdrop. The old zenith
        0x06122e read as night from any camera that saw sky. */
-    uZen: { value: C(0x102a52) }, uMid: { value: C(0x2b4d84) },
-    uHorizon: { value: C(0x92aac9) }, uGlow: { value: C(0xffc888) },
+    uZen: { value: C(0x1a3a66) }, uMid: { value: C(0x35578e) },
+    uHorizon: { value: C(0x9db3d2) }, uGlow: { value: C(0xffc888) },
     uWarmHz: { value: C(0xe8b184) },
   },
   vertexShader: `varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,

@@ -689,8 +689,11 @@ function downtownPlaza() {
   /* the slab is base-at-origin and 0.14 thick, so its top is gy + 0.20 — the
      walkable level has to be the top of it, not a number near the middle, or
      you walk shin-deep through your own paving */
+  /* TRAVERTINE, not PAVING: the paving class draws Worley crazy-flags, and
+     at plaza scale that read as a beach. The references' floor is a coursed
+     rectangular stone grid, which is exactly what the travertine class is. */
   a.add(G_BOXT, xf(mx, gy + 0.06, mz, 0, D.x1 - D.x0, 0.14, D.z1 - D.z0),
-    K.paveLt || 0xc9bda4, S.PAVING, 0.98);
+    0xcfc4ad, S.TRAVERTINE, 1.0);
   platform(D.x0, D.z0, D.x1, D.z1, gy + 0.20);
   /* the references draw the plaza in a large square grid with darker inset
      bands, not uniform flags: a 12 m module of 0.34 m granite strips laid
@@ -743,7 +746,7 @@ function downtownPlaza() {
   /* ---- tree rings. Three of them, on the diagonal rather than in a row:
      a bench built round a tree is the piece of furniture every one of the
      reference plazas puts in exactly this position. */
-  for (const p of [[mx - 34, mz - 26], [mx + 26, mz + 26], [mx - 8, mz + 34],
+  for (const p of [[mx - 34, mz - 26], [mx + 26, mz + 26], [mx + 22, mz - 22],
                    [mx + 44, mz - 2], [mx - 44, mz - 8], [mx + 6, mz - 34],
                    [mx - 22, mz + 2]]) {
     const py = groundAt(p[0], p[1]);
@@ -755,7 +758,7 @@ function downtownPlaza() {
   /* ---- the signage totems. Two or three stand in every reference square,
      and they are what gives the paving a foreground object at eye height
      between the buildings and the crowd. */
-  for (const p of [[mx - 14, mz + 18, 0.4], [mx + 34, mz - 18, 2.4], [mx - 40, mz - 12, 1.3]]) {
+  for (const p of [[mx - 26, mz + 12, 0.4], [mx + 34, mz - 18, 2.4], [mx - 40, mz - 12, 1.3]]) {
     const py = groundAt(p[0], p[1]);
     inst('totem', xf(p[0], py, p[1], p[2]), 0xffffff);
     inst('totemlit', xf(p[0], py, p[1], p[2]), pick([0xffe6c0, 0xf4ecd8, 0xffdcae]));
@@ -877,7 +880,7 @@ function downtownPlaza() {
   /* ---- the walk-in glass pavilion with the sedum roof, inside the
      south-west corner of the plaza as the references place it */
   if (MODEL_ROUTE.glasspav) {
-    const px = D.x0 + 30, pz = D.z1 - 24;
+    const px = D.x0 + 16, pz = D.z1 - 20;
     const py = groundAt(px, pz);
     inst('glasspav', xf(px, py, pz, 0.35), 0xffffff);
     collider(px, pz, 6.4, 4.6, 0, py + 4.6);
@@ -1800,9 +1803,12 @@ const DRESS_SPOTS = [
   /* the downtown plaza, denser than anywhere else in the district. The
      reference renders of this square are the most crowded images in the set
      and the crowd is most of why they read as a place people go. */
-  { x: 220, z: 234, r: 60, d: 1.7 },
-  { x: 268, z: 240, r: 22, d: 2.2 },      // the cafe spill along the hotel
-  { x: 168, z: 230, r: 24, d: 1.9 },      // and the cinema doors
+  /* dense at the edges where the cafes are, calm in the middle: sprinkling
+     chairs and crates across the open field read as a flea market in the
+     client's screenshots, and no reference does it */
+  { x: 212, z: 234, r: 42, d: 0.8 },
+  { x: 256, z: 240, r: 18, d: 1.9 },      // the cafe spill along the hotel
+  { x: 162, z: 198, r: 18, d: 1.5 },      // and the cinema doors
 ];
 for (let z = 90; z <= 360; z += 26) {     // the souq spine, end to end
   DRESS_SPOTS.push({ x: 4 + (z > 250 ? 26 : 0), z, r: 22, d: 1.5 });

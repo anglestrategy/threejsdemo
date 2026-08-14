@@ -32,6 +32,9 @@ function publicSides(x0, z0, x1, z1) {
     // near the souq spine, the plaza, a boulevard or the water
     if (Math.abs(px - PLAN.spineX) < 18 && pz > PLAN.souq.z0 - 30 && pz < PLAN.souq.z1 + 30) return 2;
     if (px > PLAN.plaza.x0 - 22 && px < PLAN.plaza.x1 + 22 && pz > PLAN.plaza.z0 - 22 && pz < PLAN.plaza.z1 + 22) return 2;
+    /* the downtown plaza was never in this test, so every block around the
+       square showed it its quiet elevation — a room walled in dark backs */
+    if (px > PLAN.dtplaza.x0 - 26 && px < PLAN.dtplaza.x1 + 26 && pz > PLAN.dtplaza.z0 - 26 && pz < PLAN.dtplaza.z1 + 26) return 2;
     if (Math.abs(px - PLAN.water.x) < 12) return 2;
     for (const r of ROADS) {
       const dx = r[2] - r[0], dz = r[3] - r[1];
@@ -700,8 +703,8 @@ function buildBlocks() {
       /* subdivide knows nothing about roads, so the two plaza-edge streets
          get their corridors rejected explicitly — a plot straddling a
          carriageway is a building standing in traffic */
-      if (p[1] < 332 && p[3] > 304) continue;               // Plaza South street
-      if (p[0] < 336 && p[2] > 308 && p[3] > 96) continue;  // Rotunda street
+      if (p[1] < 314 && p[3] > 286) continue;               // Plaza South street
+      if (p[0] < 314 && p[2] > 286 && p[3] > 96) continue;  // Rotunda street
       /* This quarter used to be brick end to end — a quarter of a kilometre
          of red masonry, which is the loudest thing in the district and is in
          none of the reference renders. The reference streets are sandstone

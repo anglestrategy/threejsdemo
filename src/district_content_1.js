@@ -507,6 +507,36 @@ async function loadRiggedPeople(targetH) {
       holder.add(g.scene);
       holder.updateMatrixWorld(true);
       const limbs = classifyRig(mesh, targetH);
+      /* Fold a T-pose down at load. These conversions rest with the arms
+         straight out, and the walk cycle only swings about the sagittal
+         axis — so a T-pose walks the whole district as a glider. Detected
+         off the wrist: in a T it sits at shoulder height, far out on the
+         lateral axis. The shoulder is rotated whichever way brings the
+         wrist DOWN, and the folded pose becomes the rest pose. */
+      for (const chain of [limbs.la, limbs.ra]) {
+        if (!chain.length) continue;
+        const B2 = mesh.skeleton.bones;
+        const tip = B2[chain[chain.length - 1]], sh = B2[chain[0]];
+        if (!tip || !sh) continue;
+        const tp = new THREE.Vector3().setFromMatrixPosition(tip.matrixWorld);
+        const sp = new THREE.Vector3().setFromMatrixPosition(sh.matrixWorld);
+        if (tp.y - sp.y < -targetH * 0.14) continue;    // already hangs down
+        const ax = new THREE.Vector3(limbs.sag === 'x' ? 1 : 0, 0, limbs.sag === 'z' ? 1 : 0);
+        if (sh.parent) {
+          const inv = new THREE.Matrix4().copy(sh.parent.matrixWorld).invert();
+          ax.transformDirection(inv).normalize();
+        }
+        const q0 = sh.quaternion.clone();
+        let bestY = tp.y, bestQ = q0.clone();
+        for (const sgn of [1, -1]) {
+          sh.quaternion.copy(q0).multiply(new THREE.Quaternion().setFromAxisAngle(ax, sgn * 1.25));
+          holder.updateMatrixWorld(true);
+          const y = new THREE.Vector3().setFromMatrixPosition(tip.matrixWorld).y;
+          if (y < bestY) { bestY = y; bestQ = sh.quaternion.clone(); }
+        }
+        sh.quaternion.copy(bestQ);
+        holder.updateMatrixWorld(true);
+      }
       mesh.frustumCulled = false;
       mesh.castShadow = true; mesh.receiveShadow = true;
       RIGGED.push({ name: nm, obj: holder, mesh, height: targetH, limbs });
